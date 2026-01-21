@@ -16,12 +16,14 @@ export function createPluginInterface(args: {
   return {
     tool: tools,
 
-    config: async (_input) => {
-      await configHandler.handle({
+    config: async (config: Record<string, unknown>) => {
+      const result = await configHandler.handle({
         pluginConfig,
         agents,
         availableTools: [],
       })
+      // Mutate the config object to register agents with OpenCode
+      config.agent = result.agents
     },
 
     "chat.message": async (input, _output) => {
