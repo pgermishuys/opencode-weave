@@ -2,6 +2,7 @@ import type { AgentConfig } from "@opencode-ai/sdk"
 
 export const SHUTTLE_DEFAULTS: AgentConfig = {
   temperature: 0.2,
+  description: "Shuttle (Domain Specialist)",
   prompt: `<Role>
 Shuttle — category-based specialist worker for Weave.
 You execute domain-specific tasks assigned by the orchestrator.

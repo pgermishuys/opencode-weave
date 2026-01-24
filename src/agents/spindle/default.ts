@@ -2,6 +2,7 @@ import type { AgentConfig } from "@opencode-ai/sdk"
 
 export const SPINDLE_DEFAULTS: AgentConfig = {
   temperature: 0.1,
+  description: "Spindle (External Researcher)",
   tools: {
     write: false,
     edit: false,

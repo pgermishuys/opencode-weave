@@ -2,6 +2,7 @@ import type { AgentConfig } from "@opencode-ai/sdk"
 
 export const LOOM_DEFAULTS: AgentConfig = {
   temperature: 0.1,
+  description: "Loom (Main Orchestrator)",
   prompt: `<Role>
 Loom — main orchestrator for Weave.
 Plan tasks, coordinate work, and delegate to specialized agents.

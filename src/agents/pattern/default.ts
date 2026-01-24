@@ -2,6 +2,7 @@ import type { AgentConfig } from "@opencode-ai/sdk"
 
 export const PATTERN_DEFAULTS: AgentConfig = {
   temperature: 0.3,
+  description: "Pattern (Strategic Planner)",
   prompt: `<Role>
 Pattern — strategic planner for Weave.
 You analyze requirements, research the codebase, and produce detailed implementation plans.

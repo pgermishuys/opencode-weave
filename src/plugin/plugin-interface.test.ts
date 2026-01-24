@@ -47,6 +47,7 @@ describe("createPluginInterface", () => {
       hooks: makeHooks(),
       tools: emptyTools,
       configHandler: makeMockConfigHandler(),
+      agents: {},
     })
 
     const keys = Object.keys(iface)
@@ -74,6 +75,7 @@ describe("createPluginInterface", () => {
       hooks: makeHooks(),
       tools: myTools,
       configHandler: makeMockConfigHandler(),
+      agents: {},
     })
 
     expect(iface.tool).toBe(myTools)
@@ -85,6 +87,7 @@ describe("createPluginInterface", () => {
       hooks: makeHooks(),
       tools: emptyTools,
       configHandler: makeMockConfigHandler(),
+      agents: {},
     })
 
     expect(typeof iface.config).toBe("function")
@@ -105,6 +108,7 @@ describe("createPluginInterface", () => {
       hooks: makeHooks(),
       tools: emptyTools,
       configHandler: mockHandler,
+      agents: {},
     })
 
     // config receives a Config input — pass an empty object (type-cast for test)
@@ -133,6 +137,7 @@ describe("createPluginInterface", () => {
       hooks,
       tools: emptyTools,
       configHandler: makeMockConfigHandler(),
+      agents: {},
     })
 
     await iface["chat.message"](
@@ -162,6 +167,7 @@ describe("createPluginInterface", () => {
       hooks,
       tools: emptyTools,
       configHandler: makeMockConfigHandler(),
+      agents: {},
     })
 
     await iface["chat.message"](
@@ -191,6 +197,7 @@ describe("createPluginInterface", () => {
       hooks,
       tools: emptyTools,
       configHandler: makeMockConfigHandler(),
+      agents: {},
     })
 
     const event = {
@@ -218,6 +225,7 @@ describe("createPluginInterface", () => {
       hooks,
       tools: emptyTools,
       configHandler: makeMockConfigHandler(),
+      agents: {},
     })
 
     await iface["tool.execute.before"](

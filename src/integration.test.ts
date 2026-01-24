@@ -4,6 +4,7 @@ import WeavePlugin from "./index"
 import { createBuiltinAgents } from "./agents/builtin-agents"
 import { ConfigHandler } from "./managers/config-handler"
 import { WeaveConfigSchema } from "./config/schema"
+import { getAgentDisplayName } from "./shared/agent-display-names"
 
 const makeMockCtx = (directory: string): PluginInput =>
   ({
@@ -29,22 +30,30 @@ describe("WeavePlugin integration", () => {
     expect(keys).toContain("tool.execute.after")
   })
 
-  it("config handler registers all 6 agents", async () => {
+  it("config handler registers all 6 agents with display name keys", async () => {
     const agents = createBuiltinAgents()
     const handler = new ConfigHandler({ pluginConfig: defaultConfig, agents })
     const result = await handler.handle({ pluginConfig: defaultConfig, agents })
 
-    expect(Object.keys(result.agents)).toContain("loom")
-    expect(Object.keys(result.agents)).toContain("tapestry")
-    expect(Object.keys(result.agents)).toContain("shuttle")
-    expect(Object.keys(result.agents)).toContain("pattern")
-    expect(Object.keys(result.agents)).toContain("thread")
-    expect(Object.keys(result.agents)).toContain("spindle")
+    expect(Object.keys(result.agents)).toContain(getAgentDisplayName("loom"))
+    expect(Object.keys(result.agents)).toContain(getAgentDisplayName("tapestry"))
+    expect(Object.keys(result.agents)).toContain(getAgentDisplayName("shuttle"))
+    expect(Object.keys(result.agents)).toContain(getAgentDisplayName("pattern"))
+    expect(Object.keys(result.agents)).toContain(getAgentDisplayName("thread"))
+    expect(Object.keys(result.agents)).toContain(getAgentDisplayName("spindle"))
 
     for (const [, agent] of Object.entries(result.agents)) {
       expect(agent.model).toBeTruthy()
       expect(agent.prompt).toBeTruthy()
     }
+  })
+
+  it("config handler sets defaultAgent to loom display name", async () => {
+    const agents = createBuiltinAgents()
+    const handler = new ConfigHandler({ pluginConfig: defaultConfig, agents })
+    const result = await handler.handle({ pluginConfig: defaultConfig, agents })
+
+    expect(result.defaultAgent).toBe(getAgentDisplayName("loom"))
   })
 
   it("config handler applies agent overrides", async () => {
@@ -56,7 +65,8 @@ describe("WeavePlugin integration", () => {
     const handler = new ConfigHandler({ pluginConfig: config, agents })
     const result = await handler.handle({ pluginConfig: config, agents })
 
-    expect(result.agents.loom.model).toBe(overrideModel)
+    const loomKey = getAgentDisplayName("loom")
+    expect(result.agents[loomKey].model).toBe(overrideModel)
   })
 
   it("tool permissions enforced per agent — thread and spindle are read-only", () => {
@@ -84,8 +94,8 @@ describe("WeavePlugin integration", () => {
     const handler = new ConfigHandler({ pluginConfig: config, agents })
     const result = await handler.handle({ pluginConfig: config, agents })
 
-    expect(Object.keys(result.agents)).not.toContain("spindle")
-    expect(Object.keys(result.agents)).toContain("loom")
+    expect(Object.keys(result.agents)).not.toContain(getAgentDisplayName("spindle"))
+    expect(Object.keys(result.agents)).toContain(getAgentDisplayName("loom"))
     expect(Object.keys(result.agents)).toHaveLength(5)
   })
 

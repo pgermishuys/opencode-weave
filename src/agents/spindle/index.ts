@@ -6,5 +6,6 @@ export const createSpindleAgent: AgentFactory = (model: string): AgentConfig => 
   ...SPINDLE_DEFAULTS,
   tools: { ...SPINDLE_DEFAULTS.tools },
   model,
+  mode: "subagent",
 })
 createSpindleAgent.mode = "subagent"

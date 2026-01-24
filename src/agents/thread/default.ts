@@ -2,6 +2,7 @@ import type { AgentConfig } from "@opencode-ai/sdk"
 
 export const THREAD_DEFAULTS: AgentConfig = {
   temperature: 0.0,
+  description: "Thread (Codebase Explorer)",
   tools: {
     write: false,
     edit: false,

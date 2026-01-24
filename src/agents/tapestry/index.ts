@@ -6,5 +6,6 @@ export const createTapestryAgent: AgentFactory = (model: string): AgentConfig =>
   ...TAPESTRY_DEFAULTS,
   tools: { ...TAPESTRY_DEFAULTS.tools },
   model,
+  mode: "primary",
 })
 createTapestryAgent.mode = "primary"

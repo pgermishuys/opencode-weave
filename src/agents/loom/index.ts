@@ -5,5 +5,6 @@ import { LOOM_DEFAULTS } from "./default"
 export const createLoomAgent: AgentFactory = (model: string): AgentConfig => ({
   ...LOOM_DEFAULTS,
   model,
+  mode: "primary",
 })
 createLoomAgent.mode = "primary"

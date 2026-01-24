@@ -2,6 +2,7 @@ import type { AgentConfig } from "@opencode-ai/sdk"
 
 export const TAPESTRY_DEFAULTS: AgentConfig = {
   temperature: 0.1,
+  description: "Tapestry (Execution Orchestrator)",
   tools: {
     task: false,
     call_weave_agent: false,

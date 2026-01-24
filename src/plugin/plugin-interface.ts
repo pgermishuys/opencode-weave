@@ -23,7 +23,13 @@ export function createPluginInterface(args: {
         availableTools: [],
       })
       // Mutate the config object to register agents with OpenCode
+      // Keys are display names (e.g., "Loom (Main Orchestrator)")
       config.agent = result.agents
+
+      // Set the default agent so OpenCode selects it on startup
+      if (result.defaultAgent) {
+        config.default_agent = result.defaultAgent
+      }
     },
 
     "chat.message": async (input, _output) => {

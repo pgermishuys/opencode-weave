@@ -2,6 +2,7 @@ import { describe, it, expect } from "bun:test"
 import type { AgentConfig } from "@opencode-ai/sdk"
 import { ConfigHandler } from "./config-handler"
 import type { ConfigPipelineInput, ConfigPipelineOutput } from "./config-handler"
+import { getAgentDisplayName } from "../shared/agent-display-names"
 
 const makeAgents = (): Record<string, AgentConfig> => ({
   loom: { model: "claude-opus-4", instructions: "main orchestrator" },
@@ -26,10 +27,42 @@ describe("ConfigHandler", () => {
     expect(result).toHaveProperty("tools")
     expect(result).toHaveProperty("mcps")
     expect(result).toHaveProperty("commands")
+    expect(result).toHaveProperty("defaultAgent")
     expect(typeof result.agents).toBe("object")
     expect(Array.isArray(result.tools)).toBe(true)
     expect(typeof result.mcps).toBe("object")
     expect(typeof result.commands).toBe("object")
+  })
+
+  it("remaps agent keys to display names", async () => {
+    const handler = new ConfigHandler({ pluginConfig: {} })
+
+    const result = await handler.handle({
+      pluginConfig: {},
+      agents: makeAgents(),
+      availableTools: [],
+    })
+
+    // Keys should be display names, not config keys
+    expect(result.agents[getAgentDisplayName("loom")]).toBeDefined()
+    expect(result.agents[getAgentDisplayName("tapestry")]).toBeDefined()
+    expect(result.agents[getAgentDisplayName("pattern")]).toBeDefined()
+    expect(result.agents[getAgentDisplayName("thread")]).toBeDefined()
+    // Original lowercase keys should not exist
+    expect(result.agents["loom"]).toBeUndefined()
+    expect(result.agents["tapestry"]).toBeUndefined()
+  })
+
+  it("sets defaultAgent to loom display name", async () => {
+    const handler = new ConfigHandler({ pluginConfig: {} })
+
+    const result = await handler.handle({
+      pluginConfig: {},
+      agents: makeAgents(),
+      availableTools: [],
+    })
+
+    expect(result.defaultAgent).toBe(getAgentDisplayName("loom"))
   })
 
   it("merges agent overrides from pluginConfig.agents", async () => {
@@ -53,11 +86,13 @@ describe("ConfigHandler", () => {
 
     const result: ConfigPipelineOutput = await handler.handle(input)
 
-    expect(result.agents["loom"]?.model).toBe("gpt-5")
+    const loomKey = getAgentDisplayName("loom")
+    expect(result.agents[loomKey]?.model).toBe("gpt-5")
     // Other fields from the builtin agent are preserved
-    expect(result.agents["loom"]?.instructions).toBe("main orchestrator")
+    expect(result.agents[loomKey]?.instructions).toBe("main orchestrator")
     // Agents without overrides are unchanged
-    expect(result.agents["tapestry"]?.model).toBe("claude-sonnet-4")
+    const tapestryKey = getAgentDisplayName("tapestry")
+    expect(result.agents[tapestryKey]?.model).toBe("claude-sonnet-4")
   })
 
   it("excludes disabled agents from output", async () => {
@@ -75,10 +110,10 @@ describe("ConfigHandler", () => {
       availableTools: [],
     })
 
-    expect(result.agents["loom"]).toBeDefined()
-    expect(result.agents["tapestry"]).toBeDefined()
-    expect(result.agents["pattern"]).toBeUndefined()
-    expect(result.agents["thread"]).toBeUndefined()
+    expect(result.agents[getAgentDisplayName("loom")]).toBeDefined()
+    expect(result.agents[getAgentDisplayName("tapestry")]).toBeDefined()
+    expect(result.agents[getAgentDisplayName("pattern")]).toBeUndefined()
+    expect(result.agents[getAgentDisplayName("thread")]).toBeUndefined()
   })
 
   it("excludes disabled tools from output tools", async () => {
@@ -126,5 +161,24 @@ describe("ConfigHandler", () => {
 
     expect(Object.keys(result.mcps)).toHaveLength(0)
     expect(Object.keys(result.commands)).toHaveLength(0)
+  })
+
+  it("preserves non-builtin agent keys as-is", async () => {
+    const handler = new ConfigHandler({ pluginConfig: {} })
+
+    const agents: Record<string, AgentConfig> = {
+      ...makeAgents(),
+      "custom-agent": { model: "custom-model", instructions: "custom" },
+    }
+
+    const result = await handler.handle({
+      pluginConfig: {},
+      agents,
+      availableTools: [],
+    })
+
+    // Custom agent key not in AGENT_DISPLAY_NAMES should pass through unchanged
+    expect(result.agents["custom-agent"]).toBeDefined()
+    expect(result.agents["custom-agent"]?.model).toBe("custom-model")
   })
 })

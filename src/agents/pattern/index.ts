@@ -5,5 +5,6 @@ import { PATTERN_DEFAULTS } from "./default"
 export const createPatternAgent: AgentFactory = (model: string): AgentConfig => ({
   ...PATTERN_DEFAULTS,
   model,
+  mode: "subagent",
 })
 createPatternAgent.mode = "subagent"

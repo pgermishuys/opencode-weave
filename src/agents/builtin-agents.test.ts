@@ -62,6 +62,33 @@ describe("createBuiltinAgents", () => {
       expect(tools["write"]).toBe(false)
     }
   })
+
+  it("each agent has a description", () => {
+    const agents = createBuiltinAgents()
+    for (const name of ALL_AGENT_NAMES) {
+      const agent = agents[name]
+      expect(agent).toBeDefined()
+      expect(typeof agent.description).toBe("string")
+      expect(agent.description!.length).toBeGreaterThan(0)
+    }
+  })
+
+  it("each agent has a mode", () => {
+    const agents = createBuiltinAgents()
+    const expectedModes: Record<string, string> = {
+      loom: "primary",
+      tapestry: "primary",
+      shuttle: "all",
+      pattern: "subagent",
+      thread: "subagent",
+      spindle: "subagent",
+    }
+    for (const name of ALL_AGENT_NAMES) {
+      const agent = agents[name]
+      expect(agent).toBeDefined()
+      expect(agent.mode).toBe(expectedModes[name])
+    }
+  })
 })
 
 describe("AGENT_METADATA", () => {

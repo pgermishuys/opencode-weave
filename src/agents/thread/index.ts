@@ -6,5 +6,6 @@ export const createThreadAgent: AgentFactory = (model: string): AgentConfig => (
   ...THREAD_DEFAULTS,
   tools: { ...THREAD_DEFAULTS.tools },
   model,
+  mode: "subagent",
 })
 createThreadAgent.mode = "subagent"
