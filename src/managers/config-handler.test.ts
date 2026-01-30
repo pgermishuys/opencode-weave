@@ -3,6 +3,7 @@ import type { AgentConfig } from "@opencode-ai/sdk"
 import { ConfigHandler } from "./config-handler"
 import type { ConfigPipelineInput, ConfigPipelineOutput } from "./config-handler"
 import { getAgentDisplayName } from "../shared/agent-display-names"
+import { BUILTIN_COMMANDS } from "../features/builtin-commands"
 
 const makeAgents = (): Record<string, AgentConfig> => ({
   loom: { model: "claude-opus-4", instructions: "main orchestrator" },
@@ -147,10 +148,10 @@ describe("ConfigHandler", () => {
     expect(result.agents).toEqual({})
     expect(result.tools).toEqual([])
     expect(result.mcps).toEqual({})
-    expect(result.commands).toEqual({})
+    expect(result.commands).toEqual({ ...BUILTIN_COMMANDS })
   })
 
-  it("returns empty MCPs and commands for v1", async () => {
+  it("returns empty MCPs and builtin commands", async () => {
     const handler = new ConfigHandler({ pluginConfig: {} })
 
     const result = await handler.handle({
@@ -160,7 +161,7 @@ describe("ConfigHandler", () => {
     })
 
     expect(Object.keys(result.mcps)).toHaveLength(0)
-    expect(Object.keys(result.commands)).toHaveLength(0)
+    expect(Object.keys(result.commands)).toHaveLength(Object.keys(BUILTIN_COMMANDS).length)
   })
 
   it("preserves non-builtin agent keys as-is", async () => {

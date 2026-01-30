@@ -5,14 +5,18 @@ import { createWriteGuardState, createWriteGuard } from "./write-existing-file-g
 import { getRulesForFile, shouldInjectRules } from "./rules-injector"
 import { shouldApplyVariant, markApplied, markSessionCreated, clearSession } from "./first-message-variant"
 import { processMessageForKeywords } from "./keyword-detector"
+import { checkPatternWrite } from "./pattern-md-only"
+import { handleStartWork } from "./start-work-hook"
+import { checkContinuation } from "./work-continuation"
 
 export type CreatedHooks = ReturnType<typeof createHooks>
 
 export function createHooks(args: {
   pluginConfig: WeaveConfig
   isHookEnabled: (hookName: string) => boolean
+  directory: string
 }) {
-  const { isHookEnabled } = args
+  const { isHookEnabled, directory } = args
 
   const writeGuardState = createWriteGuardState()
   const writeGuard = createWriteGuard(writeGuardState)
@@ -39,6 +43,17 @@ export function createHooks(args: {
 
     processMessageForKeywords: isHookEnabled("keyword-detector")
       ? processMessageForKeywords
+      : null,
+
+    patternMdOnly: isHookEnabled("pattern-md-only") ? checkPatternWrite : null,
+
+    startWork: isHookEnabled("start-work")
+      ? (promptText: string, sessionId: string) =>
+          handleStartWork({ promptText, sessionId, directory })
+      : null,
+
+    workContinuation: isHookEnabled("work-continuation")
+      ? (sessionId: string) => checkContinuation({ sessionId, directory })
       : null,
   }
 }

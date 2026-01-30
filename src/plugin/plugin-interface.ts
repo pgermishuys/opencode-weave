@@ -52,6 +52,24 @@ export function createPluginInterface(args: {
       if (hooks.processMessageForKeywords) {
         hooks.processMessageForKeywords("", sessionID)
       }
+
+      // /start-work command detection and plan resolution
+      if (hooks.startWork) {
+        const promptText =
+          _output.parts
+            ?.filter((p: { type: string }) => p.type === "text")
+            .map((p: { type: string; text?: string }) => p.text ?? "")
+            .join("\n") ?? ""
+
+        const result = hooks.startWork(promptText, sessionID)
+        if (result.contextInjection) {
+          // Inject plan context into the message parts
+          _output.parts = [
+            ...(_output.parts ?? []),
+            { type: "text", text: `\n\n${result.contextInjection}` },
+          ]
+        }
+      }
     },
 
     "chat.params": async (_input, _output) => {
@@ -75,6 +93,19 @@ export function createPluginInterface(args: {
           hooks.firstMessageVariant.clearSession(evt.properties.info.id)
         }
       }
+
+      // Work continuation: nudge idle sessions with active plans
+      if (hooks.workContinuation && event.type === "session.idle") {
+        const evt = event as { type: string; properties: { info: { id: string } } }
+        const sessionId = evt.properties?.info?.id ?? ""
+        if (sessionId) {
+          const result = hooks.workContinuation(sessionId)
+          if (result.continuationPrompt) {
+            // The continuation prompt is available for the host to inject
+            // In a full implementation, this would use promptAsync or similar
+          }
+        }
+      }
     },
 
     "tool.execute.before": async (input, _output) => {
@@ -94,6 +125,17 @@ export function createPluginInterface(args: {
       if (filePath && hooks.writeGuard) {
         if (input.tool === "read") {
           hooks.writeGuard.trackRead(filePath)
+        }
+      }
+
+      // Pattern MD-only guard: block Pattern from writing non-.md files outside .weave/
+      if (filePath && hooks.patternMdOnly) {
+        const agentName = (input as Record<string, unknown>).agent as string | undefined
+        if (agentName) {
+          const check = hooks.patternMdOnly(agentName, input.tool, filePath)
+          if (!check.allowed) {
+            throw new Error(check.reason ?? "Pattern agent is restricted to .md files in .weave/")
+          }
         }
       }
     },

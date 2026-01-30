@@ -12,7 +12,7 @@ const WeavePlugin: Plugin = async (ctx) => {
 
   const toolsResult = await createTools({ ctx, pluginConfig })
   const managers = createManagers({ ctx, pluginConfig, resolveSkills: toolsResult.resolveSkillsFn })
-  const hooks = createHooks({ pluginConfig, isHookEnabled })
+  const hooks = createHooks({ pluginConfig, isHookEnabled, directory: ctx.directory })
 
   return createPluginInterface({
     pluginConfig,

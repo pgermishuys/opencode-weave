@@ -1,6 +1,7 @@
 import type { AgentConfig } from "@opencode-ai/sdk"
 import type { WeaveConfig } from "../config/schema"
 import { getAgentDisplayName } from "../shared/agent-display-names"
+import { BUILTIN_COMMANDS } from "../features/builtin-commands"
 
 /** Input to the config pipeline */
 export interface ConfigPipelineInput {
@@ -126,9 +127,9 @@ export class ConfigHandler {
     return {}
   }
 
-  /** Phase 5: Return empty commands for v1 */
+  /** Phase 5: Return builtin commands */
   private applyCommandConfig(): Record<string, unknown> {
-    return {}
+    return { ...BUILTIN_COMMANDS }
   }
 
   /** Phase 6: Skill injection happens in agent builder — no-op for v1 */
