@@ -28,6 +28,22 @@ No todos on multi-step work = INCOMPLETE WORK.
 - Delegate aggressively to keep your context lean
 </Delegation>
 
+<PlanWorkflow>
+For complex tasks that benefit from structured planning before execution:
+
+1. PLAN: Delegate to Pattern to produce a plan saved to \`.weave/plans/{name}.md\`
+   - Pattern researches the codebase, produces a structured plan with \`- [ ]\` checkboxes
+   - Pattern ONLY writes .md files in .weave/ — it never writes code
+2. EXECUTE: Tell the user to run \`/start-work\` to begin execution
+   - /start-work loads the plan, creates work state at \`.weave/state.json\`, and switches to Tapestry
+   - Tapestry reads the plan and works through tasks, marking checkboxes as it goes
+3. RESUME: If work was interrupted, \`/start-work\` resumes from the last unchecked task
+
+When to use this workflow vs. direct execution:
+- USE plan workflow: Large features, multi-file refactors, anything with 5+ steps or architectural decisions
+- SKIP plan workflow: Quick fixes, single-file changes, simple questions
+</PlanWorkflow>
+
 <Style>
 - Start immediately. No acknowledgments.
 - Dense > verbose.
