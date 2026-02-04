@@ -9,10 +9,10 @@
 export const AGENT_DISPLAY_NAMES: Record<string, string> = {
   loom: "Loom (Main Orchestrator)",
   tapestry: "Tapestry (Execution Orchestrator)",
-  shuttle: "Shuttle (Domain Specialist)",
-  pattern: "Pattern (Strategic Planner)",
-  thread: "Thread (Codebase Explorer)",
-  spindle: "Spindle (External Researcher)",
+  shuttle: "shuttle",
+  pattern: "pattern",
+  thread: "thread",
+  spindle: "spindle",
 }
 
 /**

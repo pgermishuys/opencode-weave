@@ -36,4 +36,8 @@ describe("BUILTIN_COMMANDS", () => {
   it("start-work has argument hint", () => {
     expect(BUILTIN_COMMANDS["start-work"].argumentHint).toBe("[plan-name]")
   })
+
+  it("start-work has name matching its key", () => {
+    expect(BUILTIN_COMMANDS["start-work"].name).toBe("start-work")
+  })
 })

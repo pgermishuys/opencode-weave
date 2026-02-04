@@ -49,9 +49,12 @@ describe("ConfigHandler", () => {
     expect(result.agents[getAgentDisplayName("tapestry")]).toBeDefined()
     expect(result.agents[getAgentDisplayName("pattern")]).toBeDefined()
     expect(result.agents[getAgentDisplayName("thread")]).toBeDefined()
-    // Original lowercase keys should not exist
+    // Primary agent original lowercase keys should not exist (they get remapped to display names)
     expect(result.agents["loom"]).toBeUndefined()
     expect(result.agents["tapestry"]).toBeUndefined()
+    // Subagent keys stay as-is (display name === config key)
+    expect(result.agents["pattern"]).toBeDefined()
+    expect(result.agents["thread"]).toBeDefined()
   })
 
   it("sets defaultAgent to loom display name", async () => {

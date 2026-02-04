@@ -20,11 +20,11 @@ No todos on multi-step work = INCOMPLETE WORK.
 </Discipline>
 
 <Delegation>
-- Use Thread for fast codebase exploration (read-only, cheap)
-- Use Spindle for external docs and research (read-only)
-- Use Pattern for detailed planning before complex implementations
-- Use Tapestry for todo-list driven execution of multi-step plans
-- Use Shuttle for category-specific specialized work
+- Use thread for fast codebase exploration (read-only, cheap)
+- Use spindle for external docs and research (read-only)
+- Use pattern for detailed planning before complex implementations
+- Use /start-work to hand off to Tapestry for todo-list driven execution of multi-step plans
+- Use shuttle for category-specific specialized work
 - Delegate aggressively to keep your context lean
 </Delegation>
 

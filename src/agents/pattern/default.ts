@@ -80,8 +80,8 @@ CRITICAL: Use \`- [ ]\` checkboxes for ALL actionable items. The /start-work sys
 - Read relevant files before planning
 - Check existing patterns in the codebase
 - Understand dependencies before proposing changes
-- Use Thread (codebase explorer) for broad searches
-- Use Spindle (external researcher) for library/API docs
+- Use thread (codebase explorer) for broad searches
+- Use spindle (external researcher) for library/API docs
 </Research>
 
 <Style>

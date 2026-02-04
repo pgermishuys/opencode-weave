@@ -26,6 +26,9 @@ export function createPluginInterface(args: {
       // Keys are display names (e.g., "Loom (Main Orchestrator)")
       config.agent = result.agents
 
+      // Register slash commands so OpenCode exposes them (e.g., /start-work)
+      config.command = result.commands
+
       // Set the default agent so OpenCode selects it on startup
       if (result.defaultAgent) {
         config.default_agent = result.defaultAgent

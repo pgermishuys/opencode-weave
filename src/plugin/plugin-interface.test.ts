@@ -117,6 +117,30 @@ describe("createPluginInterface", () => {
     expect(mockHandler.callCount).toBe(1)
   })
 
+  it("config hook sets config.command from configHandler result", async () => {
+    const fakeCommands = {
+      "start-work": { name: "start-work", description: "test", agent: "tapestry", template: "t" },
+    }
+    const handler = {
+      handle: async () => ({
+        agents: {},
+        tools: [],
+        mcps: {},
+        commands: fakeCommands,
+      }),
+    } as unknown as ConfigHandler
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks: makeHooks(),
+      tools: emptyTools,
+      configHandler: handler,
+      agents: {},
+    })
+    const config: Record<string, unknown> = {}
+    await iface.config(config as Parameters<typeof iface.config>[0])
+    expect(config.command).toEqual(fakeCommands)
+  })
+
   it("chat.message calls firstMessageVariant.markApplied when shouldApplyVariant is true", async () => {
     let markAppliedCalled = false
     let shouldApplyReturn = true

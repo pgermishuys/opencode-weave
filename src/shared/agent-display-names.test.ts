@@ -9,10 +9,11 @@ describe("getAgentDisplayName", () => {
   it("returns display name for known config keys", () => {
     expect(getAgentDisplayName("loom")).toBe("Loom (Main Orchestrator)")
     expect(getAgentDisplayName("tapestry")).toBe("Tapestry (Execution Orchestrator)")
-    expect(getAgentDisplayName("shuttle")).toBe("Shuttle (Domain Specialist)")
-    expect(getAgentDisplayName("pattern")).toBe("Pattern (Strategic Planner)")
-    expect(getAgentDisplayName("thread")).toBe("Thread (Codebase Explorer)")
-    expect(getAgentDisplayName("spindle")).toBe("Spindle (External Researcher)")
+    // Subagents use simple lowercase keys as display names so OpenCode's Task tool can find them
+    expect(getAgentDisplayName("shuttle")).toBe("shuttle")
+    expect(getAgentDisplayName("pattern")).toBe("pattern")
+    expect(getAgentDisplayName("thread")).toBe("thread")
+    expect(getAgentDisplayName("spindle")).toBe("spindle")
   })
 
   it("returns original key for unknown agents", () => {
@@ -23,18 +24,20 @@ describe("getAgentDisplayName", () => {
   it("performs case-insensitive lookup", () => {
     expect(getAgentDisplayName("LOOM")).toBe("Loom (Main Orchestrator)")
     expect(getAgentDisplayName("Loom")).toBe("Loom (Main Orchestrator)")
-    expect(getAgentDisplayName("Thread")).toBe("Thread (Codebase Explorer)")
+    // Subagents map to simple lowercase keys
+    expect(getAgentDisplayName("Thread")).toBe("thread")
   })
 })
 
 describe("getAgentConfigKey", () => {
   it("resolves display names back to config keys", () => {
     expect(getAgentConfigKey("Loom (Main Orchestrator)")).toBe("loom")
-    expect(getAgentConfigKey("Thread (Codebase Explorer)")).toBe("thread")
-    expect(getAgentConfigKey("Pattern (Strategic Planner)")).toBe("pattern")
-    expect(getAgentConfigKey("Shuttle (Domain Specialist)")).toBe("shuttle")
-    expect(getAgentConfigKey("Spindle (External Researcher)")).toBe("spindle")
     expect(getAgentConfigKey("Tapestry (Execution Orchestrator)")).toBe("tapestry")
+    // Subagent display names are already their config keys
+    expect(getAgentConfigKey("thread")).toBe("thread")
+    expect(getAgentConfigKey("pattern")).toBe("pattern")
+    expect(getAgentConfigKey("shuttle")).toBe("shuttle")
+    expect(getAgentConfigKey("spindle")).toBe("spindle")
   })
 
   it("passes through config keys unchanged", () => {

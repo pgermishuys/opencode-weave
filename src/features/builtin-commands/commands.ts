@@ -3,6 +3,7 @@ import { START_WORK_TEMPLATE } from "./templates/start-work"
 
 export const BUILTIN_COMMANDS: Record<BuiltinCommandName, BuiltinCommand> = {
   "start-work": {
+    name: "start-work",
     description: "Start executing a Weave plan created by Pattern",
     agent: "tapestry",
     template: `<command-instruction>
