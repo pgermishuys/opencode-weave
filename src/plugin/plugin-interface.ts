@@ -3,6 +3,7 @@ import type { AgentConfig } from "@opencode-ai/sdk"
 import type { WeaveConfig } from "../config/schema"
 import type { ConfigHandler } from "../managers/config-handler"
 import type { CreatedHooks } from "../hooks/create-hooks"
+import { getAgentDisplayName } from "../shared/agent-display-names"
 
 export function createPluginInterface(args: {
   pluginConfig: WeaveConfig
@@ -58,19 +59,47 @@ export function createPluginInterface(args: {
 
       // /start-work command detection and plan resolution
       if (hooks.startWork) {
+        const parts = _output.parts as Array<{ type: string; text?: string }> | undefined
+        const message = (_output as Record<string, unknown>).message as
+          | Record<string, unknown>
+          | undefined
+
+        // Defensively substitute template placeholders that OpenCode should have replaced.
+        // If OpenCode already substituted them these replacements are harmless no-ops.
+        if (parts) {
+          const timestamp = new Date().toISOString()
+          for (const part of parts) {
+            if (part.type === "text" && part.text) {
+              part.text = part.text
+                .replace(/\$SESSION_ID/g, sessionID)
+                .replace(/\$TIMESTAMP/g, timestamp)
+            }
+          }
+        }
+
         const promptText =
-          _output.parts
-            ?.filter((p: { type: string }) => p.type === "text")
-            .map((p: { type: string; text?: string }) => p.text ?? "")
-            .join("\n") ?? ""
+          parts
+            ?.filter((p) => p.type === "text" && p.text)
+            .map((p) => p.text)
+            .join("\n")
+            .trim() ?? ""
 
         const result = hooks.startWork(promptText, sessionID)
-        if (result.contextInjection) {
-          // Inject plan context into the message parts
-          _output.parts = [
-            ...(_output.parts ?? []),
-            { type: "text", text: `\n\n${result.contextInjection}` },
-          ]
+
+        // Switch agent by mutating output.message.agent (OpenCode reads this to route the message)
+        if (result.switchAgent && message) {
+          message.agent = getAgentDisplayName(result.switchAgent)
+        }
+
+        if (result.contextInjection && parts) {
+          // Mutate the existing text part in-place (do NOT replace the parts array reference)
+          const idx = parts.findIndex((p) => p.type === "text" && p.text)
+          if (idx >= 0 && parts[idx].text) {
+            parts[idx].text += `\n\n---\n${result.contextInjection}`
+          } else {
+            // No existing text part — create one so the context isn't lost
+            parts.push({ type: "text", text: result.contextInjection })
+          }
         }
       }
     },

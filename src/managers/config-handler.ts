@@ -127,9 +127,15 @@ export class ConfigHandler {
     return {}
   }
 
-  /** Phase 5: Return builtin commands */
+  /** Phase 5: Return builtin commands with agent fields remapped to display names */
   private applyCommandConfig(): Record<string, unknown> {
-    return { ...BUILTIN_COMMANDS }
+    const commands = structuredClone(BUILTIN_COMMANDS) as Record<string, Record<string, unknown>>
+    for (const cmd of Object.values(commands)) {
+      if (cmd?.agent && typeof cmd.agent === "string") {
+        cmd.agent = getAgentDisplayName(cmd.agent)
+      }
+    }
+    return commands
   }
 
   /** Phase 6: Skill injection happens in agent builder — no-op for v1 */

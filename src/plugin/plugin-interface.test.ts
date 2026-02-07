@@ -18,6 +18,9 @@ function makeHooks(overrides?: Partial<CreatedHooks>): CreatedHooks {
     getRulesForFile: null,
     firstMessageVariant: null,
     processMessageForKeywords: null,
+    patternMdOnly: null,
+    startWork: null,
+    workContinuation: null,
     ...overrides,
   }
 }
@@ -258,5 +261,133 @@ describe("createPluginInterface", () => {
     )
 
     expect(tracked).toEqual(["/some/file.ts"])
+  })
+
+  it("chat.message injects start-work context into existing text part in-place", async () => {
+    const hooks = makeHooks({
+      startWork: (_promptText: string, _sessionId: string) => ({
+        contextInjection: "## Starting Plan: my-plan\n**Progress**: 0/5 tasks completed",
+        switchAgent: "tapestry",
+      }),
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    const parts = [
+      { type: "text", text: "<session-context>Session ID: s1</session-context>" },
+    ]
+    const message: Record<string, unknown> = { agent: "Loom (Main Orchestrator)" }
+    const output = { message: message as never, parts }
+
+    await iface["chat.message"]({ sessionID: "s1" }, output)
+
+    // Context should be appended to the SAME part object (in-place mutation)
+    expect(parts[0].text).toContain("## Starting Plan: my-plan")
+    expect(parts[0].text).toContain("---")
+    // Should NOT have created a new part
+    expect(parts.length).toBe(1)
+    // Agent should be switched to Tapestry display name
+    expect(message.agent).toBe("Tapestry (Execution Orchestrator)")
+  })
+
+  it("chat.message does not modify parts when startWork returns null contextInjection", async () => {
+    const hooks = makeHooks({
+      startWork: (_promptText: string, _sessionId: string) => ({
+        contextInjection: null,
+        switchAgent: null,
+      }),
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    const originalText = "Hello world"
+    const parts = [{ type: "text", text: originalText }]
+    const message: Record<string, unknown> = { agent: "Loom (Main Orchestrator)" }
+    const output = { message: message as never, parts }
+
+    await iface["chat.message"]({ sessionID: "s1" }, output)
+
+    expect(parts[0].text).toBe(originalText)
+    expect(parts.length).toBe(1)
+    // Agent should NOT be changed when switchAgent is null
+    expect(message.agent).toBe("Loom (Main Orchestrator)")
+  })
+
+  it("chat.message substitutes $SESSION_ID and $TIMESTAMP in text parts before passing to startWork", async () => {
+    let receivedPromptText = ""
+    const hooks = makeHooks({
+      startWork: (promptText: string, _sessionId: string) => {
+        receivedPromptText = promptText
+        return { contextInjection: null, switchAgent: null }
+      },
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    const parts = [
+      { type: "text", text: "<session-context>Session ID: $SESSION_ID  Timestamp: $TIMESTAMP</session-context>" },
+    ]
+    const message: Record<string, unknown> = {}
+    const output = { message: message as never, parts }
+
+    await iface["chat.message"]({ sessionID: "sess_abc123" }, output)
+
+    // $SESSION_ID should be replaced with the actual session ID
+    expect(receivedPromptText).toContain("sess_abc123")
+    expect(receivedPromptText).not.toContain("$SESSION_ID")
+    // $TIMESTAMP should be replaced with an ISO timestamp
+    expect(receivedPromptText).not.toContain("$TIMESTAMP")
+    // The text part itself should also be mutated
+    expect(parts[0].text).toContain("sess_abc123")
+    expect(parts[0].text).not.toContain("$SESSION_ID")
+  })
+
+  it("chat.message pushes a new text part when context injection has no existing text part to append to", async () => {
+    const hooks = makeHooks({
+      startWork: (_promptText: string, _sessionId: string) => ({
+        contextInjection: "## Starting Plan: test\n**Progress**: 0/3",
+        switchAgent: "tapestry",
+      }),
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    // Parts with no text parts (only non-text types)
+    const parts: Array<{ type: string; text?: string }> = [
+      { type: "image", text: undefined },
+    ]
+    const message: Record<string, unknown> = {}
+    const output = { message: message as never, parts }
+
+    await iface["chat.message"]({ sessionID: "s1" }, output)
+
+    // Should have pushed a new text part
+    expect(parts.length).toBe(2)
+    expect(parts[1].type).toBe("text")
+    expect(parts[1].text).toContain("Starting Plan: test")
   })
 })
