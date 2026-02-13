@@ -5,6 +5,7 @@ import {
   buildToolSelectionTable,
   buildThreadSection,
   buildSpindleSection,
+  buildWeftSection,
   buildDelegationTable,
   buildCategorySkillsDelegationGuide,
 } from "./dynamic-prompt-builder"
@@ -144,6 +145,33 @@ describe("buildDelegationTable", () => {
     const agents = [makeAgent("loom", { triggers: [] })]
     const result = buildDelegationTable(agents)
     expect(result).toContain("### Delegation Table:")
+  })
+})
+
+describe("buildWeftSection", () => {
+  it("returns empty string when no weft agent present", () => {
+    const agents = [makeAgent("loom")]
+    expect(buildWeftSection(agents)).toBe("")
+  })
+
+  it("returns section with useWhen and avoidWhen when weft agent present", () => {
+    const agents = [makeAgent("weft", {
+      useWhen: ["After completing a multi-file implementation", "Before executing a complex plan"],
+      avoidWhen: ["Simple single-file changes", "Trivial fixes"],
+    })]
+    const result = buildWeftSection(agents)
+    expect(result).toContain("After completing a multi-file implementation")
+    expect(result).toContain("Simple single-file changes")
+  })
+
+  it("section contains Weft Agent and Quality Gate", () => {
+    const agents = [makeAgent("weft", {
+      useWhen: ["After completing work"],
+      avoidWhen: ["Trivial changes"],
+    })]
+    const result = buildWeftSection(agents)
+    expect(result).toContain("Weft Agent")
+    expect(result).toContain("Quality Gate")
   })
 })
 

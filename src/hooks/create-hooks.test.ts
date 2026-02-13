@@ -31,6 +31,7 @@ describe("createHooks", () => {
     expect(hooks).toHaveProperty("getRulesForFile")
     expect(hooks).toHaveProperty("firstMessageVariant")
     expect(hooks).toHaveProperty("processMessageForKeywords")
+    expect(hooks).toHaveProperty("verificationReminder")
   })
 
   it("disabled hooks return null for context-window-monitor", () => {
@@ -103,5 +104,23 @@ describe("createHooks", () => {
 
     expect(result.action).toBe("none")
     expect(result.usagePct).toBeCloseTo(0.1)
+  })
+
+  it("verificationReminder exists in returned hooks when all enabled", () => {
+    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled })
+    expect(hooks).toHaveProperty("verificationReminder")
+  })
+
+  it("verificationReminder is null when verification-reminder hook disabled", () => {
+    const hooks = createHooks({
+      pluginConfig: baseConfig,
+      isHookEnabled: disableHook("verification-reminder"),
+    })
+    expect(hooks.verificationReminder).toBeNull()
+  })
+
+  it("verificationReminder is non-null when enabled", () => {
+    const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled })
+    expect(hooks.verificationReminder).not.toBeNull()
   })
 })

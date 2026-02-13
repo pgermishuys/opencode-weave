@@ -50,7 +50,7 @@ describe("isFactory", () => {
 })
 
 describe("WeaveAgentName", () => {
-  it("includes all 6 agent names", () => {
+  it("includes all 7 agent names", () => {
     const names: WeaveAgentName[] = [
       "loom",
       "tapestry",
@@ -58,7 +58,8 @@ describe("WeaveAgentName", () => {
       "pattern",
       "thread",
       "spindle",
+      "weft",
     ]
-    expect(names.length).toBe(6)
+    expect(names.length).toBe(7)
   })
 })

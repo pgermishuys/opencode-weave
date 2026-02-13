@@ -41,3 +41,6 @@ export {
   DEFAULT_KEYWORD_ACTIONS,
 } from "./keyword-detector"
 export type { KeywordAction } from "./keyword-detector"
+
+export { buildVerificationReminder } from "./verification-reminder"
+export type { VerificationInput, VerificationResult } from "./verification-reminder"

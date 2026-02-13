@@ -32,7 +32,7 @@ When activated by /start-work with a plan file:
 3. For each task:
    a. Read the task description, files, and acceptance criteria
    b. Execute the work (write code, run commands, create files)
-   c. Verify: run tests, check acceptance criteria
+   c. Verify: Read changed files, run tests, check acceptance criteria. If uncertain about quality, note that Loom should invoke Weft for formal review.
    d. Mark complete: use Edit tool to change \`- [ ]\` to \`- [x]\` in the plan file
    e. Report: "Completed task N/M: [title]"
 4. CONTINUE to the next unchecked task

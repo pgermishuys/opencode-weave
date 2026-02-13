@@ -4,7 +4,7 @@ Weave is a lean OpenCode plugin with multi-agent orchestration. It provides a co
 
 ## Overview
 
-- **6 specialized agents** with weaving-themed names designed for specific roles in the development lifecycle.
+- **7 specialized agents** with weaving-themed names designed for specific roles in the development lifecycle.
 - **Category-based task dispatch** to route work to domain-optimized models and configurations.
 - **Skill system** for injecting domain-specific expertise that modifies agent behavior via prompt orchestration.
 - **Background agent management** for parallel asynchronous sub-agent execution with concurrency control.
@@ -22,12 +22,86 @@ Weave is a lean OpenCode plugin with multi-agent orchestration. It provides a co
 | **Pattern** | strategic planner | subagent | Analyzes requirements and produces detailed implementation plans with research and dependency mapping. |
 | **Thread** | codebase explorer | subagent | Fast, read-only codebase navigation and analysis using grep, glob, and read tools. |
 | **Spindle** | external researcher | subagent | Performs external documentation lookups and reference searches, providing synthesized answers with source citations. |
+| **Weft** | reviewer/auditor | subagent | Reviews completed work and plans with a critical but fair eye, rejecting only for true blocking issues. |
 
 ### Agent Modes
 
 - `primary`: Respects the user-selected model in the OpenCode UI.
 - `subagent`: Uses its own model or fallback chain, ignoring UI selection for predictable specialization.
 - `all`: Available in both primary and subagent contexts.
+
+### Agent Details
+
+**Loom** is the central orchestrator and the default entry point for every request. It breaks down complex problems into tasks, decides which agents to delegate to, and tracks progress obsessively via todo lists. Loom never implements code directly — it plans and delegates. For quick fixes it acts immediately; for complex work it kicks off the plan → review → execute workflow.
+
+**Pattern** is the strategic planner. When a task requires 5+ steps or involves architectural decisions, Loom delegates to Pattern, which researches the codebase (via Thread) and external docs (via Spindle), then produces a structured implementation plan saved to `.weave/plans/{name}.md`. Plans use `- [ ]` checkboxes for every actionable task. Pattern never writes code — only plans.
+
+**Weft** is the reviewer and auditor. It validates plans before execution and reviews completed work after implementation. Weft is approval-biased and only rejects for true blocking issues (max 3 per review). It checks that file references are correct, tasks have sufficient context, implementations match requirements, and no stubs or TODOs are left behind. Weft is read-only.
+
+**Tapestry** is the execution engine. Activated by the `/start-work` command, it reads a plan from `.weave/plans/` and works through tasks sequentially — writing code, running commands, verifying output, and marking checkboxes as it goes. Tapestry cannot spawn subagents; it focuses on heads-down implementation. If interrupted, it resumes from the first unchecked task.
+
+**Thread** is the fast codebase explorer. Loom delegates to Thread whenever it needs to understand code structure, find files, or answer questions about the repository. Thread uses grep, glob, and read tools with zero creativity (temperature 0.0) to return precise, factual answers with file paths and line numbers. Thread is read-only.
+
+**Spindle** is the external researcher. When Loom needs documentation for a library, API reference, or any information outside the codebase, Spindle fetches URLs, reads docs, and synthesizes findings with source citations. Spindle is read-only.
+
+**Shuttle** is the domain specialist. When work falls into a specific category (e.g., visual engineering, data processing), Loom dispatches Shuttle with full tool access to execute the task. Shuttle's model and configuration can be overridden per-category for domain-optimized performance.
+
+## Workflow
+
+Weave uses a structured **Plan → Review → Execute** workflow for complex tasks. Simple requests are handled directly by Loom without the full cycle.
+
+### When the Full Workflow Is Used
+
+- Tasks requiring 5+ steps or architectural decisions
+- Multi-file refactors or new feature implementations
+- Work that benefits from a reviewable plan before execution
+
+### 1. Plan
+
+Loom delegates to **Pattern**, which researches the codebase and produces a detailed implementation plan:
+
+```
+User Request → Loom (assesses complexity) → Pattern (researches + plans)
+                                              ↓
+                                     .weave/plans/{name}.md
+```
+
+The plan includes clear objectives, deliverables, and atomic tasks marked with `- [ ]` checkboxes. Pattern never writes code.
+
+### 2. Review (Optional)
+
+For high-stakes or complex plans, Loom delegates to **Weft** to validate the plan before execution:
+
+```
+.weave/plans/{name}.md → Weft (validates) → APPROVE or REJECT
+```
+
+Weft checks that referenced files exist, tasks have sufficient context, and there are no contradictions. If rejected, issues are sent back to Pattern for revision.
+
+### 3. Execute
+
+The user runs `/start-work` to begin execution:
+
+```
+/start-work [plan-name] → creates .weave/state.json → switches to Tapestry
+```
+
+**Tapestry** reads the plan and executes tasks sequentially:
+
+1. Find the first unchecked `- [ ]` task
+2. Implement the task (write code, run commands, create files)
+3. Verify completion (read files, run tests, check acceptance criteria)
+4. Mark the checkbox `- [x]`
+5. Move to the next unchecked task
+6. When all tasks are complete, report a final summary
+
+### Resuming Interrupted Work
+
+If a session is interrupted, running `/start-work` again resumes from the first unchecked task — no re-planning or restarting. The work state is persisted in `.weave/state.json`, so progress is never lost.
+
+### Quick Tasks (No Plan Needed)
+
+For simple requests — single-file fixes, quick questions, small edits — Loom handles the work directly or delegates to the appropriate agent without creating a formal plan.
 
 ## Installation
 

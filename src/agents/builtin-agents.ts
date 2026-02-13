@@ -5,6 +5,7 @@ import { createShuttleAgent } from "./shuttle"
 import { createPatternAgent } from "./pattern"
 import { createThreadAgent } from "./thread"
 import { createSpindleAgent } from "./spindle"
+import { createWeftAgent } from "./weft"
 import { resolveAgentModel } from "./model-resolution"
 import { buildAgent } from "./agent-builder"
 import type { AgentFactory, AgentPromptMetadata, WeaveAgentName } from "./types"
@@ -29,6 +30,7 @@ const AGENT_FACTORIES: Record<WeaveAgentName, AgentFactory> = {
   pattern: createPatternAgent,
   thread: createThreadAgent,
   spindle: createSpindleAgent,
+  weft: createWeftAgent,
 }
 
 export const AGENT_METADATA: Record<WeaveAgentName, AgentPromptMetadata> = {
@@ -94,6 +96,25 @@ export const AGENT_METADATA: Record<WeaveAgentName, AgentPromptMetadata> = {
       "external library",
       "how does X work in library Y",
       "best practice for",
+    ],
+  },
+  weft: {
+    category: "advisor",
+    cost: "EXPENSIVE",
+    triggers: [
+      { domain: "Code Review", trigger: "After completing significant implementation work" },
+      { domain: "Plan Review", trigger: "Validate plans before execution" },
+    ],
+    useWhen: [
+      "After completing a multi-file implementation",
+      "Before executing a complex plan",
+      "When unsure if work meets acceptance criteria",
+      "After 2+ revision attempts on the same task",
+    ],
+    avoidWhen: [
+      "Simple single-file changes",
+      "Trivial fixes (typos, formatting)",
+      "When user explicitly wants to skip review",
     ],
   },
 }

@@ -72,7 +72,7 @@ export interface AgentPromptMetadata {
 }
 
 /**
- * The 6 built-in Weave agent names
+ * The 7 built-in Weave agent names
  */
 export type WeaveAgentName =
   | "loom"
@@ -81,6 +81,7 @@ export type WeaveAgentName =
   | "pattern"
   | "thread"
   | "spindle"
+  | "weft"
 
 /**
  * Override config for a single agent — all fields optional

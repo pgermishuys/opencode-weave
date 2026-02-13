@@ -144,6 +144,24 @@ Search **external references** (docs, OSS, web). Fire proactively when unfamilia
 ${useWhen.map((w) => `- "${w}"`).join("\n")}`
 }
 
+export function buildWeftSection(agents: AvailableAgent[]): string {
+  const weftAgent = agents.find((a) => a.name === "weft")
+  if (!weftAgent) return ""
+
+  const useWhen = weftAgent.metadata.useWhen ?? []
+  const avoidWhen = weftAgent.metadata.avoidWhen ?? []
+
+  return `### Weft Agent = Quality Gate
+
+Invoke after significant work for a read-only review. Approval-biased — rejects only for real blockers.
+
+**Use Weft when:**
+${useWhen.map((w) => `- ${w}`).join("\n")}
+
+**Skip Weft when:**
+${avoidWhen.map((w) => `- ${w}`).join("\n")}`
+}
+
 export function buildDelegationTable(agents: AvailableAgent[]): string {
   const rows: string[] = [
     "### Delegation Table:",

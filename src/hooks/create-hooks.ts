@@ -8,6 +8,7 @@ import { processMessageForKeywords } from "./keyword-detector"
 import { checkPatternWrite } from "./pattern-md-only"
 import { handleStartWork } from "./start-work-hook"
 import { checkContinuation } from "./work-continuation"
+import { buildVerificationReminder } from "./verification-reminder"
 
 export type CreatedHooks = ReturnType<typeof createHooks>
 
@@ -54,6 +55,10 @@ export function createHooks(args: {
 
     workContinuation: isHookEnabled("work-continuation")
       ? (sessionId: string) => checkContinuation({ sessionId, directory })
+      : null,
+
+    verificationReminder: isHookEnabled("verification-reminder")
+      ? buildVerificationReminder
       : null,
   }
 }

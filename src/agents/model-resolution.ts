@@ -52,6 +52,12 @@ export const AGENT_MODEL_REQUIREMENTS: Record<WeaveAgentName, AgentModelRequirem
       { providers: ["openai"], model: "gpt-5-mini" },
     ],
   },
+  weft: {
+    fallbackChain: [
+      { providers: ["anthropic"], model: "claude-opus-4" },
+      { providers: ["openai"], model: "gpt-5" },
+    ],
+  },
 }
 
 export type ResolveAgentModelOptions = {
