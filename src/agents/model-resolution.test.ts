@@ -3,7 +3,7 @@ import { resolveAgentModel, AGENT_MODEL_REQUIREMENTS } from "./model-resolution"
 
 describe("AGENT_MODEL_REQUIREMENTS", () => {
   it("has entries for all 6 agents", () => {
-    const agents = ["loom", "tapestry", "shuttle", "pattern", "thread", "spindle"] as const
+    const agents = ["loom", "tapestry", "shuttle", "pattern", "thread", "spindle", "weft"] as const
     for (const a of agents) {
       expect(AGENT_MODEL_REQUIREMENTS[a]).toBeDefined()
       expect(AGENT_MODEL_REQUIREMENTS[a].fallbackChain.length).toBeGreaterThan(0)

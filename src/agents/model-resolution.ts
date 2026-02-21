@@ -36,6 +36,7 @@ export const AGENT_MODEL_REQUIREMENTS: Record<WeaveAgentName, AgentModelRequirem
     fallbackChain: [
       { providers: ["anthropic"], model: "claude-opus-4" },
       { providers: ["openai"], model: "gpt-5" },
+      { providers: ["google"], model: "gemini-3-pro" },
     ],
   },
   thread: {
@@ -56,6 +57,7 @@ export const AGENT_MODEL_REQUIREMENTS: Record<WeaveAgentName, AgentModelRequirem
     fallbackChain: [
       { providers: ["anthropic"], model: "claude-opus-4" },
       { providers: ["openai"], model: "gpt-5" },
+      { providers: ["google"], model: "gemini-3-pro" },
     ],
   },
 }
