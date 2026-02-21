@@ -3,6 +3,9 @@ import { createWriteGuardState, checkWriteAllowed, trackFileRead, createWriteGua
 import { shouldInjectRules, buildRulesInjection, getDirectoryFromFilePath } from "./rules-injector"
 import * as path from "path"
 
+// Resolve a file path that exists on any platform (Windows dev, Linux CI, etc.)
+const EXISTING_FILE = path.resolve(import.meta.dir, "../../package.json")
+
 describe("WriteExistingFileGuard", () => {
   it("allows writing to new (non-existent) files without reading first", () => {
     const state = createWriteGuardState()
@@ -36,17 +39,17 @@ describe("WriteExistingFileGuard", () => {
   })
 
   it("blocks write to existing unread file with warning", () => {
-    // Use a file we know exists in this project
+    // Use a file we know exists in this project (resolved for any platform)
     const state = createWriteGuardState()
-    const result = checkWriteAllowed(state, "C:/source/weave/package.json")
+    const result = checkWriteAllowed(state, EXISTING_FILE)
     expect(result.allowed).toBe(false)
     expect(result.warning).toContain("Write guard")
   })
 
   it("allows write to existing file after tracking read", () => {
     const state = createWriteGuardState()
-    trackFileRead(state, "C:/source/weave/package.json")
-    const result = checkWriteAllowed(state, "C:/source/weave/package.json")
+    trackFileRead(state, EXISTING_FILE)
+    const result = checkWriteAllowed(state, EXISTING_FILE)
     expect(result.allowed).toBe(true)
   })
 })
