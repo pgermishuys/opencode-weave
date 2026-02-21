@@ -162,6 +162,24 @@ ${useWhen.map((w) => `- ${w}`).join("\n")}
 ${avoidWhen.map((w) => `- ${w}`).join("\n")}`
 }
 
+export function buildWarpSection(agents: AvailableAgent[]): string {
+  const warpAgent = agents.find((a) => a.name === "warp")
+  if (!warpAgent) return ""
+
+  const useWhen = warpAgent.metadata.useWhen ?? []
+  const avoidWhen = warpAgent.metadata.avoidWhen ?? []
+
+  return `### Warp Agent = Security Gate
+
+Invoke after security-relevant changes for a read-only security audit. Skeptical-biased — rejects when security patterns are at risk.
+
+**Use Warp when:**
+${useWhen.map((w) => `- ${w}`).join("\n")}
+
+**Skip Warp when:**
+${avoidWhen.map((w) => `- ${w}`).join("\n")}`
+}
+
 export function buildDelegationTable(agents: AvailableAgent[]): string {
   const rows: string[] = [
     "### Delegation Table:",

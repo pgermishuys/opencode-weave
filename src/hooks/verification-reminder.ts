@@ -39,6 +39,9 @@ Before marking this task complete, verify the work:
 If uncertain about quality, delegate to \`weft\` agent for a formal review:
 \`call_weave_agent(agent="weft", prompt="Review the changes for [task description]")\`
 
+If changes touch auth, crypto, tokens, or input validation, delegate to \`warp\` agent for a security audit:
+\`call_weave_agent(agent="warp", prompt="Security audit the changes for [task description]")\`
+
 Only mark complete when ALL checks pass.`,
   }
 }

@@ -29,6 +29,7 @@ import {
 import { PLANS_DIR } from "./features/work-state/constants"
 
 import { createWeftAgent } from "./agents/weft"
+import { createWarpAgent } from "./agents/warp"
 import { createToolPermissions } from "./tools/permissions"
 
 // ---------------------------------------------------------------------------
@@ -439,6 +440,71 @@ describe("Phase 6: Weft Review Gate", () => {
 
     expect(result.verificationPrompt!.toLowerCase()).toContain("weft")
     expect(result.verificationPrompt).toContain("2/5")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Phase 7: Warp Security Gate
+// ---------------------------------------------------------------------------
+
+describe("Phase 7: Warp Security Gate", () => {
+  it("Warp agent config enforces read-only access", () => {
+    const config = createWarpAgent("test-model")
+
+    expect(config.tools?.write).toBe(false)
+    expect(config.tools?.edit).toBe(false)
+    expect(config.tools?.task).toBe(false)
+    expect(config.tools?.call_weave_agent).toBe(false)
+    expect(config.temperature).toBe(0.1)
+  })
+
+  it("Warp agent prompt contains security audit guidelines", () => {
+    const config = createWarpAgent("test-model")
+    const prompt = config.prompt as string
+
+    expect(prompt).toContain("blocking issues")
+    expect(prompt).toContain("APPROVE")
+    expect(prompt).toContain("REJECT")
+    expect(prompt).toContain("SecurityReview")
+    expect(prompt).toContain("SpecificationCompliance")
+    // Skeptical bias (opposite of Weft)
+    expect(prompt).toContain("REJECT by default")
+  })
+
+  it("Warp agent prompt contains spec reference table", () => {
+    const config = createWarpAgent("test-model")
+    const prompt = config.prompt as string
+
+    expect(prompt).toContain("RFC 6749")
+    expect(prompt).toContain("RFC 7636")
+    expect(prompt).toContain("JWT")
+    expect(prompt).toContain("OIDC")
+    expect(prompt).toContain("WebAuthn")
+  })
+
+  it("tool permission system blocks Warp from writing", () => {
+    const permissions = createToolPermissions({
+      warp: { write: false, edit: false, task: false, call_weave_agent: false },
+    })
+
+    expect(permissions.isToolAllowed("warp", "write")).toBe(false)
+    expect(permissions.isToolAllowed("warp", "edit")).toBe(false)
+    expect(permissions.isToolAllowed("warp", "task")).toBe(false)
+    expect(permissions.isToolAllowed("warp", "call_weave_agent")).toBe(false)
+    // Read tools are not restricted
+    expect(permissions.isToolAllowed("warp", "read")).toBe(true)
+    expect(permissions.isToolAllowed("warp", "glob")).toBe(true)
+  })
+
+  it("verification reminder references both weft and warp", () => {
+    const result = buildVerificationReminder({
+      planName: "auth-feature",
+      progress: { total: 3, completed: 3 },
+    })
+
+    expect(result.verificationPrompt).not.toBeNull()
+    expect(result.verificationPrompt!.toLowerCase()).toContain("weft")
+    expect(result.verificationPrompt!.toLowerCase()).toContain("warp")
   })
 })
 

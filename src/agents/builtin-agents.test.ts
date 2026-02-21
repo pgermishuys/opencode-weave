@@ -1,15 +1,15 @@
 import { describe, it, expect } from "bun:test"
 import { createBuiltinAgents, AGENT_METADATA } from "./builtin-agents"
 
-const ALL_AGENT_NAMES = ["loom", "tapestry", "shuttle", "pattern", "thread", "spindle", "weft"]
+const ALL_AGENT_NAMES = ["loom", "tapestry", "shuttle", "pattern", "thread", "spindle", "weft", "warp"]
 
 describe("createBuiltinAgents", () => {
-  it("returns all 7 agents when none disabled", () => {
+  it("returns all 8 agents when none disabled", () => {
     const agents = createBuiltinAgents()
     for (const name of ALL_AGENT_NAMES) {
       expect(agents[name]).toBeDefined()
     }
-    expect(Object.keys(agents)).toHaveLength(7)
+    expect(Object.keys(agents)).toHaveLength(8)
   })
 
   it("excludes disabled agents", () => {
@@ -17,7 +17,7 @@ describe("createBuiltinAgents", () => {
     expect(agents["spindle"]).toBeUndefined()
     expect(agents["thread"]).toBeUndefined()
     expect(agents["loom"]).toBeDefined()
-    expect(Object.keys(agents)).toHaveLength(5)
+    expect(Object.keys(agents)).toHaveLength(6)
   })
 
   it("each agent has a model string", () => {
@@ -83,6 +83,7 @@ describe("createBuiltinAgents", () => {
       thread: "subagent",
       spindle: "subagent",
       weft: "subagent",
+      warp: "subagent",
     }
     for (const name of ALL_AGENT_NAMES) {
       const agent = agents[name]
@@ -93,7 +94,7 @@ describe("createBuiltinAgents", () => {
 })
 
 describe("AGENT_METADATA", () => {
-  it("has entries for all 7 agents", () => {
+  it("has entries for all 8 agents", () => {
     for (const name of ALL_AGENT_NAMES) {
       expect(AGENT_METADATA[name as keyof typeof AGENT_METADATA]).toBeDefined()
     }

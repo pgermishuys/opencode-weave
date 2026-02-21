@@ -13,6 +13,7 @@ graph TD
     Thread["🔍 Thread<br/>(Codebase Explorer)"]
     Spindle["🌐 Spindle<br/>(External Researcher)"]
     Weft["✅ Weft<br/>(Reviewer/Auditor)"]
+    Warp["🔒 Warp<br/>(Security Auditor)"]
     Shuttle["🚀 Shuttle<br/>(Category Specialist)"]
 
     User -->|messages| Loom
@@ -22,6 +23,7 @@ graph TD
     Loom -->|"explore codebase"| Thread
     Loom -->|"research docs/APIs"| Spindle
     Loom -->|"review work/plans"| Weft
+    Loom -->|"security audit"| Warp
     Loom -->|"domain-specific tasks"| Shuttle
     Loom -.->|"user runs /start-work"| Tapestry
 
@@ -31,6 +33,7 @@ graph TD
     style Thread fill:#27AE60,color:#fff
     style Spindle fill:#F39C12,color:#fff
     style Weft fill:#1ABC9C,color:#fff
+    style Warp fill:#E74C3C,color:#fff
     style Shuttle fill:#E67E22,color:#fff
 ```
 
@@ -42,6 +45,7 @@ graph TD
 | Loom | Spindle | Need external documentation or research |
 | Loom | Pattern | Complex task needs a structured plan before execution |
 | Loom | Weft | Work or plan needs review before shipping |
+| Loom | Warp | Security-relevant changes need auditing |
 | Loom | Shuttle | Domain-specific task with category config |
 | Loom | Tapestry | *(indirect)* User runs `/start-work` to begin plan execution |
 | Tapestry | *(none)* | Tapestry never delegates — executes directly |
@@ -49,6 +53,7 @@ graph TD
 | Thread | *(none)* | Read-only exploration, no delegation |
 | Spindle | *(none)* | Read-only research, no delegation |
 | Weft | *(none)* | Read-only review, no delegation |
+| Warp | *(none)* | Read-only security audit, no delegation |
 
 ## Workflow A: Plan-Based Execution (Primary Flow)
 

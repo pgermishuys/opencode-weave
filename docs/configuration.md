@@ -115,6 +115,7 @@ Valid agent names for the `agents` config key:
 | `thread` | thread | Codebase explorer |
 | `spindle` | spindle | External researcher |
 | `weft` | weft | Reviewer/auditor |
+| `warp` | warp | Security auditor |
 | `shuttle` | shuttle | Category specialist |
 
 > **Note**: Loom and Tapestry get title-cased display names with role descriptions. Subagents keep lowercase names.
@@ -191,6 +192,7 @@ flowchart TD
 | Thread | anthropic → openai → google |
 | Spindle | anthropic → openai → google |
 | Weft | anthropic → openai → google |
+| Warp | anthropic → openai → google |
 | Shuttle | *(uses category model or default)* |
 
 ## Examples

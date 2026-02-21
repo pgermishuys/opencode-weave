@@ -40,7 +40,7 @@ Weave is a lean OpenCode plugin with multi-agent orchestration. It provides a co
 
 ## Overview
 
-- **7 specialized agents** with weaving-themed names designed for specific roles in the development lifecycle.
+- **8 specialized agents** with weaving-themed names designed for specific roles in the development lifecycle.
 - **Category-based task dispatch** to route work to domain-optimized models and configurations.
 - **Skill system** for injecting domain-specific expertise that modifies agent behavior via prompt orchestration.
 - **Background agent management** for parallel asynchronous sub-agent execution with concurrency control.
@@ -59,6 +59,7 @@ Weave is a lean OpenCode plugin with multi-agent orchestration. It provides a co
 | **Thread** | codebase explorer | subagent | Fast, read-only codebase navigation and analysis using grep, glob, and read tools. |
 | **Spindle** | external researcher | subagent | Performs external documentation lookups and reference searches, providing synthesized answers with source citations. |
 | **Weft** | reviewer/auditor | subagent | Reviews completed work and plans with a critical but fair eye, rejecting only for true blocking issues. |
+| **Warp** | security auditor | subagent | Audits code changes for security vulnerabilities and specification compliance with a skeptical bias. |
 
 ### Agent Modes
 
@@ -73,6 +74,8 @@ Weave is a lean OpenCode plugin with multi-agent orchestration. It provides a co
 **Pattern** is the strategic planner. When a task requires 5+ steps or involves architectural decisions, Loom delegates to Pattern, which researches the codebase (via Thread) and external docs (via Spindle), then produces a structured implementation plan saved to `.weave/plans/{name}.md`. Plans use `- [ ]` checkboxes for every actionable task. Pattern never writes code — only plans.
 
 **Weft** is the reviewer and auditor. It validates plans before execution and reviews completed work after implementation. Weft is approval-biased and only rejects for true blocking issues (max 3 per review). It checks that file references are correct, tasks have sufficient context, implementations match requirements, and no stubs or TODOs are left behind. Weft is read-only.
+
+**Warp** is the security and specification compliance auditor. It reviews code changes for security vulnerabilities (injection, auth bypass, token handling, crypto weaknesses) and verifies compliance with standards like OAuth2, OIDC, WebAuthn, and JWT. Warp has a skeptical bias — unlike Weft, it rejects by default when security patterns are detected. It self-triages to fast-exit on non-security changes, and can webfetch RFCs for verification. Warp is read-only.
 
 **Tapestry** is the execution engine. Activated by the `/start-work` command, it reads a plan from `.weave/plans/` and works through tasks sequentially — writing code, running commands, verifying output, and marking checkboxes as it goes. Tapestry cannot spawn subagents; it focuses on heads-down implementation. If interrupted, it resumes from the first unchecked task.
 

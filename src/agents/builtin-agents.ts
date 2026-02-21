@@ -6,6 +6,7 @@ import { createPatternAgent } from "./pattern"
 import { createThreadAgent } from "./thread"
 import { createSpindleAgent } from "./spindle"
 import { createWeftAgent } from "./weft"
+import { createWarpAgent } from "./warp"
 import { resolveAgentModel } from "./model-resolution"
 import { buildAgent } from "./agent-builder"
 import type { AgentFactory, AgentPromptMetadata, WeaveAgentName } from "./types"
@@ -31,6 +32,7 @@ const AGENT_FACTORIES: Record<WeaveAgentName, AgentFactory> = {
   thread: createThreadAgent,
   spindle: createSpindleAgent,
   weft: createWeftAgent,
+  warp: createWarpAgent,
 }
 
 export const AGENT_METADATA: Record<WeaveAgentName, AgentPromptMetadata> = {
@@ -115,6 +117,26 @@ export const AGENT_METADATA: Record<WeaveAgentName, AgentPromptMetadata> = {
       "Simple single-file changes",
       "Trivial fixes (typos, formatting)",
       "When user explicitly wants to skip review",
+    ],
+  },
+  warp: {
+    category: "advisor",
+    cost: "EXPENSIVE",
+    triggers: [
+      { domain: "Security Review", trigger: "After changes touching auth, crypto, tokens, or input handling" },
+      { domain: "Spec Compliance", trigger: "When implementing OAuth, OIDC, WebAuthn, JWT, or similar protocols" },
+    ],
+    useWhen: [
+      "After implementing authentication or authorization logic",
+      "When adding/modifying token handling, JWT, or session management",
+      "After changes to cryptographic operations or key management",
+      "When implementing OAuth2, OIDC, WebAuthn, or similar specs",
+      "After modifying CORS, CSP, or security headers",
+    ],
+    avoidWhen: [
+      "Pure documentation or README changes",
+      "CSS/styling-only changes with no security implications",
+      "Test-only changes that don't modify security test assertions",
     ],
   },
 }

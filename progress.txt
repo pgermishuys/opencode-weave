@@ -19,3 +19,38 @@ Completed all 6 tasks in the `todowrite-sidebar-integration` plan:
 All 404 tests pass. Build succeeds.
 
 **Next**: This plan is complete. No follow-on work identified.
+
+---
+
+### 2026-02-21 — warp-agent plan (Tapestry)
+
+Completed all 15 tasks in the `.weave/plans/warp-agent.md` plan — added **Warp** as the 8th built-in agent (security & specification compliance auditor).
+
+**New files:**
+- `src/agents/warp/default.ts` — full system prompt (Role, Triage, SecurityReview, SpecificationCompliance, Verdict, SkepticalBias, Constraints)
+- `src/agents/warp/index.ts` — factory function following Weft pattern
+- `src/agents/warp/index.test.ts` — 15 unit tests
+
+**Modified source files:**
+- `src/agents/types.ts` — added `"warp"` to `WeaveAgentName` union
+- `src/agents/builtin-agents.ts` — imported and registered `createWarpAgent`
+- `src/agents/model-resolution.ts` — Sonnet-class fallback chain for warp
+- `src/agents/dynamic-prompt-builder.ts` — added `buildWarpSection` function
+- `src/agents/loom/default.ts` — Warp added to Delegation and ReviewWorkflow sections
+- `src/hooks/verification-reminder.ts` — Warp reference for security-relevant changes
+- `src/shared/agent-display-names.ts` — added `warp: "warp"` entry
+
+**Updated tests:** builtin-agents.test.ts, dynamic-prompt-builder.test.ts, agent-display-names.test.ts, workflow.test.ts, integration.test.ts (all counts updated from 7→8 agents).
+
+**Updated docs:** README.md, docs/architecture.md, docs/agent-interactions.md, docs/configuration.md.
+
+Key design decisions:
+- Warp is **read-only** (write, edit, task, call_weave_agent all denied)
+- **Skeptical bias** — REJECT by default when security patterns detected
+- **Sonnet-class model** (needs reasoning power for spec analysis)
+- **Self-triaging** — fast-exits with [APPROVE] if no security-relevant changes detected
+- Three-layer spec knowledge: built-in LLM → webfetch RFC verification → optional `.weave/specs.json`
+
+All 427 tests pass. Build and typecheck clean (zero warnings).
+
+**Next**: Warp is fully integrated. Future work could add `.weave/specs.json` support to the config schema if project-level spec registries are needed.

@@ -51,11 +51,11 @@ describe("getAgentConfigKey", () => {
 })
 
 describe("AGENT_DISPLAY_NAMES", () => {
-  it("has entries for all 6 built-in agents", () => {
-    const expectedKeys = ["loom", "tapestry", "shuttle", "pattern", "thread", "spindle"]
+  it("has entries for all 7 built-in agents with display names", () => {
+    const expectedKeys = ["loom", "tapestry", "shuttle", "pattern", "thread", "spindle", "warp"]
     for (const key of expectedKeys) {
       expect(AGENT_DISPLAY_NAMES[key]).toBeDefined()
     }
-    expect(Object.keys(AGENT_DISPLAY_NAMES)).toHaveLength(6)
+    expect(Object.keys(AGENT_DISPLAY_NAMES)).toHaveLength(7)
   })
 })

@@ -13,6 +13,7 @@ export const AGENT_DISPLAY_NAMES: Record<string, string> = {
   pattern: "pattern",
   thread: "thread",
   spindle: "spindle",
+  warp: "warp",
 }
 
 /**

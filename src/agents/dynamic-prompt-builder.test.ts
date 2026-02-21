@@ -6,6 +6,7 @@ import {
   buildThreadSection,
   buildSpindleSection,
   buildWeftSection,
+  buildWarpSection,
   buildDelegationTable,
   buildCategorySkillsDelegationGuide,
 } from "./dynamic-prompt-builder"
@@ -172,6 +173,33 @@ describe("buildWeftSection", () => {
     const result = buildWeftSection(agents)
     expect(result).toContain("Weft Agent")
     expect(result).toContain("Quality Gate")
+  })
+})
+
+describe("buildWarpSection", () => {
+  it("returns empty string when no warp agent present", () => {
+    const agents = [makeAgent("loom")]
+    expect(buildWarpSection(agents)).toBe("")
+  })
+
+  it("returns section with useWhen and avoidWhen when warp agent present", () => {
+    const agents = [makeAgent("warp", {
+      useWhen: ["After implementing authentication or authorization logic", "When implementing OAuth2, OIDC, WebAuthn"],
+      avoidWhen: ["Pure documentation or README changes", "CSS/styling-only changes"],
+    })]
+    const result = buildWarpSection(agents)
+    expect(result).toContain("After implementing authentication or authorization logic")
+    expect(result).toContain("Pure documentation or README changes")
+  })
+
+  it("section contains Warp Agent and Security Gate", () => {
+    const agents = [makeAgent("warp", {
+      useWhen: ["After adding auth logic"],
+      avoidWhen: ["Documentation only"],
+    })]
+    const result = buildWarpSection(agents)
+    expect(result).toContain("Warp Agent")
+    expect(result).toContain("Security Gate")
   })
 })
 

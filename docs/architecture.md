@@ -1,6 +1,6 @@
 # Weave Architecture
 
-Weave is a OpenCode plugin that orchestrates multi-agent AI workflows. It provides **7 specialized agents**, a **plan-based execution model**, a **hook-driven governance system**, and a **layered configuration pipeline**.
+Weave is a OpenCode plugin that orchestrates multi-agent AI workflows. It provides **8 specialized agents**, a **plan-based execution model**, a **hook-driven governance system**, and a **layered configuration pipeline**.
 
 ## High-Level Overview
 
@@ -59,7 +59,7 @@ sequenceDiagram
     Note right of W: Load skills, create resolver
 
     W->>AB: createManagers → createBuiltinAgents()
-    loop For each of 7 agents
+    loop For each of 8 agents
         AB->>AB: resolveAgentModel()
         AB->>AB: factory(model) → AgentConfig
         AB->>AB: Apply category/skill overrides
@@ -81,7 +81,7 @@ sequenceDiagram
 | Plugin Interface | `src/plugin/plugin-interface.ts` | 8 OpenCode lifecycle handlers |
 | Agent Definitions | `src/agents/{name}/default.ts` | Per-agent prompts & configurations |
 | Agent Builder | `src/agents/agent-builder.ts` | Model resolution, factory, skill injection |
-| Agent Registry | `src/agents/builtin-agents.ts` | 7 agent registrations with metadata |
+| Agent Registry | `src/agents/builtin-agents.ts` | 8 agent registrations with metadata |
 | Hooks | `src/hooks/*.ts` | Lifecycle callbacks for governance |
 | Work State | `src/features/work-state/` | Plan progress tracking & resumption |
 | Commands | `src/features/builtin-commands/` | `/start-work` command |
@@ -94,7 +94,7 @@ sequenceDiagram
 
 ## The Agent System
 
-Weave defines **7 specialized agents**, each with a distinct role and set of constraints:
+Weave defines **8 specialized agents**, each with a distinct role and set of constraints:
 
 | Agent | Role | Mode | Cost | Tool Access |
 |-------|------|------|------|-------------|
@@ -105,11 +105,12 @@ Weave defines **7 specialized agents**, each with a distinct role and set of con
 | **Thread** | Codebase explorer — fast search & analysis | subagent | free | Read-only |
 | **Spindle** | External researcher — docs & web lookup | subagent | free | Read-only |
 | **Weft** | Reviewer/auditor — approves or rejects work | subagent | free | Read-only |
+| **Warp** | Security auditor — flags vulnerabilities and spec violations | subagent | expensive | Read-only |
 
 ### Agent Modes
 
 - **primary**: Respects the user's UI-selected model (Loom, Tapestry)
-- **subagent**: Uses its own fallback chain, ignores UI selection (Pattern, Thread, Spindle, Weft)
+- **subagent**: Uses its own fallback chain, ignores UI selection (Pattern, Thread, Spindle, Weft, Warp)
 - **all**: Available in both primary and subagent contexts (Shuttle)
 
 ### Model Resolution Priority
@@ -126,7 +127,8 @@ Weave defines **7 specialized agents**, each with a distinct role and set of con
 
 - **Pattern** can only write `.md` files inside `.weave/` (enforced by hook)
 - **Tapestry** never spawns subagents — executes tasks directly
-- **Thread / Spindle / Weft** are read-only (write/edit tools disabled)
+- **Thread / Spindle / Weft / Warp** are read-only (write/edit tools disabled)
+- **Warp** has a skeptical security bias (rejects by default on security patterns)
 - **Loom** is the only agent that delegates to all others
 
 ## The Hook System
