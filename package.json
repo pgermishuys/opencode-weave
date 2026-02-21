@@ -1,7 +1,14 @@
 {
-  "name": "weave-opencode",
+  "name": "@pgermishuys/weave",
   "version": "0.1.0",
   "description": "Weave — lean OpenCode plugin with multi-agent orchestration",
+  "author": "Weave",
+  "license": "MIT",
+  "homepage": "https://github.com/pgermishuys/weave#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pgermishuys/weave.git"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -11,8 +18,11 @@
       "import": "./dist/index.js"
     }
   },
+  "files": [
+    "dist/"
+  ],
   "scripts": {
-    "build": "bun run script/build.ts",
+    "build": "bun run script/build.ts && tsc --emitDeclarationOnly",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
@@ -23,16 +33,19 @@
     "agents",
     "weave"
   ],
-  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
   "dependencies": {
     "@opencode-ai/plugin": "^1.1.19",
     "@opencode-ai/sdk": "^1.1.19",
-    "bun": "^1.3.9",
     "jsonc-parser": "^3.3.1",
     "picocolors": "^1.1.1",
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "bun": "^1.3.9",
     "bun-types": "^1.3.6",
     "typescript": "^5.7.3"
   }

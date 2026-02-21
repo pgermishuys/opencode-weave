@@ -5,3 +5,6 @@ node_modules/
 *.log
 bun.lockb
 reference/
+
+# npm auth (never commit tokens)
+.npmrc.local

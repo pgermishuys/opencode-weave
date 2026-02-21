@@ -109,32 +109,66 @@ For simple requests — single-file fixes, quick questions, small edits — Loom
 
 ## Installation
 
+This package is published to [GitHub Packages](https://github.com/features/packages). You need to configure your package manager to use GitHub Packages for the `@pgermishuys` scope.
+
 ### Prerequisites
 
-- OpenCode
+- [OpenCode](https://opencode.ai)
 - Bun or Node.js
+- A GitHub personal access token (PAT) with `read:packages` scope — [create one here](https://github.com/settings/tokens/new?scopes=read:packages)
 
-### Step 1: Install
+### Step 1: Configure authentication
 
-```bash
-bun add weave-opencode
-# or
-npm install weave-opencode
+**Option A: Using `.npmrc`** (works with npm, Bun, yarn, pnpm)
+
+Create or edit `~/.npmrc` (your home directory, NOT the project):
+
+```
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_PAT
+@pgermishuys:registry=https://npm.pkg.github.com
 ```
 
-### Step 2: Register in opencode.json
+**Option B: Using `bunfig.toml`** (Bun only)
+
+Create or edit `~/.bunfig.toml`:
+
+```toml
+[install.scopes]
+"@pgermishuys" = { token = "$GITHUB_TOKEN", url = "https://npm.pkg.github.com" }
+```
+
+Then set the environment variable: `export GITHUB_TOKEN=your_pat_here`
+
+### Step 2: Install
+
+```bash
+bun add @pgermishuys/weave
+# or
+npm install @pgermishuys/weave
+```
+
+### Step 3: Register in opencode.json
 
 Add the plugin to your `opencode.json` file:
 
 ```json
 {
-  "plugin": ["weave-opencode"]
+  "plugin": ["@pgermishuys/weave"]
 }
 ```
 
-### Step 3: Restart OpenCode
+### Step 4: Restart OpenCode
 
 The plugin loads automatically upon restart and works with zero configuration out of the box.
+
+### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| `401 Unauthorized` | Your PAT is missing or expired. Regenerate it with `read:packages` scope. |
+| `404 Not Found` | The scope registry isn't configured. Ensure your `.npmrc` or `bunfig.toml` maps `@pgermishuys` to `https://npm.pkg.github.com`. |
+| `ENEEDAUTH` | npm can't find credentials. Check that `~/.npmrc` has the `_authToken` line. |
+| Package not found after publish | GitHub Packages can take 1-2 minutes to propagate. Wait and retry. |
 
 ## Configuration
 

@@ -53,10 +53,10 @@ checks.push(
 
 // 6. 6-agents
 checks.push(
-  runCheck("6-agents", [
+  runCheck("7-agents", [
     "bun",
     "-e",
-    "import { createBuiltinAgents } from './src/agents/builtin-agents.ts'; const a = createBuiltinAgents(); process.exit(Object.keys(a).length === 6 ? 0 : 1)",
+    "import { createBuiltinAgents } from './src/agents/builtin-agents.ts'; const a = createBuiltinAgents(); process.exit(Object.keys(a).length === 7 ? 0 : 1)",
   ])
 )
 
