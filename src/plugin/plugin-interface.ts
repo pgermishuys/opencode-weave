@@ -128,8 +128,8 @@ export function createPluginInterface(args: {
 
       // Work continuation: nudge idle sessions with active plans
       if (hooks.workContinuation && event.type === "session.idle") {
-        const evt = event as { type: string; properties: { info: { id: string } } }
-        const sessionId = evt.properties?.info?.id ?? ""
+        const evt = event as { type: string; properties: { sessionID: string } }
+        const sessionId = evt.properties?.sessionID ?? ""
         if (sessionId) {
           const result = hooks.workContinuation(sessionId)
           if (result.continuationPrompt) {

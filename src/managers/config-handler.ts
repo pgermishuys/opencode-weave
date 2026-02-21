@@ -129,7 +129,7 @@ export class ConfigHandler {
 
   /** Phase 5: Return builtin commands with agent fields remapped to display names */
   private applyCommandConfig(): Record<string, unknown> {
-    const commands = structuredClone(BUILTIN_COMMANDS) as Record<string, Record<string, unknown>>
+    const commands = structuredClone(BUILTIN_COMMANDS) as unknown as Record<string, Record<string, unknown>>
     for (const cmd of Object.values(commands)) {
       if (cmd?.agent && typeof cmd.agent === "string") {
         cmd.agent = getAgentDisplayName(cmd.agent)
