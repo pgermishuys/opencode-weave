@@ -6,6 +6,38 @@
 
 Weave is a lean OpenCode plugin with multi-agent orchestration. It provides a cohesive framework for weaving agents, tools, and skills into structured workflows. By delegating complex tasks to specialized agents and monitoring execution state through hooks, Weave ensures reliable and efficient project development.
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Agents](#agents)
+  - [Agent Modes](#agent-modes)
+  - [Agent Details](#agent-details)
+- [Workflow](#workflow)
+  - [When the Full Workflow Is Used](#when-the-full-workflow-is-used)
+  - [1. Plan](#1-plan)
+  - [2. Review (Optional)](#2-review-optional)
+  - [3. Execute](#3-execute)
+  - [Resuming Interrupted Work](#resuming-interrupted-work)
+  - [Quick Tasks (No Plan Needed)](#quick-tasks-no-plan-needed)
+- [Installation](#installation)
+  - [Prerequisites](#prerequisites)
+  - [Step 1: Configure authentication](#step-1-configure-authentication)
+  - [Step 2: Install](#step-2-install)
+  - [Step 3: Register in opencode.json](#step-3-register-in-opencodejson)
+  - [Step 4: Restart OpenCode](#step-4-restart-opencode)
+  - [Troubleshooting](#troubleshooting)
+- [Uninstalling](#uninstalling)
+- [Configuration](#configuration)
+  - [Example Configuration](#example-configuration)
+  - [Configuration Fields](#configuration-fields)
+- [Features](#features)
+  - [Hooks](#hooks)
+  - [Skills](#skills)
+  - [Background Agents](#background-agents)
+  - [Tool Permissions](#tool-permissions)
+- [Development](#development)
+- [License](#license)
+
 ## Overview
 
 - **7 specialized agents** with weaving-themed names designed for specific roles in the development lifecycle.
@@ -169,6 +201,52 @@ The plugin loads automatically upon restart and works with zero configuration ou
 | `404 Not Found` | The scope registry isn't configured. Ensure your `.npmrc` or `bunfig.toml` maps `@pgermishuys` to `https://npm.pkg.github.com`. |
 | `ENEEDAUTH` | npm can't find credentials. Check that `~/.npmrc` has the `_authToken` line. |
 | Package not found after publish | GitHub Packages can take 1-2 minutes to propagate. Wait and retry. |
+
+## Uninstalling
+
+To fully remove the Weave plugin from your project:
+
+### Step 1: Remove from opencode.json
+
+Delete the `@pgermishuys/weave` entry from the `plugin` array in your `opencode.json`:
+
+```json
+{
+  "plugin": []
+}
+```
+
+### Step 2: Uninstall the package
+
+```bash
+bun remove @pgermishuys/weave
+# or
+npm uninstall @pgermishuys/weave
+```
+
+### Step 3: Clean up project artifacts (optional)
+
+Weave may have created plan and state files during usage. Remove them if no longer needed:
+
+```bash
+rm -rf .weave/
+```
+
+You can also remove any project-level configuration if present:
+
+```bash
+rm -f .opencode/weave-opencode.jsonc .opencode/weave-opencode.json
+```
+
+### Step 4: Clean up user-level configuration (optional)
+
+If you no longer use Weave in any project, remove the global configuration:
+
+```bash
+rm -f ~/.config/opencode/weave-opencode.jsonc ~/.config/opencode/weave-opencode.json
+```
+
+You may also remove the GitHub Packages authentication entries from `~/.npmrc` or `~/.bunfig.toml` if they were added solely for Weave.
 
 ## Configuration
 
