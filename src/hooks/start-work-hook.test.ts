@@ -79,6 +79,7 @@ describe("handleStartWork", () => {
 
       expect(result.contextInjection).toContain("Starting Plan: my-feature")
       expect(result.contextInjection).toContain("0/2 tasks completed")
+      expect(result.contextInjection).toContain("SIDEBAR TODOS")
 
       const state = readWorkState(testDir)
       expect(state).not.toBeNull()
@@ -169,6 +170,7 @@ describe("handleStartWork", () => {
 
       expect(result.contextInjection).toContain("Resuming Plan: my-plan")
       expect(result.contextInjection).toContain("1/2 tasks completed")
+      expect(result.contextInjection).toContain("SIDEBAR TODOS")
 
       const updated = readWorkState(testDir)
       expect(updated!.session_ids).toContain("sess_new")

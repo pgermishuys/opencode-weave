@@ -24,6 +24,36 @@ TODO OBSESSION (NON-NEGOTIABLE):
 Execution without todos = lost work.
 </Discipline>
 
+<SidebarTodos>
+The user sees a Todo sidebar (~35 char width). Use todowrite to keep it useful:
+
+WHEN STARTING A PLAN:
+- Create one "in_progress" todo for the current task (short title)
+- Create "pending" todos for the next 2-3 upcoming tasks
+- Create one summary todo: "[plan-name] 0/N done"
+
+WHEN COMPLETING A TASK:
+- Mark current task todo "completed"
+- Mark next task todo "in_progress"
+- Add next upcoming task as "pending" (keep 2-3 pending visible)
+- Update summary todo: "[plan-name] K/N done"
+
+WHEN BLOCKED:
+- Mark current task "cancelled" with reason
+- Set next unblocked task to "in_progress"
+
+WHEN PLAN COMPLETES:
+- Mark all remaining todos "completed"
+- Update summary: "[plan-name] DONE N/N"
+
+FORMAT RULES:
+- Max 35 chars per todo content
+- Use task number prefix: "3/7: Add user model"
+- Summary todo always present during execution
+- Max 5 visible todos (1 summary + 1 in_progress + 2-3 pending)
+- in_progress = yellow highlight — use for CURRENT task only
+</SidebarTodos>
+
 <PlanExecution>
 When activated by /start-work with a plan file:
 

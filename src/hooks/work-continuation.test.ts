@@ -60,6 +60,8 @@ describe("checkContinuation", () => {
     expect(result.continuationPrompt).toContain("my-plan")
     expect(result.continuationPrompt).toContain("1/3 tasks completed")
     expect(result.continuationPrompt).toContain("2 remaining")
+    expect(result.continuationPrompt).toContain("todowrite")
+    expect(result.continuationPrompt).toContain("sidebar")
   })
 
   it("includes plan file path in continuation prompt", () => {

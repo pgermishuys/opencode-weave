@@ -41,9 +41,10 @@ export function checkContinuation(input: ContinuationInput): ContinuationResult 
 **Progress**: ${progress.completed}/${progress.total} tasks completed (${remaining} remaining)
 
 1. Read the plan file NOW to check exact current progress
-2. Find the first unchecked \`- [ ]\` task
-3. Execute it, verify it, mark \`- [ ]\` → \`- [x]\`
-4. Continue to the next task
-5. Do not stop until all tasks are complete`,
+2. Use todowrite to restore sidebar: summary todo "${state.plan_name} ${progress.completed}/${progress.total}" (in_progress) + next task (in_progress) + 2-3 upcoming (pending). Max 35 chars each.
+3. Find the first unchecked \`- [ ]\` task
+4. Execute it, verify it, mark \`- [ ]\` → \`- [x]\`
+5. Update sidebar todos as you complete tasks
+6. Do not stop until all tasks are complete`,
   }
 }

@@ -40,6 +40,7 @@ describe("checkContextWindow", () => {
     expect(result.usagePct).toBeCloseTo(0.8)
     expect(result.message).toBeDefined()
     expect(result.message).toContain("80%")
+    expect(result.message).toContain("todowrite")
   })
 
   // ── recover action ───────────────────────────────────────────────────────
@@ -57,6 +58,7 @@ describe("checkContextWindow", () => {
     expect(result.usagePct).toBeCloseTo(0.95)
     expect(result.message).toBeDefined()
     expect(result.message).toContain("IMMEDIATE ACTION")
+    expect(result.message).toContain("todowrite")
   })
 
   it("returns 'recover' at 100% usage with usagePct close to 1.0", () => {

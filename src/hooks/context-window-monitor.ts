@@ -40,17 +40,23 @@ export function checkContextWindow(
 }
 
 function buildWarningMessage(usagePct: number): string {
-  return `⚠️ Context window at ${(usagePct * 100).toFixed(0)}%. Consider wrapping up the current task or spawning a background agent for remaining work.`
+  const pct = (usagePct * 100).toFixed(0)
+  return `⚠️ Context window at ${pct}%. Consider wrapping up the current task or spawning a background agent for remaining work.
+
+Update the sidebar: use todowrite to create or update a todo (in_progress, high priority): "Context: ${pct}% — wrap up soon"`
 }
 
 function buildRecoveryMessage(state: ContextWindowState, usagePct: number): string {
-  return `🚨 Context window at ${(usagePct * 100).toFixed(0)}% (${state.usedTokens}/${state.maxTokens} tokens).
+  const pct = (usagePct * 100).toFixed(0)
+  return `🚨 Context window at ${pct}% (${state.usedTokens}/${state.maxTokens} tokens).
 
 IMMEDIATE ACTION REQUIRED:
 1. Save your current progress and findings to a notepad or file
 2. Summarize completed work and remaining tasks
 3. If work remains: spawn a background agent or ask the user to continue in a new session
-4. Do NOT attempt large new tasks — wrap up gracefully`
+4. Do NOT attempt large new tasks — wrap up gracefully
+
+Update the sidebar: use todowrite to create a todo (in_progress, high priority): "CONTEXT ${pct}% — save & stop"`
 }
 
 export function createContextWindowMonitor(thresholds?: ContextWindowThresholds) {

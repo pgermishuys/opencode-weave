@@ -1,0 +1,21 @@
+## Progress Log
+
+### 2026-02-21 — todowrite-sidebar-integration plan (Tapestry)
+
+Completed all 6 tasks in the `todowrite-sidebar-integration` plan:
+
+1. **Tapestry prompt** (`src/agents/tapestry/default.ts`): Added `<SidebarTodos>` section with concrete instructions for when/how to write sidebar todos during plan execution (STARTING, COMPLETING, BLOCKED, COMPLETES states). Max 35 chars, max 5 todos, `in_progress` for current task only.
+
+2. **Loom prompt** (`src/agents/loom/default.ts`): Added `<SidebarTodos>` section with delegation-aware todowrite instructions (PLANNING, DELEGATING, QUICK TASKS states). Agent-prefixed delegations, clear completion signaling.
+
+3. **start-work-hook** (`src/hooks/start-work-hook.ts`): Enhanced `buildFreshContext()` and `buildResumeContext()` to inject `**SIDEBAR TODOS**` bootstrapping instructions. Resume context includes remaining task count.
+
+4. **context-window-monitor** (`src/hooks/context-window-monitor.ts`): Warning and recovery messages now include `todowrite` instructions to surface context alerts in the sidebar with `in_progress` status for visual prominence.
+
+5. **work-continuation** (`src/hooks/work-continuation.ts`): Continuation prompt now instructs the agent to restore sidebar state via `todowrite` (summary + next task + 2-3 upcoming) before resuming work.
+
+6. **Tests updated**: Added "SIDEBAR TODOS" assertions to start-work-hook tests, "todowrite" assertions to context-window-monitor and work-continuation tests.
+
+All 404 tests pass. Build succeeds.
+
+**Next**: This plan is complete. No follow-on work identified.
