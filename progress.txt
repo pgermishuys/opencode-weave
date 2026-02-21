@@ -54,3 +54,16 @@ Key design decisions:
 All 427 tests pass. Build and typecheck clean (zero warnings).
 
 **Next**: Warp is fully integrated. Future work could add `.weave/specs.json` support to the config schema if project-level spec registries are needed.
+
+---
+
+### 2026-02-21 — Release v0.3.0
+
+Released **v0.3.0** to GitHub: https://github.com/pgermishuys/weave/releases/tag/v0.3.0
+
+- Bumped `package.json` version from `0.2.0` → `0.3.0`
+- Created git tag `v0.3.0` and pushed to remote
+- Created GitHub release with full changelog highlighting the Warp agent addition
+- All 427 tests passing, build clean
+
+**Previous release**: v0.2.0 → **New release**: v0.3.0
