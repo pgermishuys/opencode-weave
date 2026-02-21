@@ -13,51 +13,51 @@ export type AgentModelRequirement = {
 export const AGENT_MODEL_REQUIREMENTS: Record<WeaveAgentName, AgentModelRequirement> = {
   loom: {
     fallbackChain: [
+      { providers: ["github-copilot"], model: "claude-opus-4.6" },
       { providers: ["anthropic"], model: "claude-opus-4" },
       { providers: ["openai"], model: "gpt-5" },
-      { providers: ["google"], model: "gemini-3-pro" },
     ],
   },
   tapestry: {
     fallbackChain: [
+      { providers: ["github-copilot"], model: "claude-sonnet-4.6" },
       { providers: ["anthropic"], model: "claude-sonnet-4" },
       { providers: ["openai"], model: "gpt-5" },
-      { providers: ["google"], model: "gemini-3-pro" },
     ],
   },
   shuttle: {
     fallbackChain: [
+      { providers: ["github-copilot"], model: "claude-sonnet-4.6" },
       { providers: ["anthropic"], model: "claude-sonnet-4" },
       { providers: ["openai"], model: "gpt-5" },
-      { providers: ["google"], model: "gemini-3-pro" },
     ],
   },
   pattern: {
     fallbackChain: [
+      { providers: ["github-copilot"], model: "claude-opus-4.6" },
       { providers: ["anthropic"], model: "claude-opus-4" },
       { providers: ["openai"], model: "gpt-5" },
-      { providers: ["google"], model: "gemini-3-pro" },
     ],
   },
   thread: {
     fallbackChain: [
-      { providers: ["xai"], model: "grok-code-fast" },
+      { providers: ["github-copilot"], model: "claude-haiku-4.5" },
+      { providers: ["anthropic"], model: "claude-haiku-4" },
       { providers: ["google"], model: "gemini-3-flash" },
-      { providers: ["openai"], model: "gpt-5-mini" },
     ],
   },
   spindle: {
     fallbackChain: [
-      { providers: ["zhipu"], model: "glm-4" },
-      { providers: ["google"], model: "gemini-3-flash" },
-      { providers: ["openai"], model: "gpt-5-mini" },
+      { providers: ["github-copilot"], model: "claude-sonnet-4.6" },
+      { providers: ["anthropic"], model: "claude-sonnet-4" },
+      { providers: ["openai"], model: "gpt-5" },
     ],
   },
   weft: {
     fallbackChain: [
-      { providers: ["anthropic"], model: "claude-opus-4" },
-      { providers: ["openai"], model: "gpt-5" },
-      { providers: ["google"], model: "gemini-3-pro" },
+      { providers: ["github-copilot"], model: "claude-haiku-4.5" },
+      { providers: ["anthropic"], model: "claude-haiku-4" },
+      { providers: ["google"], model: "gemini-3-flash" },
     ],
   },
 }
@@ -104,5 +104,5 @@ export function resolveAgentModel(agentName: WeaveAgentName, options: ResolveAge
     return `${first.providers[0]}/${first.model}`
   }
 
-  return "anthropic/claude-opus-4"
+  return "github-copilot/claude-opus-4.6"
 }
