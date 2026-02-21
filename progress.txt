@@ -57,6 +57,20 @@ All 427 tests pass. Build and typecheck clean (zero warnings).
 
 ---
 
+### 2026-02-21 — Release v0.3.1
+
+Released **v0.3.1** to GitHub.
+
+- Optimized agent model assignments for role-appropriate reasoning:
+  - **Weft** (reviewer): haiku-4.5 → sonnet-4.6 — better code review quality
+  - **Warp** (security auditor): sonnet-4.6 → opus-4.6 — deeper security reasoning
+  - **Spindle** (external researcher): sonnet-4.6 → haiku-4.5 — cost efficiency for fetch-and-format tasks
+- All 427 tests passing, build clean
+
+**Previous release**: v0.3.0 → **New release**: v0.3.1
+
+---
+
 ### 2026-02-21 — Release v0.3.0
 
 Released **v0.3.0** to GitHub: https://github.com/pgermishuys/weave/releases/tag/v0.3.0
