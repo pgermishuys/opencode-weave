@@ -8,3 +8,6 @@ reference/
 
 # npm auth (never commit tokens)
 .npmrc.local
+
+# Weave working state (plans, execution state)
+.weave/
