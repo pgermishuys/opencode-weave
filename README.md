@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/weave_logo.png" alt="Weave" width="400">
+</p>
+
 # Weave
 
 Weave is a lean OpenCode plugin with multi-agent orchestration. It provides a cohesive framework for weaving agents, tools, and skills into structured workflows. By delegating complex tasks to specialized agents and monitoring execution state through hooks, Weave ensures reliable and efficient project development.
