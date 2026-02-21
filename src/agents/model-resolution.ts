@@ -48,22 +48,22 @@ export const AGENT_MODEL_REQUIREMENTS: Record<WeaveAgentName, AgentModelRequirem
   },
   spindle: {
     fallbackChain: [
-      { providers: ["github-copilot"], model: "claude-sonnet-4.6" },
-      { providers: ["anthropic"], model: "claude-sonnet-4" },
-      { providers: ["openai"], model: "gpt-5" },
-    ],
-  },
-  weft: {
-    fallbackChain: [
       { providers: ["github-copilot"], model: "claude-haiku-4.5" },
       { providers: ["anthropic"], model: "claude-haiku-4" },
       { providers: ["google"], model: "gemini-3-flash" },
     ],
   },
-  warp: {
+  weft: {
     fallbackChain: [
       { providers: ["github-copilot"], model: "claude-sonnet-4.6" },
       { providers: ["anthropic"], model: "claude-sonnet-4" },
+      { providers: ["openai"], model: "gpt-5" },
+    ],
+  },
+  warp: {
+    fallbackChain: [
+      { providers: ["github-copilot"], model: "claude-opus-4.6" },
+      { providers: ["anthropic"], model: "claude-opus-4" },
       { providers: ["openai"], model: "gpt-5" },
     ],
   },
