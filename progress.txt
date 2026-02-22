@@ -1,5 +1,21 @@
 ## Progress Log
 
+### 2026-02-22 — Fix #15: PlanWorkflow/ReviewWorkflow contradiction (Tapestry)
+
+Fixed a contradiction in `src/agents/loom/default.ts` where the PlanWorkflow marked Weft review as "(optional)" while ReviewWorkflow listed mandatory criteria that clearly applied to multi-step plans touching 3+ files.
+
+**Root cause**: The `REVIEW (optional)` label on line 92 gave Loom an easy out to skip plan review, even when all ReviewWorkflow trigger conditions were met.
+
+**Changes**:
+- `src/agents/loom/default.ts`: Removed "(optional)", added explicit TRIGGER (3+ files OR 5+ tasks → mandatory) and SKIP ONLY IF (user says "skip review") conditions
+- `src/agents/loom/index.test.ts`: Added 3 regression tests asserting the review step is not optional and contains trigger/skip conditions
+
+440 tests pass. Build clean.
+
+**GitHub**: Fixes issue #15
+
+---
+
 ### 2026-02-22 — Add repository dispatch to notify weave-website on publish
 
 Added a step to `publish.yml` that sends a `repository_dispatch` event to `pgermishuys/weave-website` after npm publish. This triggers the website to update its hardcoded version badge in `index.html` and redeploy, so users with JS disabled see the correct version.

@@ -25,4 +25,35 @@ describe("createLoomAgent", () => {
     const config = createLoomAgent("claude-opus-4")
     expect(config.tools).toBeUndefined()
   })
+
+  it("PlanWorkflow review step is not marked optional", () => {
+    const config = createLoomAgent("claude-opus-4")
+    const prompt = config.prompt as string
+    const planWorkflow = prompt.slice(
+      prompt.indexOf("<PlanWorkflow>"),
+      prompt.indexOf("</PlanWorkflow>"),
+    )
+    expect(planWorkflow).not.toContain("(optional)")
+  })
+
+  it("PlanWorkflow specifies review trigger conditions", () => {
+    const config = createLoomAgent("claude-opus-4")
+    const prompt = config.prompt as string
+    const planWorkflow = prompt.slice(
+      prompt.indexOf("<PlanWorkflow>"),
+      prompt.indexOf("</PlanWorkflow>"),
+    )
+    expect(planWorkflow).toContain("3+ files")
+    expect(planWorkflow).toContain("5+ tasks")
+  })
+
+  it("PlanWorkflow specifies the only skip condition", () => {
+    const config = createLoomAgent("claude-opus-4")
+    const prompt = config.prompt as string
+    const planWorkflow = prompt.slice(
+      prompt.indexOf("<PlanWorkflow>"),
+      prompt.indexOf("</PlanWorkflow>"),
+    )
+    expect(planWorkflow).toContain("skip review")
+  })
 })

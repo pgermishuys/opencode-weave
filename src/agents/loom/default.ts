@@ -89,7 +89,9 @@ For complex tasks that benefit from structured planning before execution:
 1. PLAN: Delegate to Pattern to produce a plan saved to \`.weave/plans/{name}.md\`
    - Pattern researches the codebase, produces a structured plan with \`- [ ]\` checkboxes
    - Pattern ONLY writes .md files in .weave/ — it never writes code
-2. REVIEW (optional): For complex plans, delegate to Weft to validate the plan before execution
+2. REVIEW: Delegate to Weft to validate the plan before execution
+   - TRIGGER: Plan touches 3+ files OR has 5+ tasks — Weft review is mandatory
+   - SKIP ONLY IF: User explicitly says "skip review"
    - Weft reads the plan, verifies file references, checks executability
    - If Weft rejects, send issues back to Pattern for revision
 3. EXECUTE: Tell the user to run \`/start-work\` to begin execution
