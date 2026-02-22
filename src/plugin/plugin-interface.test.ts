@@ -455,7 +455,28 @@ describe("createPluginInterface", () => {
 describe("delegation logging via tool hooks", () => {
   const logFile = getLogFilePath()
 
-  it("tool.execute.before logs delegation:start when tool is 'task'", async () => {
+  it("tool.execute.before logs delegation:start with subagent_type when tool is 'task'", async () => {
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks: makeHooks(),
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    await iface["tool.execute.before"](
+      { tool: "task", sessionID: "s1", callID: "c1" },
+      { args: { subagent_type: "thread", description: "explore auth module", prompt: "look at auth" } },
+    )
+
+    const content = fs.readFileSync(logFile, "utf8")
+    expect(content).toContain("[delegation:start]")
+    expect(content).toContain("agent=thread")
+    expect(content).toContain('"sessionId":"s1"')
+    expect(content).toContain('"toolCallId":"c1"')
+  })
+
+  it("tool.execute.before falls back to description when subagent_type is absent", async () => {
     const iface = createPluginInterface({
       pluginConfig: baseConfig,
       hooks: makeHooks(),
@@ -472,8 +493,6 @@ describe("delegation logging via tool hooks", () => {
     const content = fs.readFileSync(logFile, "utf8")
     expect(content).toContain("[delegation:start]")
     expect(content).toContain("agent=explore auth module")
-    expect(content).toContain('"sessionId":"s1"')
-    expect(content).toContain('"toolCallId":"c1"')
   })
 
   it("tool.execute.before does not log delegation for non-task tools", async () => {
@@ -504,7 +523,7 @@ describe("delegation logging via tool hooks", () => {
     })
 
     await iface["tool.execute.after"](
-      { tool: "task", sessionID: "s2", callID: "c3", args: { agent: "thread" } } as Parameters<typeof iface["tool.execute.after"]>[0],
+      { tool: "task", sessionID: "s2", callID: "c3", args: { subagent_type: "thread", description: "explore auth", prompt: "look at auth" } } as Parameters<typeof iface["tool.execute.after"]>[0],
       {},
     )
 

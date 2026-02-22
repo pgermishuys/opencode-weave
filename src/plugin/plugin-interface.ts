@@ -188,7 +188,10 @@ export function createPluginInterface(args: {
 
       // Log delegation starts when the task tool is invoked
       if (input.tool === "task" && args) {
-        const agentArg = (args.agent as string | undefined) ?? (args.description as string | undefined) ?? "unknown"
+        const agentArg =
+          (args.subagent_type as string | undefined) ??
+          (args.description as string | undefined) ??
+          "unknown"
         logDelegation({
           phase: "start",
           agent: agentArg,
@@ -202,7 +205,10 @@ export function createPluginInterface(args: {
       // Log delegation completions when the task tool finishes
       if (input.tool === "task") {
         const inputArgs = (input as Record<string, unknown>).args as Record<string, unknown> | undefined
-        const agentArg = (inputArgs?.agent as string | undefined) ?? "unknown"
+        const agentArg =
+          (inputArgs?.subagent_type as string | undefined) ??
+          (inputArgs?.description as string | undefined) ??
+          "unknown"
         logDelegation({
           phase: "complete",
           agent: agentArg,

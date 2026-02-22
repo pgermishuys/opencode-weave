@@ -1,5 +1,22 @@
 ## Progress Log
 
+### 2026-02-22 — Fix delegation logging field mismatch
+
+Fixed broken delegation observability logging from v0.4.0 commit.
+
+**Root cause**: `tool.execute.before` and `tool.execute.after` hooks read `args.agent` to identify the delegated agent, but the OpenCode task tool uses `subagent_type` (not `agent`). This meant:
+- `tool.execute.after` always logged `agent=unknown` in production
+- `tool.execute.before` fell back to `args.description` (logged description text instead of agent name)
+- Tests used fake `{ agent: "thread" }` data, masking the bug
+
+**Changes**:
+- `src/plugin/plugin-interface.ts`: Changed both hooks to read `subagent_type` first, then `description` as fallback
+- `src/plugin/plugin-interface.test.ts`: Updated tests to use real SDK data shape (`subagent_type`), added fallback-to-description test
+
+All 437 tests pass. Build clean.
+
+---
+
 ### 2026-02-21 — todowrite-sidebar-integration plan (Tapestry)
 
 Completed all 6 tasks in the `todowrite-sidebar-integration` plan:
