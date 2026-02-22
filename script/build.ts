@@ -1,7 +1,7 @@
 const result = await Bun.build({
   entrypoints: ["./src/index.ts"],
   outdir: "./dist",
-  target: "bun",
+  target: "node",
   format: "esm",
   external: ["@opencode-ai/plugin", "@opencode-ai/sdk", "zod", "jsonc-parser", "picocolors"],
   minify: false,

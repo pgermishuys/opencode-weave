@@ -21,10 +21,9 @@ Weave is a lean OpenCode plugin with multi-agent orchestration. It provides a co
   - [Quick Tasks (No Plan Needed)](#quick-tasks-no-plan-needed)
 - [Installation](#installation)
   - [Prerequisites](#prerequisites)
-  - [Step 1: Configure authentication](#step-1-configure-authentication)
-  - [Step 2: Install](#step-2-install)
-  - [Step 3: Register in opencode.json](#step-3-register-in-opencodejson)
-  - [Step 4: Restart OpenCode](#step-4-restart-opencode)
+  - [Step 1: Install](#step-1-install)
+  - [Step 2: Register in opencode.json](#step-2-register-in-opencodejson)
+  - [Step 3: Restart OpenCode](#step-3-restart-opencode)
   - [Troubleshooting](#troubleshooting)
 - [Uninstalling](#uninstalling)
 - [Configuration](#configuration)
@@ -144,55 +143,32 @@ For simple requests — single-file fixes, quick questions, small edits — Loom
 
 ## Installation
 
-This package is published to [GitHub Packages](https://github.com/features/packages). You need to configure your package manager to use GitHub Packages for the `@pgermishuys` scope.
+This package is published on [npm](https://www.npmjs.com/package/@opencode_weave/weave).
 
 ### Prerequisites
 
 - [OpenCode](https://opencode.ai)
 - Bun or Node.js
-- A GitHub personal access token (PAT) with `read:packages` scope — [create one here](https://github.com/settings/tokens/new?scopes=read:packages)
 
-### Step 1: Configure authentication
-
-**Option A: Using `.npmrc`** (works with npm, Bun, yarn, pnpm)
-
-Create or edit `~/.npmrc` (your home directory, NOT the project):
-
-```
-//npm.pkg.github.com/:_authToken=YOUR_GITHUB_PAT
-@pgermishuys:registry=https://npm.pkg.github.com
-```
-
-**Option B: Using `bunfig.toml`** (Bun only)
-
-Create or edit `~/.bunfig.toml`:
-
-```toml
-[install.scopes]
-"@pgermishuys" = { token = "$GITHUB_TOKEN", url = "https://npm.pkg.github.com" }
-```
-
-Then set the environment variable: `export GITHUB_TOKEN=your_pat_here`
-
-### Step 2: Install
+### Step 1: Install
 
 ```bash
-bun add @pgermishuys/weave
+bun add @opencode_weave/weave
 # or
-npm install @pgermishuys/weave
+npm install @opencode_weave/weave
 ```
 
-### Step 3: Register in opencode.json
+### Step 2: Register in opencode.json
 
 Add the plugin to your `opencode.json` file:
 
 ```json
 {
-  "plugin": ["@pgermishuys/weave"]
+  "plugin": ["@opencode_weave/weave"]
 }
 ```
 
-### Step 4: Restart OpenCode
+### Step 3: Restart OpenCode
 
 The plugin loads automatically upon restart and works with zero configuration out of the box.
 
@@ -200,10 +176,8 @@ The plugin loads automatically upon restart and works with zero configuration ou
 
 | Issue | Solution |
 |-------|----------|
-| `401 Unauthorized` | Your PAT is missing or expired. Regenerate it with `read:packages` scope. |
-| `404 Not Found` | The scope registry isn't configured. Ensure your `.npmrc` or `bunfig.toml` maps `@pgermishuys` to `https://npm.pkg.github.com`. |
-| `ENEEDAUTH` | npm can't find credentials. Check that `~/.npmrc` has the `_authToken` line. |
-| Package not found after publish | GitHub Packages can take 1-2 minutes to propagate. Wait and retry. |
+| `404 Not Found` | Ensure the package name is correct: `@opencode_weave/weave`. |
+| Package not found after publish | npm can take a few minutes to propagate. Wait and retry. |
 
 ## Uninstalling
 
@@ -211,7 +185,7 @@ To fully remove the Weave plugin from your project:
 
 ### Step 1: Remove from opencode.json
 
-Delete the `@pgermishuys/weave` entry from the `plugin` array in your `opencode.json`:
+Delete the `@opencode_weave/weave` entry from the `plugin` array in your `opencode.json`:
 
 ```json
 {
@@ -222,9 +196,9 @@ Delete the `@pgermishuys/weave` entry from the `plugin` array in your `opencode.
 ### Step 2: Uninstall the package
 
 ```bash
-bun remove @pgermishuys/weave
+bun remove @opencode_weave/weave
 # or
-npm uninstall @pgermishuys/weave
+npm uninstall @opencode_weave/weave
 ```
 
 ### Step 3: Clean up project artifacts (optional)
@@ -248,8 +222,6 @@ If you no longer use Weave in any project, remove the global configuration:
 ```bash
 rm -f ~/.config/opencode/weave-opencode.jsonc ~/.config/opencode/weave-opencode.json
 ```
-
-You may also remove the GitHub Packages authentication entries from `~/.npmrc` or `~/.bunfig.toml` if they were added solely for Weave.
 
 ## Configuration
 

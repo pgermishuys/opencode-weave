@@ -1,5 +1,5 @@
 {
-  "name": "@pgermishuys/weave",
+  "name": "@opencode_weave/weave",
   "version": "0.3.1",
   "description": "Weave — lean OpenCode plugin with multi-agent orchestration",
   "author": "Weave",
@@ -34,8 +34,8 @@
     "weave"
   ],
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com",
-    "access": "restricted"
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
   },
   "dependencies": {
     "@opencode-ai/plugin": "^1.1.19",
