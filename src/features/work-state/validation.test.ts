@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync, rmSync } from "fs"
 import { join } from "path"
 import { tmpdir } from "os"
 import { validatePlan } from "./validation"
+import { PLANS_DIR } from "./constants"
 
 let testDir: string
 let plansDir: string
@@ -50,7 +51,7 @@ function writePlan(name: string, content: string): string {
 
 beforeEach(() => {
   testDir = join(tmpdir(), `weave-val-${Date.now()}-${Math.random().toString(36).slice(2)}`)
-  plansDir = join(testDir, "plans")
+  plansDir = join(testDir, PLANS_DIR)
   mkdirSync(plansDir, { recursive: true })
 })
 
@@ -65,12 +66,36 @@ afterEach(() => {
 // ─── Non-existent plan file ───────────────────────────────────────────────────
 
 describe("non-existent plan file", () => {
-  it("returns an error result for a missing file", () => {
-    const result = validatePlan("/nonexistent/plan.md", testDir)
+  it("returns an error result for a missing file within the plans directory", () => {
+    const result = validatePlan(join(plansDir, "nonexistent.md"), testDir)
     expect(result.valid).toBe(false)
     expect(result.errors).toHaveLength(1)
     expect(result.errors[0].category).toBe("structure")
     expect(result.errors[0].message).toContain("not found")
+  })
+})
+
+// ─── Path confinement ─────────────────────────────────────────────────────────
+
+describe("path confinement", () => {
+  it("rejects a planPath outside the .weave/plans/ directory", () => {
+    const result = validatePlan("/etc/shadow", testDir)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0].message).toContain("outside the allowed directory")
+  })
+
+  it("rejects a planPath using ../ traversal to escape plans dir", () => {
+    const result = validatePlan(join(plansDir, "..", "..", "etc", "passwd"), testDir)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0].message).toContain("outside the allowed directory")
+  })
+
+  it("accepts a planPath within the .weave/plans/ directory", () => {
+    const planPath = writePlan("safe-plan", VALID_PLAN)
+    const result = validatePlan(planPath, testDir)
+    expect(result.valid).toBe(true)
   })
 })
 
@@ -251,6 +276,30 @@ describe("file reference validation", () => {
     const result = validatePlan(planPath, testDir)
     const fileWarn = result.warnings.filter((w) => w.category === "file-references")
     expect(fileWarn).toHaveLength(0)
+  })
+
+  it("rejects absolute file paths in **Files** references", () => {
+    const content = VALID_PLAN.replace(
+      "  **Files**: src/features/my-feature.ts (new)\n",
+      "  **Files**: /etc/shadow\n"
+    )
+    const planPath = writePlan("abs-path", content)
+    const result = validatePlan(planPath, testDir)
+    const warn = result.warnings.find((w) => w.category === "file-references")
+    expect(warn).toBeDefined()
+    expect(warn!.message).toContain("Absolute file path")
+  })
+
+  it("rejects ../ traversal in **Files** references", () => {
+    const content = VALID_PLAN.replace(
+      "  **Files**: src/features/my-feature.ts (new)\n",
+      "  **Files**: ../../etc/passwd\n"
+    )
+    const planPath = writePlan("traversal-ref", content)
+    const result = validatePlan(planPath, testDir)
+    const warn = result.warnings.find((w) => w.category === "file-references")
+    expect(warn).toBeDefined()
+    expect(warn!.message).toContain("path traversal")
   })
 })
 

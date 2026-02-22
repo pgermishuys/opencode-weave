@@ -1,5 +1,7 @@
 import { readFileSync, existsSync } from "fs"
+import { resolve } from "path"
 import type { ValidationResult, ValidationIssue } from "./validation-types"
+import { PLANS_DIR } from "./constants"
 
 /**
  * Validates a plan file's structure and content before /start-work execution.
@@ -12,8 +14,20 @@ export function validatePlan(planPath: string, projectDir: string): ValidationRe
   const errors: ValidationIssue[] = []
   const warnings: ValidationIssue[] = []
 
+  // Guard: planPath must resolve within the project's .weave/plans/ directory
+  const resolvedPlanPath = resolve(planPath)
+  const allowedDir = resolve(projectDir, PLANS_DIR)
+  if (!resolvedPlanPath.startsWith(allowedDir + "/") && resolvedPlanPath !== allowedDir) {
+    errors.push({
+      severity: "error",
+      category: "structure",
+      message: `Plan path is outside the allowed directory (${PLANS_DIR}/): ${planPath}`,
+    })
+    return { valid: false, errors, warnings }
+  }
+
   // Guard: plan file must exist
-  if (!existsSync(planPath)) {
+  if (!existsSync(resolvedPlanPath)) {
     errors.push({
       severity: "error",
       category: "structure",
@@ -22,7 +36,7 @@ export function validatePlan(planPath: string, projectDir: string): ValidationRe
     return { valid: false, errors, warnings }
   }
 
-  const content = readFileSync(planPath, "utf-8")
+  const content = readFileSync(resolvedPlanPath, "utf-8")
 
   // ─── 1. Structure validation ─────────────────────────────────────────────────
   validateStructure(content, errors, warnings)
@@ -254,8 +268,28 @@ function validateFileReferences(
       if (!filePath) continue
       if (newFile) continue
 
-      // Check existence relative to project root
-      const absolutePath = filePath.startsWith("/") ? filePath : `${projectDir}/${filePath}`
+      // Security: reject absolute paths outright
+      if (filePath.startsWith("/")) {
+        warnings.push({
+          severity: "warning",
+          category: "file-references",
+          message: `Absolute file path not allowed in plan references: ${filePath}`,
+        })
+        continue
+      }
+
+      // Resolve relative to project root and verify it stays within projectDir
+      const resolvedProject = resolve(projectDir)
+      const absolutePath = resolve(projectDir, filePath)
+      if (!absolutePath.startsWith(resolvedProject + "/") && absolutePath !== resolvedProject) {
+        warnings.push({
+          severity: "warning",
+          category: "file-references",
+          message: `File reference escapes project directory (path traversal): ${filePath}`,
+        })
+        continue
+      }
+
       if (!existsSync(absolutePath)) {
         warnings.push({
           severity: "warning",
