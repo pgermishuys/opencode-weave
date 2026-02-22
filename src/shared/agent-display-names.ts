@@ -14,6 +14,7 @@ export const AGENT_DISPLAY_NAMES: Record<string, string> = {
   thread: "thread",
   spindle: "spindle",
   warp: "warp",
+  weft: "weft",
 }
 
 /**

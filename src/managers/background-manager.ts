@@ -30,6 +30,26 @@ const TERMINAL_STATUSES: ReadonlySet<TaskStatus> = new Set(["completed", "failed
  * v1 tracks tasks in memory only — no real session spawning, polling, or
  * tmux integration.  Real concurrency control and SDK integration are
  * deferred to a future release.
+ *
+ * ## Planned Delegation Tracking Integration
+ *
+ * Once a UI consumer exists (e.g. a `/status` slash command), this class
+ * should be wired into `plugin-interface.ts` as follows:
+ *
+ * 1. **`tool.execute.before`** — when `input.tool === "task"`, call
+ *    `backgroundManager.spawn({ agentName: args.agent, prompt: args.description })`
+ *    and store the returned task ID keyed by `input.callID`.
+ *
+ * 2. **`tool.execute.after`** — look up the task ID by `input.callID` and
+ *    transition its status:
+ *    - On success: set `status = "completed"` and `completedAt = new Date()`
+ *    - On error: set `status = "failed"` and `error = err.message`
+ *
+ * 3. **`/status` command** — call `list({ status: "running" })` to surface
+ *    all in-flight delegations to the user in real time.
+ *
+ * This is deferred until there is an OpenCode API to read task status back
+ * out of the plugin (e.g. a query hook or TUI panel).
  */
 export class BackgroundManager {
   private readonly tasks: Map<string, TaskRecord> = new Map()

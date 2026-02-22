@@ -16,3 +16,22 @@ export function log(message: string, data?: unknown): void {
 export function getLogFilePath(): string {
   return LOG_FILE
 }
+
+export interface DelegationEvent {
+  phase: "start" | "complete" | "error"
+  agent: string
+  sessionId?: string
+  toolCallId?: string
+  durationMs?: number
+  summary?: string
+}
+
+export function logDelegation(event: DelegationEvent): void {
+  const prefix = `[delegation:${event.phase}]`
+  log(`${prefix} agent=${event.agent}`, {
+    sessionId: event.sessionId,
+    toolCallId: event.toolCallId,
+    durationMs: event.durationMs,
+    summary: event.summary,
+  })
+}

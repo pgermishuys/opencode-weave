@@ -1,10 +1,12 @@
 import { describe, it, expect, mock, beforeEach } from "bun:test"
+import * as fs from "fs"
 import { createPluginInterface } from "./plugin-interface"
 import type { ConfigHandler } from "../managers/config-handler"
 import type { CreatedHooks } from "../hooks/create-hooks"
 import type { ToolsRecord } from "./types"
 import type { WeaveConfig } from "../config/schema"
 import { clearAll } from "../hooks/first-message-variant"
+import { getLogFilePath } from "../shared/log"
 
 const baseConfig: WeaveConfig = {}
 
@@ -41,6 +43,9 @@ function makeMockConfigHandler(): ConfigHandler & { callCount: number } {
 
 beforeEach(() => {
   clearAll()
+  // Clear log file before each test so delegation log assertions are isolated
+  const logFile = getLogFilePath()
+  if (fs.existsSync(logFile)) fs.writeFileSync(logFile, "")
 })
 
 describe("createPluginInterface", () => {
@@ -389,5 +394,123 @@ describe("createPluginInterface", () => {
     expect(parts.length).toBe(2)
     expect(parts[1].type).toBe("text")
     expect(parts[1].text).toContain("Starting Plan: test")
+  })
+
+  it("event handler calls client.session.promptAsync when workContinuation returns a continuationPrompt", async () => {
+    const promptAsyncCalls: Array<{ path: { id: string }; body: { parts: Array<{ type: string; text: string }> } }> = []
+
+    const mockClient = {
+      session: {
+        promptAsync: async (opts: { path: { id: string }; body: { parts: Array<{ type: string; text: string }> } }) => {
+          promptAsyncCalls.push(opts)
+        },
+      },
+    } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+    const hooks = makeHooks({
+      workContinuation: (_sessionId: string) => ({
+        continuationPrompt: "Continue working on your plan.",
+      }),
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+      client: mockClient,
+    })
+
+    const event = { type: "session.idle", properties: { sessionID: "sess-idle-1" } }
+    await iface.event({ event: event as Parameters<typeof iface.event>[0]["event"] })
+
+    expect(promptAsyncCalls.length).toBe(1)
+    expect(promptAsyncCalls[0].path.id).toBe("sess-idle-1")
+    expect(promptAsyncCalls[0].body.parts[0].text).toBe("Continue working on your plan.")
+  })
+
+  it("event handler does not throw when client is absent and continuationPrompt is set", async () => {
+    const hooks = makeHooks({
+      workContinuation: (_sessionId: string) => ({
+        continuationPrompt: "Continue working on your plan.",
+      }),
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+      // no client
+    })
+
+    const event = { type: "session.idle", properties: { sessionID: "sess-no-client" } }
+    // Should not throw
+    await expect(iface.event({ event: event as Parameters<typeof iface.event>[0]["event"] })).resolves.toBeUndefined()
+  })
+})
+
+describe("delegation logging via tool hooks", () => {
+  const logFile = getLogFilePath()
+
+  it("tool.execute.before logs delegation:start when tool is 'task'", async () => {
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks: makeHooks(),
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    await iface["tool.execute.before"](
+      { tool: "task", sessionID: "s1", callID: "c1" },
+      { args: { description: "explore auth module" } },
+    )
+
+    const content = fs.readFileSync(logFile, "utf8")
+    expect(content).toContain("[delegation:start]")
+    expect(content).toContain("agent=explore auth module")
+    expect(content).toContain('"sessionId":"s1"')
+    expect(content).toContain('"toolCallId":"c1"')
+  })
+
+  it("tool.execute.before does not log delegation for non-task tools", async () => {
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks: makeHooks(),
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    await iface["tool.execute.before"](
+      { tool: "read", sessionID: "s1", callID: "c2" },
+      { args: { file_path: "/some/file.ts" } },
+    )
+
+    const content = fs.existsSync(logFile) ? fs.readFileSync(logFile, "utf8") : ""
+    expect(content).not.toContain("[delegation:start]")
+  })
+
+  it("tool.execute.after logs delegation:complete when tool is 'task'", async () => {
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks: makeHooks(),
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    await iface["tool.execute.after"](
+      { tool: "task", sessionID: "s2", callID: "c3", args: { agent: "thread" } } as Parameters<typeof iface["tool.execute.after"]>[0],
+      {},
+    )
+
+    const content = fs.readFileSync(logFile, "utf8")
+    expect(content).toContain("[delegation:complete]")
+    expect(content).toContain("agent=thread")
+    expect(content).toContain('"sessionId":"s2"')
   })
 })

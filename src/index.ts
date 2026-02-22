@@ -20,6 +20,7 @@ const WeavePlugin: Plugin = async (ctx) => {
     tools: toolsResult.tools,
     configHandler: managers.configHandler,
     agents: managers.agents,
+    client: ctx.client,
   })
 }
 

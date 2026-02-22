@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "bun:test"
 import * as fs from "fs"
-import { log, getLogFilePath } from "./log"
+import { log, getLogFilePath, logDelegation } from "./log"
 
 const logFile = getLogFilePath()
 
@@ -40,5 +40,41 @@ describe("log", () => {
 describe("getLogFilePath", () => {
   it("returns a path ending in weave-opencode.log", () => {
     expect(getLogFilePath()).toMatch(/weave-opencode\.log$/)
+  })
+})
+
+describe("logDelegation", () => {
+  it("writes a delegation:start entry with agent name", () => {
+    logDelegation({ phase: "start", agent: "thread" })
+
+    const content = fs.readFileSync(logFile, "utf8")
+    expect(content).toContain("[delegation:start]")
+    expect(content).toContain("agent=thread")
+  })
+
+  it("writes a delegation:complete entry", () => {
+    logDelegation({ phase: "complete", agent: "pattern", sessionId: "s123", toolCallId: "c1" })
+
+    const content = fs.readFileSync(logFile, "utf8")
+    expect(content).toContain("[delegation:complete]")
+    expect(content).toContain("agent=pattern")
+    expect(content).toContain('"sessionId":"s123"')
+    expect(content).toContain('"toolCallId":"c1"')
+  })
+
+  it("writes a delegation:error entry with summary", () => {
+    logDelegation({ phase: "error", agent: "spindle", summary: "timeout" })
+
+    const content = fs.readFileSync(logFile, "utf8")
+    expect(content).toContain("[delegation:error]")
+    expect(content).toContain("agent=spindle")
+    expect(content).toContain('"summary":"timeout"')
+  })
+
+  it("includes durationMs when provided", () => {
+    logDelegation({ phase: "complete", agent: "weft", durationMs: 1234 })
+
+    const content = fs.readFileSync(logFile, "utf8")
+    expect(content).toContain('"durationMs":1234')
   })
 })

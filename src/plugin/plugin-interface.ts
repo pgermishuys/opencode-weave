@@ -3,7 +3,9 @@ import type { AgentConfig } from "@opencode-ai/sdk"
 import type { WeaveConfig } from "../config/schema"
 import type { ConfigHandler } from "../managers/config-handler"
 import type { CreatedHooks } from "../hooks/create-hooks"
+import type { PluginContext } from "./types"
 import { getAgentDisplayName } from "../shared/agent-display-names"
+import { log, logDelegation } from "../shared/log"
 
 export function createPluginInterface(args: {
   pluginConfig: WeaveConfig
@@ -11,8 +13,9 @@ export function createPluginInterface(args: {
   tools: ToolsRecord
   configHandler: ConfigHandler
   agents: Record<string, AgentConfig>
+  client?: PluginContext["client"]
 }): PluginInterface {
-  const { pluginConfig, hooks, tools, configHandler, agents } = args
+  const { pluginConfig, hooks, tools, configHandler, agents, client } = args
 
   return {
     tool: tools,
@@ -132,9 +135,21 @@ export function createPluginInterface(args: {
         const sessionId = evt.properties?.sessionID ?? ""
         if (sessionId) {
           const result = hooks.workContinuation(sessionId)
-          if (result.continuationPrompt) {
-            // The continuation prompt is available for the host to inject
-            // In a full implementation, this would use promptAsync or similar
+          if (result.continuationPrompt && client) {
+            try {
+              await client.session.promptAsync({
+                path: { id: sessionId },
+                body: {
+                  parts: [{ type: "text", text: result.continuationPrompt }],
+                },
+              })
+              log("[work-continuation] Injected continuation prompt", { sessionId })
+            } catch (err) {
+              log("[work-continuation] Failed to inject continuation", { sessionId, error: String(err) })
+            }
+          } else if (result.continuationPrompt) {
+            // client not available — log for diagnostics
+            log("[work-continuation] continuationPrompt available but no client", { sessionId })
           }
         }
       }
@@ -170,10 +185,31 @@ export function createPluginInterface(args: {
           }
         }
       }
+
+      // Log delegation starts when the task tool is invoked
+      if (input.tool === "task" && args) {
+        const agentArg = (args.agent as string | undefined) ?? (args.description as string | undefined) ?? "unknown"
+        logDelegation({
+          phase: "start",
+          agent: agentArg,
+          sessionId: input.sessionID,
+          toolCallId: input.callID,
+        })
+      }
     },
 
-    "tool.execute.after": async (_input, _output) => {
-      // pass-through for v1
+    "tool.execute.after": async (input, _output) => {
+      // Log delegation completions when the task tool finishes
+      if (input.tool === "task") {
+        const inputArgs = (input as Record<string, unknown>).args as Record<string, unknown> | undefined
+        const agentArg = (inputArgs?.agent as string | undefined) ?? "unknown"
+        logDelegation({
+          phase: "complete",
+          agent: agentArg,
+          sessionId: input.sessionID,
+          toolCallId: input.callID,
+        })
+      }
     },
   }
 }
