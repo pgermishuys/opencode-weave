@@ -71,6 +71,11 @@ function makeStartWorkPrompt(planName: string = ""): string {
 <user-request>${planName}</user-request>`
 }
 
+/** Build a structurally valid plan file content with the given checkbox lines in ## TODOs. */
+function makeValidPlanContent(checkboxLines: string): string {
+  return `## TL;DR\n> **Summary**: A test plan.\n> **Estimated Effort**: Quick\n\n## TODOs\n${checkboxLines}\n\n## Verification\n- [ ] All done\n`
+}
+
 /**
  * Mark the nth unchecked `- [ ]` task as complete in a plan file.
  * taskIndex is 0-based.
@@ -97,7 +102,7 @@ describe("Phase 1: Plan to Execution", () => {
   it("full flow: create plan → /start-work → switches to tapestry and creates state", () => {
     createPlanFile(
       "auth-feature",
-      "# Auth Feature\n\n## TODOs\n- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3\n",
+      makeValidPlanContent("- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3"),
     )
 
     const result = handleStartWork({
@@ -108,7 +113,7 @@ describe("Phase 1: Plan to Execution", () => {
 
     expect(result.switchAgent).toBe("tapestry")
     expect(result.contextInjection).toContain("Starting Plan: auth-feature")
-    expect(result.contextInjection).toContain("0/3 tasks completed")
+    expect(result.contextInjection).toContain("0/4 tasks completed")
 
     const state = readWorkState(testDir)
     expect(state).not.toBeNull()
@@ -119,8 +124,8 @@ describe("Phase 1: Plan to Execution", () => {
   })
 
   it("explicit plan selection with multiple plans", () => {
-    createPlanFile("plan-alpha", "# Alpha\n- [ ] Task 1\n- [ ] Task 2\n")
-    createPlanFile("plan-beta", "# Beta\n- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3\n")
+    createPlanFile("plan-alpha", makeValidPlanContent("- [ ] Task 1\n- [ ] Task 2"))
+    createPlanFile("plan-beta", makeValidPlanContent("- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3"))
 
     const result = handleStartWork({
       promptText: makeStartWorkPrompt("plan-beta"),
@@ -199,7 +204,7 @@ describe("Phase 3: Session Idle and Continuation", () => {
   it("idle session with active incomplete plan gets continuation prompt", () => {
     const planPath = createPlanFile(
       "idle-plan",
-      "# Idle\n- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3\n",
+      makeValidPlanContent("- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3"),
     )
     handleStartWork({ promptText: makeStartWorkPrompt(), sessionId: "sess_1", directory: testDir })
 
@@ -209,8 +214,8 @@ describe("Phase 3: Session Idle and Continuation", () => {
     const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
     expect(result.continuationPrompt).not.toBeNull()
     expect(result.continuationPrompt).toContain("idle-plan")
-    expect(result.continuationPrompt).toContain("1/3")
-    expect(result.continuationPrompt).toContain("2 remaining")
+    expect(result.continuationPrompt).toContain("1/4")
+    expect(result.continuationPrompt).toContain("3 remaining")
   })
 
   it("idle session with complete plan gets no continuation", () => {
@@ -238,7 +243,7 @@ describe("Phase 4: Session Resume", () => {
   it("new session resumes incomplete plan and appends session ID", () => {
     const planPath = createPlanFile(
       "resume-plan",
-      "# Resume\n- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3\n",
+      makeValidPlanContent("- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3"),
     )
     // Start with original session
     handleStartWork({
@@ -256,7 +261,7 @@ describe("Phase 4: Session Resume", () => {
     })
 
     expect(result.contextInjection).toContain("Resuming Plan: resume-plan")
-    expect(result.contextInjection).toContain("1/3 tasks completed")
+    expect(result.contextInjection).toContain("1/4 tasks completed")
 
     const state = readWorkState(testDir)
     expect(state!.session_ids).toContain("sess_original")
@@ -268,7 +273,7 @@ describe("Phase 4: Session Resume", () => {
     writeWorkState(testDir, createWorkState(donePlan, "sess_old", "tapestry"))
 
     // Ensure new plan has a different mtime
-    createPlanFile("new-plan", "# New\n- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3\n")
+    createPlanFile("new-plan", makeValidPlanContent("- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3"))
 
     const result = handleStartWork({
       promptText: makeStartWorkPrompt(),
@@ -285,7 +290,7 @@ describe("Phase 4: Session Resume", () => {
   })
 
   it("multiple sessions accumulate in session_ids via sequential resumes", () => {
-    createPlanFile("multi-session", "# Multi\n- [ ] T1\n- [ ] T2\n- [ ] T3\n- [ ] T4\n- [ ] T5\n")
+    createPlanFile("multi-session", makeValidPlanContent("- [ ] T1\n- [ ] T2\n- [ ] T3\n- [ ] T4\n- [ ] T5"))
 
     // Start
     handleStartWork({ promptText: makeStartWorkPrompt(), sessionId: "sess_1", directory: testDir })
@@ -328,7 +333,7 @@ describe("Phase 5: Plan Completion", () => {
     const donePlan = createPlanFile("done", "# Done\n- [x] Task 1\n")
     writeWorkState(testDir, createWorkState(donePlan, "sess_old", "tapestry"))
 
-    createPlanFile("todo", "# Todo\n- [ ] Task 1\n")
+    createPlanFile("todo", makeValidPlanContent("- [ ] Task 1"))
 
     const result = handleStartWork({
       promptText: makeStartWorkPrompt(),
@@ -520,7 +525,7 @@ describe("Integration: createHooks wired workflow", () => {
       directory: testDir,
     })
 
-    const planPath = createPlanFile("hooks-plan", "# Hooks\n- [ ] Task 1\n- [ ] Task 2\n")
+    const planPath = createPlanFile("hooks-plan", makeValidPlanContent("- [ ] Task 1\n- [ ] Task 2"))
 
     // Start work
     const startResult = hooks.startWork!(makeStartWorkPrompt(), "sess_1")
@@ -531,9 +536,10 @@ describe("Integration: createHooks wired workflow", () => {
     markTaskComplete(planPath, 0)
     const cont1 = hooks.workContinuation!("sess_1")
     expect(cont1.continuationPrompt).not.toBeNull()
-    expect(cont1.continuationPrompt).toContain("1/2")
+    expect(cont1.continuationPrompt).toContain("1/3")
 
-    // Mark task 1 complete, check continuation → done
+    // Mark task 1 complete, then verification checkbox → done
+    markTaskComplete(planPath, 0)
     markTaskComplete(planPath, 0)
     const cont2 = hooks.workContinuation!("sess_1")
     expect(cont2.continuationPrompt).toBeNull()
@@ -595,7 +601,9 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
     // 1. Pattern creates a plan
     const planPath = createPlanFile(
       "e2e-feature",
-      "# E2E Feature\n\n## TODOs\n- [ ] Task 1: Create component\n- [ ] Task 2: Add tests\n- [ ] Task 3: Wire integration\n",
+      makeValidPlanContent(
+        "- [ ] Task 1: Create component\n- [ ] Task 2: Add tests\n- [ ] Task 3: Wire integration",
+      ),
     )
 
     // 2. Pattern guard: allowed to write .md in .weave/
@@ -614,27 +622,27 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
     })
     expect(startResult.switchAgent).toBe("tapestry")
     expect(startResult.contextInjection).toContain("Starting Plan: e2e-feature")
-    expect(startResult.contextInjection).toContain("0/3 tasks completed")
+    expect(startResult.contextInjection).toContain("0/4 tasks completed")
 
     // 5. Execute task 1
     markTaskComplete(planPath, 0)
 
     // 6. Progress check
     const progress1 = getPlanProgress(planPath)
-    expect(progress1).toMatchObject({ total: 3, completed: 1, isComplete: false })
+    expect(progress1).toMatchObject({ total: 4, completed: 1, isComplete: false })
 
     // 7. Mid-progress verification reminder mentions Weft
     const reminder1 = buildVerificationReminder({
       planName: "e2e-feature",
-      progress: { total: 3, completed: 1 },
+      progress: { total: 4, completed: 1 },
     })
     expect(reminder1.verificationPrompt!.toLowerCase()).toContain("weft")
 
     // 8. Session goes idle → continuation prompt
     const cont1 = checkContinuation({ sessionId: "sess_1", directory: testDir })
     expect(cont1.continuationPrompt).not.toBeNull()
-    expect(cont1.continuationPrompt).toContain("1/3")
-    expect(cont1.continuationPrompt).toContain("2 remaining")
+    expect(cont1.continuationPrompt).toContain("1/4")
+    expect(cont1.continuationPrompt).toContain("3 remaining")
 
     // 9. Execute task 2
     markTaskComplete(planPath, 0)
@@ -646,19 +654,20 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
       directory: testDir,
     })
     expect(resumeResult.contextInjection).toContain("Resuming Plan: e2e-feature")
-    expect(resumeResult.contextInjection).toContain("2/3 tasks completed")
+    expect(resumeResult.contextInjection).toContain("2/4 tasks completed")
 
     // 11. Session IDs accumulated
     const stateAfterResume = readWorkState(testDir)
     expect(stateAfterResume!.session_ids).toContain("sess_1")
     expect(stateAfterResume!.session_ids).toContain("sess_2")
 
-    // 12. Execute task 3
+    // 12. Execute task 3 and verification checkbox
+    markTaskComplete(planPath, 0)
     markTaskComplete(planPath, 0)
 
     // 13. Plan complete
     const progress2 = getPlanProgress(planPath)
-    expect(progress2).toMatchObject({ total: 3, completed: 3, isComplete: true })
+    expect(progress2).toMatchObject({ total: 4, completed: 4, isComplete: true })
 
     // 14. No more continuation
     const cont2 = checkContinuation({ sessionId: "sess_2", directory: testDir })
@@ -667,12 +676,12 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
     // 15. Weft review gate — verification reminder at completion
     const reminder2 = buildVerificationReminder({
       planName: "e2e-feature",
-      progress: { total: 3, completed: 3 },
+      progress: { total: 4, completed: 4 },
     })
     expect(reminder2.verificationPrompt!.toLowerCase()).toContain("weft")
     expect(reminder2.verificationPrompt).toContain("git diff")
     expect(reminder2.verificationPrompt).toContain("e2e-feature")
-    expect(reminder2.verificationPrompt).toContain("3/3")
+    expect(reminder2.verificationPrompt).toContain("4/4")
 
     // 16. Weft agent is read-only
     const weftConfig = createWeftAgent("test-model")

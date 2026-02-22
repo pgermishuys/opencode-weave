@@ -1,5 +1,32 @@
 ## Progress Log
 
+### 2026-02-22 — plan-validation plan: Add plan validation before /start-work (Tapestry)
+
+Completed all 11 tasks in `.weave/plans/plan-validation.md` — added `validatePlan()` function that structurally validates plan files before Tapestry begins execution.
+
+**New files:**
+- `src/features/work-state/validation-types.ts` — `ValidationSeverity`, `ValidationIssue`, `ValidationResult`, `ValidationCategory` types
+- `src/features/work-state/validation.ts` — `validatePlan(planPath, projectDir)` implementing 6 validation categories: structure, checkboxes, file-references, numbering, effort-estimate, verification
+- `src/features/work-state/validation.test.ts` — 26 unit tests covering all scenarios
+
+**Modified files:**
+- `src/features/work-state/index.ts` — exports `validatePlan` and all new types
+- `src/hooks/start-work-hook.ts` — integrates `validatePlan()` into all 3 paths (explicit, discovery, resume); errors block state creation; warnings are appended to context injection; added `formatValidationResults()` export
+- `src/hooks/start-work-hook.test.ts` — fully rewritten with valid plan helper and new validation tests (19 tests)
+- `src/workflow.test.ts` — added `makeValidPlanContent()` helper; updated 9 tests to use valid plan content and corrected count assertions (plans now have TODOs + Verification checkbox)
+
+**Key design decisions:**
+- Errors (missing required sections, no checkboxes, duplicate numbers, empty verification) are **blocking** — no work state created
+- Warnings (missing optional sections, missing sub-fields, file references, number gaps) are **non-blocking** — appended to context injection
+- Resume path also validates — malformed resumed plans clear state and return error
+- `extractSection()` uses line-by-line parsing (not regex) to avoid `$` lookahead bug with multiline flag
+
+493 tests pass. `bun run typecheck` and `bun run build` clean.
+
+**GitHub**: Implements issue #3
+
+---
+
 ### 2026-02-22 — Fix #1: Wire context window monitor to real token data (Tapestry)
 
 Fixed the context window monitor never firing because it was called with hardcoded `{ usedTokens: 0, maxTokens: 0 }`.

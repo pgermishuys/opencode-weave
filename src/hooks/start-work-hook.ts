@@ -12,7 +12,9 @@ import {
   findPlans,
   getPlanProgress,
   getPlanName,
+  validatePlan,
 } from "../features/work-state"
+import type { ValidationResult } from "../features/work-state"
 
 export interface StartWorkInput {
   promptText: string
@@ -52,10 +54,26 @@ export function handleStartWork(input: StartWorkInput): StartWorkResult {
   if (existingState) {
     const progress = getPlanProgress(existingState.active_plan)
     if (!progress.isComplete) {
+      // Validate before resuming — a plan may have been edited and become malformed
+      const validation = validatePlan(existingState.active_plan, directory)
+      if (!validation.valid) {
+        clearWorkState(directory)
+        return {
+          switchAgent: "tapestry",
+          contextInjection: `## Plan Validation Failed\nThe active plan "${existingState.plan_name}" has structural issues. Work state has been cleared.\n\n${formatValidationResults(validation)}\n\nTell the user to fix the plan file and run /start-work again.`,
+        }
+      }
       appendSessionId(directory, sessionId)
+      const resumeContext = buildResumeContext(existingState.active_plan, existingState.plan_name, progress)
+      if (validation.warnings.length > 0) {
+        return {
+          switchAgent: "tapestry",
+          contextInjection: `${resumeContext}\n\n### Validation Warnings\n${formatValidationResults(validation)}`,
+        }
+      }
       return {
         switchAgent: "tapestry",
-        contextInjection: buildResumeContext(existingState.active_plan, existingState.plan_name, progress),
+        contextInjection: resumeContext,
       }
     }
     // Previous plan is complete — fall through to discovery
@@ -106,14 +124,30 @@ function handleExplicitPlan(
     }
   }
 
+  // Validate the plan before creating work state
+  const validation = validatePlan(matched, directory)
+  if (!validation.valid) {
+    return {
+      switchAgent: "tapestry",
+      contextInjection: `## Plan Validation Failed\nThe plan "${getPlanName(matched)}" has structural issues that must be fixed before execution can begin.\n\n${formatValidationResults(validation)}\n\nTell the user to fix these issues in the plan file and try again.`,
+    }
+  }
+
   // Create fresh state for this plan
   clearWorkState(directory)
   const state = createWorkState(matched, sessionId, "tapestry")
   writeWorkState(directory, state)
 
+  const freshContext = buildFreshContext(matched, getPlanName(matched), progress)
+  if (validation.warnings.length > 0) {
+    return {
+      switchAgent: "tapestry",
+      contextInjection: `${freshContext}\n\n### Validation Warnings\n${formatValidationResults(validation)}`,
+    }
+  }
   return {
     switchAgent: "tapestry",
-    contextInjection: buildFreshContext(matched, getPlanName(matched), progress),
+    contextInjection: freshContext,
   }
 }
 
@@ -146,11 +180,29 @@ function handlePlanDiscovery(
   if (incompletePlans.length === 1) {
     const plan = incompletePlans[0]
     const progress = getPlanProgress(plan)
+
+    // Validate the plan before creating work state
+    const validation = validatePlan(plan, directory)
+    if (!validation.valid) {
+      return {
+        switchAgent: "tapestry",
+        contextInjection: `## Plan Validation Failed\nThe plan "${getPlanName(plan)}" has structural issues that must be fixed before execution can begin.\n\n${formatValidationResults(validation)}\n\nTell the user to fix these issues in the plan file and try again.`,
+      }
+    }
+
     const state = createWorkState(plan, sessionId, "tapestry")
     writeWorkState(directory, state)
+
+    const freshContext = buildFreshContext(plan, getPlanName(plan), progress)
+    if (validation.warnings.length > 0) {
+      return {
+        switchAgent: "tapestry",
+        contextInjection: `${freshContext}\n\n### Validation Warnings\n${formatValidationResults(validation)}`,
+      }
+    }
     return {
       switchAgent: "tapestry",
-      contextInjection: buildFreshContext(plan, getPlanName(plan), progress),
+      contextInjection: freshContext,
     }
   }
 
@@ -177,6 +229,30 @@ function findPlanByName(plans: string[], requestedName: string): string | null {
   if (exact) return exact
   const partial = plans.find((p) => getPlanName(p).toLowerCase().includes(lower))
   return partial || null
+}
+
+/**
+ * Format validation errors and warnings as a markdown string.
+ */
+export function formatValidationResults(result: ValidationResult): string {
+  const lines: string[] = []
+
+  if (result.errors.length > 0) {
+    lines.push("**Errors (blocking):**")
+    for (const err of result.errors) {
+      lines.push(`- [${err.category}] ${err.message}`)
+    }
+  }
+
+  if (result.warnings.length > 0) {
+    if (result.errors.length > 0) lines.push("")
+    lines.push("**Warnings:**")
+    for (const warn of result.warnings) {
+      lines.push(`- [${warn.category}] ${warn.message}`)
+    }
+  }
+
+  return lines.join("\n")
 }
 
 function buildFreshContext(
