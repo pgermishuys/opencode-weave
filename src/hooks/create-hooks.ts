@@ -17,14 +17,14 @@ export function createHooks(args: {
   isHookEnabled: (hookName: string) => boolean
   directory: string
 }) {
-  const { isHookEnabled, directory } = args
+  const { pluginConfig, isHookEnabled, directory } = args
 
   const writeGuardState = createWriteGuardState()
   const writeGuard = createWriteGuard(writeGuardState)
 
   const contextWindowThresholds: ContextWindowThresholds = {
-    warningPct: 0.8,
-    criticalPct: 0.95,
+    warningPct: pluginConfig.experimental?.context_window_warning_threshold ?? 0.8,
+    criticalPct: pluginConfig.experimental?.context_window_critical_threshold ?? 0.95,
   }
 
   return {

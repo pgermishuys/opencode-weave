@@ -123,4 +123,64 @@ describe("createHooks", () => {
     const hooks = createHooks({ pluginConfig: baseConfig, isHookEnabled: allEnabled })
     expect(hooks.verificationReminder).not.toBeNull()
   })
+
+  it("custom context_window_warning_threshold is applied from config", () => {
+    const configWithCustomThresholds: WeaveConfig = {
+      experimental: {
+        context_window_warning_threshold: 0.6,
+        context_window_critical_threshold: 0.9,
+      },
+    }
+    const hooks = createHooks({
+      pluginConfig: configWithCustomThresholds,
+      isHookEnabled: allEnabled,
+      directory: "",
+    })
+
+    // 65% usage — below default 80% but above custom 60% → should warn with custom config
+    const result = hooks.checkContextWindow!({
+      sessionId: "test-session",
+      usedTokens: 65_000,
+      maxTokens: 100_000,
+    })
+    expect(result.action).toBe("warn")
+  })
+
+  it("default thresholds (80%/95%) used when not configured", () => {
+    const hooks = createHooks({
+      pluginConfig: baseConfig,
+      isHookEnabled: allEnabled,
+      directory: "",
+    })
+
+    // 65% usage — below default 80% → should return none
+    const result = hooks.checkContextWindow!({
+      sessionId: "test-session",
+      usedTokens: 65_000,
+      maxTokens: 100_000,
+    })
+    expect(result.action).toBe("none")
+  })
+
+  it("custom critical threshold triggers recover action", () => {
+    const configWithCustomThresholds: WeaveConfig = {
+      experimental: {
+        context_window_warning_threshold: 0.6,
+        context_window_critical_threshold: 0.9,
+      },
+    }
+    const hooks = createHooks({
+      pluginConfig: configWithCustomThresholds,
+      isHookEnabled: allEnabled,
+      directory: "",
+    })
+
+    // 92% usage — above custom 90% critical threshold → should recover
+    const result = hooks.checkContextWindow!({
+      sessionId: "test-session",
+      usedTokens: 92_000,
+      maxTokens: 100_000,
+    })
+    expect(result.action).toBe("recover")
+  })
 })

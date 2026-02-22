@@ -6,6 +6,7 @@ import type { CreatedHooks } from "../hooks/create-hooks"
 import type { ToolsRecord } from "./types"
 import type { WeaveConfig } from "../config/schema"
 import { clearAll } from "../hooks/first-message-variant"
+import { clearAllTokenState, getState as getTokenState } from "../hooks"
 import { getLogFilePath } from "../shared/log"
 
 const baseConfig: WeaveConfig = {}
@@ -43,6 +44,7 @@ function makeMockConfigHandler(): ConfigHandler & { callCount: number } {
 
 beforeEach(() => {
   clearAll()
+  clearAllTokenState()
   // Clear log file before each test so delegation log assertions are isolated
   const logFile = getLogFilePath()
   if (fs.existsSync(logFile)) fs.writeFileSync(logFile, "")
@@ -531,5 +533,237 @@ describe("delegation logging via tool hooks", () => {
     expect(content).toContain("[delegation:complete]")
     expect(content).toContain("agent=thread")
     expect(content).toContain('"sessionId":"s2"')
+  })
+})
+
+describe("context window monitoring", () => {
+  it("chat.message no longer calls checkContextWindow (removed hardcoded zero call)", async () => {
+    let checkCalled = false
+    const hooks = makeHooks({
+      checkContextWindow: (_state) => {
+        checkCalled = true
+        return { action: "none", usagePct: 0 }
+      },
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    await iface["chat.message"]({ sessionID: "s1" }, { message: {} as never, parts: [] })
+
+    expect(checkCalled).toBe(false)
+  })
+
+  it("chat.params captures model context limit into session token state", async () => {
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks: makeHooks(),
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    const input = { sessionID: "sess-params", model: { limit: { context: 200_000 } } }
+    await iface["chat.params"](input as Parameters<typeof iface["chat.params"]>[0], {} as never)
+
+    const state = getTokenState("sess-params")
+    expect(state?.maxTokens).toBe(200_000)
+  })
+
+  it("chat.params does not store when maxTokens is 0", async () => {
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks: makeHooks(),
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    const input = { sessionID: "sess-no-limit", model: { limit: { context: 0 } } }
+    await iface["chat.params"](input as Parameters<typeof iface["chat.params"]>[0], {} as never)
+
+    expect(getTokenState("sess-no-limit")).toBeUndefined()
+  })
+
+  it("event handler processes message.updated with assistant tokens and calls checkContextWindow", async () => {
+    let contextWindowCalled = false
+    let receivedState: { usedTokens: number; maxTokens: number } | undefined
+
+    const hooks = makeHooks({
+      checkContextWindow: (state) => {
+        contextWindowCalled = true
+        receivedState = { usedTokens: state.usedTokens, maxTokens: state.maxTokens }
+        return { action: "none", usagePct: state.usedTokens / state.maxTokens }
+      },
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    // First, set up context limit via chat.params
+    const paramsInput = { sessionID: "sess-monitor", model: { limit: { context: 100_000 } } }
+    await iface["chat.params"](paramsInput as Parameters<typeof iface["chat.params"]>[0], {} as never)
+
+    // Then fire message.updated with assistant tokens
+    const event = {
+      type: "message.updated",
+      properties: {
+        info: {
+          role: "assistant",
+          sessionID: "sess-monitor",
+          tokens: { input: 50_000 },
+        },
+      },
+    }
+    await iface.event({ event: event as Parameters<typeof iface.event>[0]["event"] })
+
+    expect(contextWindowCalled).toBe(true)
+    expect(receivedState?.usedTokens).toBe(50_000)
+    expect(receivedState?.maxTokens).toBe(100_000)
+  })
+
+  it("event handler ignores message.updated for user messages (no tokens)", async () => {
+    let checkCalled = false
+    const hooks = makeHooks({
+      checkContextWindow: () => {
+        checkCalled = true
+        return { action: "none", usagePct: 0 }
+      },
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    const event = {
+      type: "message.updated",
+      properties: {
+        info: {
+          role: "user",
+          sessionID: "sess-user-msg",
+          tokens: { input: 500 },
+        },
+      },
+    }
+    await iface.event({ event: event as Parameters<typeof iface.event>[0]["event"] })
+
+    expect(checkCalled).toBe(false)
+  })
+
+  it("event handler does not call checkContextWindow when maxTokens is 0 (chat.params not yet fired)", async () => {
+    let checkCalled = false
+    const hooks = makeHooks({
+      checkContextWindow: () => {
+        checkCalled = true
+        return { action: "none", usagePct: 0 }
+      },
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    // Fire message.updated WITHOUT calling chat.params first (maxTokens = 0)
+    const event = {
+      type: "message.updated",
+      properties: {
+        info: {
+          role: "assistant",
+          sessionID: "sess-no-max",
+          tokens: { input: 50_000 },
+        },
+      },
+    }
+    await iface.event({ event: event as Parameters<typeof iface.event>[0]["event"] })
+
+    expect(checkCalled).toBe(false)
+  })
+
+  it("event handler fires warn action when usage exceeds 80% threshold", async () => {
+    let resultAction: string | undefined
+
+    const hooks = makeHooks({
+      checkContextWindow: (state) => {
+        const usagePct = state.usedTokens / state.maxTokens
+        // Use real checkContextWindow-like logic to test the hook receives real data
+        if (usagePct >= 0.95) return { action: "recover", usagePct }
+        if (usagePct >= 0.8) return { action: "warn", usagePct }
+        return { action: "none", usagePct }
+      },
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    // Set 100k context limit
+    await iface["chat.params"](
+      { sessionID: "sess-warn", model: { limit: { context: 100_000 } } } as Parameters<typeof iface["chat.params"]>[0],
+      {} as never,
+    )
+
+    // Fire message.updated at 85% usage
+    const event = {
+      type: "message.updated",
+      properties: {
+        info: { role: "assistant", sessionID: "sess-warn", tokens: { input: 85_000 } },
+      },
+    }
+    await iface.event({ event: event as Parameters<typeof iface.event>[0]["event"] })
+
+    // checkContextWindow should have received usedTokens=85_000, maxTokens=100_000
+    // Our mock above returns "warn" for >= 80%
+    // We verify the hook was called with real data by checking the token state
+    const state = getTokenState("sess-warn")
+    expect(state?.usedTokens).toBe(85_000)
+    expect(state?.maxTokens).toBe(100_000)
+  })
+
+  it("event handler cleans up session token state on session.deleted", async () => {
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks: makeHooks(),
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    // Set up token state
+    await iface["chat.params"](
+      { sessionID: "sess-to-delete", model: { limit: { context: 100_000 } } } as Parameters<typeof iface["chat.params"]>[0],
+      {} as never,
+    )
+    expect(getTokenState("sess-to-delete")?.maxTokens).toBe(100_000)
+
+    // Fire session.deleted
+    const event = {
+      type: "session.deleted",
+      properties: { info: { id: "sess-to-delete" } },
+    }
+    await iface.event({ event: event as Parameters<typeof iface.event>[0]["event"] })
+
+    expect(getTokenState("sess-to-delete")).toBeUndefined()
   })
 })

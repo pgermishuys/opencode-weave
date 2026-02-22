@@ -1,5 +1,26 @@
 ## Progress Log
 
+### 2026-02-22 — Fix #1: Wire context window monitor to real token data (Tapestry)
+
+Fixed the context window monitor never firing because it was called with hardcoded `{ usedTokens: 0, maxTokens: 0 }`.
+
+**Root cause**: `plugin-interface.ts` called `checkContextWindow({ usedTokens: 0, maxTokens: 0 })` from the `chat.message` hook, where token data is not available.
+
+**Changes**:
+- `src/hooks/session-token-state.ts` (NEW): In-memory `Map<sessionId, {maxTokens, usedTokens}>` with `setContextLimit`, `updateUsage`, `getState`, `clearSession`, `clear`
+- `src/hooks/session-token-state.test.ts` (NEW): 9 unit tests covering all state operations
+- `src/hooks/create-hooks.ts`: Reads `experimental.context_window_warning_threshold` and `experimental.context_window_critical_threshold` from config (defaults 0.8/0.95)
+- `src/hooks/create-hooks.test.ts`: 3 new threshold tests
+- `src/hooks/index.ts`: Exports session token state functions
+- `src/plugin/plugin-interface.ts`: `chat.params` captures `model.limit.context` per session; `event` handler processes `message.updated` (assistant role, `tokens.input > 0`) to call `checkContextWindow` with real data; `session.deleted` clears session state; hardcoded zero call removed from `chat.message`
+- `src/plugin/plugin-interface.test.ts`: 7 new context window monitoring tests
+
+460 tests pass. Build and typecheck clean.
+
+**GitHub**: Fixes issue #1
+
+---
+
 ### 2026-02-22 — Fix #15: PlanWorkflow/ReviewWorkflow contradiction (Tapestry)
 
 Fixed a contradiction in `src/agents/loom/default.ts` where the PlanWorkflow marked Weft review as "(optional)" while ReviewWorkflow listed mandatory criteria that clearly applied to multi-step plans touching 3+ files.

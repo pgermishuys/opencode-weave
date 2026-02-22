@@ -44,3 +44,12 @@ export type { KeywordAction } from "./keyword-detector"
 
 export { buildVerificationReminder } from "./verification-reminder"
 export type { VerificationInput, VerificationResult } from "./verification-reminder"
+
+export {
+  setContextLimit,
+  updateUsage,
+  getState,
+  clearSession as clearTokenSession,
+  clear as clearAllTokenState,
+} from "./session-token-state"
+export type { SessionTokenEntry } from "./session-token-state"

@@ -6,6 +6,12 @@ import type { CreatedHooks } from "../hooks/create-hooks"
 import type { PluginContext } from "./types"
 import { getAgentDisplayName } from "../shared/agent-display-names"
 import { log, logDelegation } from "../shared/log"
+import {
+  setContextLimit,
+  updateUsage,
+  getState as getTokenState,
+  clearTokenSession,
+} from "../hooks"
 
 export function createPluginInterface(args: {
   pluginConfig: WeaveConfig
@@ -41,14 +47,6 @@ export function createPluginInterface(args: {
 
     "chat.message": async (input, _output) => {
       const { sessionID } = input
-
-      if (hooks.checkContextWindow) {
-        hooks.checkContextWindow({
-          usedTokens: 0,
-          maxTokens: 0,
-          sessionId: sessionID,
-        })
-      }
 
       if (hooks.firstMessageVariant) {
         if (hooks.firstMessageVariant.shouldApplyVariant(sessionID)) {
@@ -108,7 +106,16 @@ export function createPluginInterface(args: {
     },
 
     "chat.params": async (_input, _output) => {
-      // pass-through for v1
+      const input = _input as {
+        sessionID?: string
+        model?: { limit?: { context?: number } }
+      }
+      const sessionId = input.sessionID ?? ""
+      const maxTokens = input.model?.limit?.context ?? 0
+      if (sessionId && maxTokens > 0) {
+        setContextLimit(sessionId, maxTokens)
+        log("[context-window] Captured context limit", { sessionId, maxTokens })
+      }
     },
 
     "chat.headers": async (_input, _output) => {
@@ -126,6 +133,48 @@ export function createPluginInterface(args: {
         if (event.type === "session.deleted") {
           const evt = event as { type: string; properties: { info: { id: string } } }
           hooks.firstMessageVariant.clearSession(evt.properties.info.id)
+        }
+      }
+
+      // Clean up token state when session ends
+      if (event.type === "session.deleted") {
+        const evt = event as { type: string; properties: { info: { id: string } } }
+        clearTokenSession(evt.properties.info.id)
+      }
+
+      // Context window monitoring: process assistant message token usage
+      if (event.type === "message.updated" && hooks.checkContextWindow) {
+        const evt = event as {
+          type: string
+          properties: {
+            info: {
+              role?: string
+              sessionID?: string
+              tokens?: { input?: number }
+            }
+          }
+        }
+        const info = evt.properties?.info
+        if (info?.role === "assistant" && info.sessionID) {
+          const inputTokens = info.tokens?.input ?? 0
+          if (inputTokens > 0) {
+            updateUsage(info.sessionID, inputTokens)
+            const tokenState = getTokenState(info.sessionID)
+            if (tokenState && tokenState.maxTokens > 0) {
+              const result = hooks.checkContextWindow({
+                usedTokens: tokenState.usedTokens,
+                maxTokens: tokenState.maxTokens,
+                sessionId: info.sessionID,
+              })
+              if (result.action !== "none") {
+                log("[context-window] Threshold crossed", {
+                  sessionId: info.sessionID,
+                  action: result.action,
+                  usagePct: result.usagePct,
+                })
+              }
+            }
+          }
         }
       }
 
