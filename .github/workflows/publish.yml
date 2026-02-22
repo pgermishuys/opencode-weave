@@ -53,3 +53,12 @@ jobs:
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Notify weave-website to update version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          curl -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.WEBSITE_DISPATCH_TOKEN }}" \
+            https://api.github.com/repos/pgermishuys/weave-website/dispatches \
+            -d "{\"event_type\":\"version-update\",\"client_payload\":{\"version\":\"${VERSION}\"}}"

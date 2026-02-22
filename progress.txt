@@ -1,5 +1,15 @@
 ## Progress Log
 
+### 2026-02-22 — Add repository dispatch to notify weave-website on publish
+
+Added a step to `publish.yml` that sends a `repository_dispatch` event to `pgermishuys/weave-website` after npm publish. This triggers the website to update its hardcoded version badge in `index.html` and redeploy, so users with JS disabled see the correct version.
+
+**Requires**: `WEBSITE_DISPATCH_TOKEN` secret (PAT with `repo` scope) in this repo's GitHub settings.
+
+**Files changed**: `.github/workflows/publish.yml`
+
+---
+
 ### 2026-02-22 — Fix delegation logging field mismatch
 
 Fixed broken delegation observability logging from v0.4.0 commit.
