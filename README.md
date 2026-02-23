@@ -35,6 +35,7 @@ Weave is a lean OpenCode plugin with multi-agent orchestration. It provides a co
   - [Background Agents](#background-agents)
   - [Tool Permissions](#tool-permissions)
 - [Development](#development)
+- [Acknowledgments](#acknowledgments)
 - [License](#license)
 
 ## Overview
@@ -311,6 +312,10 @@ Tool access is controlled per-agent to ensure safety and specialized focus. For 
 - **Test**: `bun test`
 - **Typecheck**: `bun run typecheck`
 - **Clean**: `bun run clean`
+
+## Acknowledgments
+
+Weave was inspired by [Oh My OpenCode](https://github.com/code-yeongyu/oh-my-opencode) by [@code-yeongyu](https://github.com/code-yeongyu) — a pioneering OpenCode plugin that proved multi-agent orchestration, discipline agents, and structured plan-execute workflows could radically improve the developer experience. Many of Weave's core ideas — from category-based task dispatch to background agent parallelism — trace their roots to patterns Oh My OpenCode established. We're grateful for the trailblazing work and the vibrant community around it.
 
 ## License
 
