@@ -1,5 +1,5 @@
 import { readFileSync, existsSync } from "fs"
-import { resolve } from "path"
+import { resolve, sep } from "path"
 import type { ValidationResult, ValidationIssue } from "./validation-types"
 import { PLANS_DIR } from "./constants"
 
@@ -17,7 +17,7 @@ export function validatePlan(planPath: string, projectDir: string): ValidationRe
   // Guard: planPath must resolve within the project's .weave/plans/ directory
   const resolvedPlanPath = resolve(planPath)
   const allowedDir = resolve(projectDir, PLANS_DIR)
-  if (!resolvedPlanPath.startsWith(allowedDir + "/") && resolvedPlanPath !== allowedDir) {
+  if (!resolvedPlanPath.startsWith(allowedDir + sep) && resolvedPlanPath !== allowedDir) {
     errors.push({
       severity: "error",
       category: "structure",
@@ -281,7 +281,7 @@ function validateFileReferences(
       // Resolve relative to project root and verify it stays within projectDir
       const resolvedProject = resolve(projectDir)
       const absolutePath = resolve(projectDir, filePath)
-      if (!absolutePath.startsWith(resolvedProject + "/") && absolutePath !== resolvedProject) {
+      if (!absolutePath.startsWith(resolvedProject + sep) && absolutePath !== resolvedProject) {
         warnings.push({
           severity: "warning",
           category: "file-references",
