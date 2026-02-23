@@ -30,4 +30,10 @@ describe("createTapestryAgent", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     expect(config.tools?.["call_weave_agent"]).toBe(false)
   })
+
+  it("completion step mentions post-execution review", () => {
+    const config = createTapestryAgent("claude-sonnet-4")
+    const prompt = config.prompt as string
+    expect(prompt).toContain("Post-execution review required")
+  })
 })
