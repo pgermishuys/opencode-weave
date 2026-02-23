@@ -56,4 +56,49 @@ describe("createLoomAgent", () => {
     )
     expect(planWorkflow).toContain("skip review")
   })
+
+  it("ReviewWorkflow contains mandatory Warp invocation language", () => {
+    const config = createLoomAgent("claude-opus-4")
+    const prompt = config.prompt as string
+    const reviewWorkflow = prompt.slice(
+      prompt.indexOf("<ReviewWorkflow>"),
+      prompt.indexOf("</ReviewWorkflow>"),
+    )
+    expect(reviewWorkflow).toContain("MUST run Warp")
+    expect(reviewWorkflow).toContain("NOT optional")
+  })
+
+  it("ReviewWorkflow contains all security trigger keywords", () => {
+    const config = createLoomAgent("claude-opus-4")
+    const prompt = config.prompt as string
+    const reviewWorkflow = prompt.slice(
+      prompt.indexOf("<ReviewWorkflow>"),
+      prompt.indexOf("</ReviewWorkflow>"),
+    )
+    const triggers = ["crypto", "auth", "certificates", "tokens", "signatures", "input validation"]
+    for (const trigger of triggers) {
+      expect(reviewWorkflow).toContain(trigger)
+    }
+  })
+
+  it("PlanWorkflow references Warp for security-relevant plans", () => {
+    const config = createLoomAgent("claude-opus-4")
+    const prompt = config.prompt as string
+    const planWorkflow = prompt.slice(
+      prompt.indexOf("<PlanWorkflow>"),
+      prompt.indexOf("</PlanWorkflow>"),
+    )
+    expect(planWorkflow.toLowerCase()).toContain("warp")
+    expect(planWorkflow.toLowerCase()).toContain("security")
+  })
+
+  it("Delegation section uses mandatory language for Warp", () => {
+    const config = createLoomAgent("claude-opus-4")
+    const prompt = config.prompt as string
+    const delegation = prompt.slice(
+      prompt.indexOf("<Delegation>"),
+      prompt.indexOf("</Delegation>"),
+    )
+    expect(delegation).toContain("MUST use Warp")
+  })
 })

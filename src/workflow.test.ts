@@ -511,6 +511,16 @@ describe("Phase 7: Warp Security Gate", () => {
     expect(result.verificationPrompt!.toLowerCase()).toContain("weft")
     expect(result.verificationPrompt!.toLowerCase()).toContain("warp")
   })
+
+  it("verification reminder uses mandatory language for warp invocation", () => {
+    const result = buildVerificationReminder({
+      planName: "security-feature",
+      progress: { total: 3, completed: 3 },
+    })
+
+    expect(result.verificationPrompt).toContain("MUST delegate")
+    expect(result.verificationPrompt).toContain("NOT optional")
+  })
 })
 
 // ---------------------------------------------------------------------------
