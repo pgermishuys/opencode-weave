@@ -21,9 +21,8 @@ Weave is a lean OpenCode plugin with multi-agent orchestration. It provides a co
   - [Quick Tasks (No Plan Needed)](#quick-tasks-no-plan-needed)
 - [Installation](#installation)
   - [Prerequisites](#prerequisites)
-  - [Step 1: Install](#step-1-install)
-  - [Step 2: Register in opencode.json](#step-2-register-in-opencodejson)
-  - [Step 3: Restart OpenCode](#step-3-restart-opencode)
+  - [Step 1: Add to opencode.json](#step-1-add-to-opencodejson)
+  - [Step 2: Restart OpenCode](#step-2-restart-opencode)
   - [Troubleshooting](#troubleshooting)
 - [Uninstalling](#uninstalling)
 - [Configuration](#configuration)
@@ -149,17 +148,8 @@ This package is published on [npm](https://www.npmjs.com/package/@opencode_weave
 ### Prerequisites
 
 - [OpenCode](https://opencode.ai)
-- Bun or Node.js
 
-### Step 1: Install
-
-```bash
-bun add @opencode_weave/weave
-# or
-npm install @opencode_weave/weave
-```
-
-### Step 2: Register in opencode.json
+### Step 1: Add to opencode.json
 
 Add the plugin to your `opencode.json` file:
 
@@ -169,9 +159,9 @@ Add the plugin to your `opencode.json` file:
 }
 ```
 
-### Step 3: Restart OpenCode
+### Step 2: Restart OpenCode
 
-The plugin loads automatically upon restart and works with zero configuration out of the box.
+OpenCode automatically installs npm plugins at startup — no manual `bun add` or `npm install` required. The plugin loads automatically upon restart and works with zero configuration out of the box.
 
 ### Troubleshooting
 
@@ -194,15 +184,7 @@ Delete the `@opencode_weave/weave` entry from the `plugin` array in your `openco
 }
 ```
 
-### Step 2: Uninstall the package
-
-```bash
-bun remove @opencode_weave/weave
-# or
-npm uninstall @opencode_weave/weave
-```
-
-### Step 3: Clean up project artifacts (optional)
+### Step 2: Clean up project artifacts (optional)
 
 Weave may have created plan and state files during usage. Remove them if no longer needed:
 
@@ -216,7 +198,7 @@ You can also remove any project-level configuration if present:
 rm -f .opencode/weave-opencode.jsonc .opencode/weave-opencode.json
 ```
 
-### Step 4: Clean up user-level configuration (optional)
+### Step 3: Clean up user-level configuration (optional)
 
 If you no longer use Weave in any project, remove the global configuration:
 
