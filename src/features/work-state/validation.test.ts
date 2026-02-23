@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import { mkdirSync, writeFileSync, rmSync } from "fs"
-import { join } from "path"
+import { join, resolve, sep } from "path"
 import { tmpdir } from "os"
 import { validatePlan } from "./validation"
 import { PLANS_DIR } from "./constants"
@@ -96,6 +96,16 @@ describe("path confinement", () => {
     const planPath = writePlan("safe-plan", VALID_PLAN)
     const result = validatePlan(planPath, testDir)
     expect(result.valid).toBe(true)
+  })
+
+  it("accepts a planPath whose absolute path uses the platform separator", () => {
+    const planPath = writePlan("platform-sep", VALID_PLAN)
+    // Ensure the resolved path uses native separators (backslash on Windows)
+    const resolved = resolve(planPath)
+    expect(resolved).toContain(sep)
+    const result = validatePlan(resolved, testDir)
+    expect(result.valid).toBe(true)
+    expect(result.errors).toHaveLength(0)
   })
 })
 
@@ -300,6 +310,18 @@ describe("file reference validation", () => {
     const warn = result.warnings.find((w) => w.category === "file-references")
     expect(warn).toBeDefined()
     expect(warn!.message).toContain("path traversal")
+  })
+
+  it("accepts file references within projectDir when paths use native separators", () => {
+    writeFileSync(join(testDir, "lib.ts"), "// exists", "utf-8")
+    const content = VALID_PLAN.replace(
+      "  **Files**: src/features/my-feature.ts (new)\n",
+      "  **Files**: lib.ts\n"
+    )
+    const planPath = writePlan("native-sep-ref", content)
+    const result = validatePlan(resolve(planPath), resolve(testDir))
+    const fileWarn = result.warnings.filter((w) => w.category === "file-references")
+    expect(fileWarn).toHaveLength(0)
   })
 })
 
