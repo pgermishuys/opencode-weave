@@ -66,7 +66,8 @@ When activated by /start-work with a plan file:
    d. Mark complete: use Edit tool to change \`- [ ]\` to \`- [x]\` in the plan file
    e. Report: "Completed task N/M: [title]"
 4. CONTINUE to the next unchecked task
-5. When ALL checkboxes are checked, report final summary
+5. When ALL checkboxes are checked, report final summary and include:
+   "All tasks complete. **Post-execution review required** — Loom must run Weft and Warp before reporting success."
 
 NEVER stop mid-plan unless explicitly told to or completely blocked.
 </PlanExecution>
