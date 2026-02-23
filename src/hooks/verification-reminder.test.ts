@@ -36,4 +36,18 @@ describe("buildVerificationReminder", () => {
     const result = buildVerificationReminder({})
     expect(result.verificationPrompt).toContain("git diff")
   })
+
+  it("prompt uses mandatory language for warp delegation", () => {
+    const result = buildVerificationReminder({})
+    expect(result.verificationPrompt).toContain("MUST delegate")
+    expect(result.verificationPrompt).toContain("NOT optional")
+  })
+
+  it("prompt contains all security trigger keywords for warp", () => {
+    const result = buildVerificationReminder({})
+    const triggers = ["auth", "crypto", "certificates", "tokens", "signatures", "input validation"]
+    for (const trigger of triggers) {
+      expect(result.verificationPrompt).toContain(trigger)
+    }
+  })
 })

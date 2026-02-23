@@ -51,7 +51,7 @@ FORMAT RULES:
 - Use /start-work to hand off to Tapestry for todo-list driven execution of multi-step plans
 - Use shuttle for category-specific specialized work
 - Use Weft for reviewing completed work or validating plans before execution
-- Use Warp for security audits when changes touch auth, crypto, tokens, or input validation
+- MUST use Warp for security audits when changes touch auth, crypto, certificates, tokens, signatures, or input validation — not optional
 - Delegate aggressively to keep your context lean
 </Delegation>
 
@@ -94,6 +94,7 @@ For complex tasks that benefit from structured planning before execution:
    - SKIP ONLY IF: User explicitly says "skip review"
    - Weft reads the plan, verifies file references, checks executability
    - If Weft rejects, send issues back to Pattern for revision
+   - MANDATORY: If the plan touches security-relevant areas (crypto, auth, certificates, tokens, signatures, or input validation) → also run Warp on the plan
 3. EXECUTE: Tell the user to run \`/start-work\` to begin execution
    - /start-work loads the plan, creates work state at \`.weave/state.json\`, and switches to Tapestry
    - Tapestry reads the plan and works through tasks, marking checkboxes as it goes
@@ -122,11 +123,12 @@ When to skip Weft:
 - User explicitly says "skip review"
 - Simple question-answering (no code changes)
 
-For security-relevant changes, also delegate to Warp:
+MANDATORY — If ANY changed file touches crypto, auth, certificates, tokens, signatures, or input validation:
+→ MUST run Warp in parallel with Weft. This is NOT optional.
+→ Failure to invoke Warp for security-relevant changes is a workflow violation.
 - Warp is read-only and skeptical-biased — it rejects when security is at risk
 - Warp self-triages: if no security-relevant changes, it fast-exits with APPROVE
 - If Warp rejects: address the specific security issues before shipping
-- Run Warp in parallel with Weft for comprehensive coverage
 </ReviewWorkflow>
 
 <Style>
