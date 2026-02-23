@@ -1,6 +1,6 @@
 {
   "name": "@opencode_weave/weave",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Weave — lean OpenCode plugin with multi-agent orchestration",
   "author": "Weave",
   "license": "MIT",
