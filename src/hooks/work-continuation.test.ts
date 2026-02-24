@@ -35,12 +35,16 @@ describe("checkContinuation", () => {
     expect(result.continuationPrompt).toBeNull()
   })
 
-  it("returns null when plan is complete", () => {
+  it("returns review handoff when plan is complete", () => {
     const planPath = createPlanFile("done", "# Done\n- [x] Task 1\n- [x] Task 2\n")
     writeWorkState(testDir, createWorkState(planPath, "sess_1"))
 
     const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
-    expect(result.continuationPrompt).toBeNull()
+    expect(result.continuationPrompt).not.toBeNull()
+    expect(result.targetAgent).toBe("loom")
+    expect(result.continuationPrompt).toContain("post-execution review")
+    expect(result.continuationPrompt).toContain("Weft")
+    expect(result.continuationPrompt).toContain("Warp")
   })
 
   it("returns null when plan file is missing", () => {
@@ -57,6 +61,7 @@ describe("checkContinuation", () => {
 
     const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
     expect(result.continuationPrompt).not.toBeNull()
+    expect(result.targetAgent).toBeUndefined()
     expect(result.continuationPrompt).toContain("my-plan")
     expect(result.continuationPrompt).toContain("1/3 tasks completed")
     expect(result.continuationPrompt).toContain("2 remaining")
