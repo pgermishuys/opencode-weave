@@ -24,6 +24,7 @@ function makeHooks(overrides?: Partial<CreatedHooks>): CreatedHooks {
     patternMdOnly: null,
     startWork: null,
     workContinuation: null,
+    verificationReminder: null,
     ...overrides,
   }
 }
@@ -765,5 +766,105 @@ describe("context window monitoring", () => {
     await iface.event({ event: event as Parameters<typeof iface.event>[0]["event"] })
 
     expect(getTokenState("sess-to-delete")).toBeUndefined()
+  })
+})
+
+describe("verification-reminder hook wiring", () => {
+  it("tool.execute.after calls verificationReminder when edit targets a plan file", async () => {
+    let hookCalled = false
+
+    const hooks = makeHooks({
+      verificationReminder: (_input) => {
+        hookCalled = true
+        return { verificationPrompt: "test prompt" }
+      },
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    await iface["tool.execute.after"](
+      { tool: "edit", sessionID: "s1", callID: "c1", args: { filePath: "/project/.weave/plans/my-plan.md" } } as Parameters<typeof iface["tool.execute.after"]>[0],
+      {} as Parameters<typeof iface["tool.execute.after"]>[1],
+    )
+
+    expect(hookCalled).toBe(true)
+  })
+
+  it("tool.execute.after does NOT call verificationReminder for non-plan files", async () => {
+    let hookCalled = false
+
+    const hooks = makeHooks({
+      verificationReminder: (_input) => {
+        hookCalled = true
+        return { verificationPrompt: "test prompt" }
+      },
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    await iface["tool.execute.after"](
+      { tool: "edit", sessionID: "s1", callID: "c1", args: { filePath: "/project/src/app.ts" } } as Parameters<typeof iface["tool.execute.after"]>[0],
+      {} as Parameters<typeof iface["tool.execute.after"]>[1],
+    )
+
+    expect(hookCalled).toBe(false)
+  })
+
+  it("tool.execute.after does not crash when verificationReminder is null", async () => {
+    const hooks = makeHooks({ verificationReminder: null })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    // Should not throw
+    await expect(
+      iface["tool.execute.after"](
+        { tool: "edit", sessionID: "s1", callID: "c1", args: { filePath: "/project/.weave/plans/my-plan.md" } } as Parameters<typeof iface["tool.execute.after"]>[0],
+        {} as Parameters<typeof iface["tool.execute.after"]>[1],
+      ),
+    ).resolves.toBeUndefined()
+  })
+
+  it("tool.execute.after does NOT call verificationReminder for non-edit tools", async () => {
+    let hookCalled = false
+
+    const hooks = makeHooks({
+      verificationReminder: (_input) => {
+        hookCalled = true
+        return { verificationPrompt: "test prompt" }
+      },
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    await iface["tool.execute.after"](
+      { tool: "read", sessionID: "s1", callID: "c1", args: { filePath: "/project/.weave/plans/my-plan.md" } } as Parameters<typeof iface["tool.execute.after"]>[0],
+      {} as Parameters<typeof iface["tool.execute.after"]>[1],
+    )
+
+    expect(hookCalled).toBe(false)
   })
 })
