@@ -4,7 +4,6 @@ import type { WeaveConfig } from "../config/schema"
 import type { ConfigHandler } from "../managers/config-handler"
 import type { CreatedHooks } from "../hooks/create-hooks"
 import type { PluginContext } from "./types"
-import { getAgentDisplayName } from "../shared/agent-display-names"
 import { log, logDelegation } from "../shared/log"
 import {
   setContextLimit,
@@ -61,10 +60,6 @@ export function createPluginInterface(args: {
       // /start-work command detection and plan resolution
       if (hooks.startWork) {
         const parts = _output.parts as Array<{ type: string; text?: string }> | undefined
-        const message = (_output as Record<string, unknown>).message as
-          | Record<string, unknown>
-          | undefined
-
         // Defensively substitute template placeholders that OpenCode should have replaced.
         // If OpenCode already substituted them these replacements are harmless no-ops.
         if (parts) {
@@ -86,11 +81,6 @@ export function createPluginInterface(args: {
             .trim() ?? ""
 
         const result = hooks.startWork(promptText, sessionID)
-
-        // Switch agent by mutating output.message.agent (OpenCode reads this to route the message)
-        if (result.switchAgent && message) {
-          message.agent = getAgentDisplayName(result.switchAgent)
-        }
 
         if (result.contextInjection && parts) {
           // Mutate the existing text part in-place (do NOT replace the parts array reference)
