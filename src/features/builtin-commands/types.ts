@@ -6,8 +6,8 @@ export interface BuiltinCommand {
   name: string
   /** Human-readable description shown in command list */
   description: string
-  /** Agent to switch to when this command is executed */
-  agent: string
+  /** Agent to switch to when this command is executed (omit to stay on current agent) */
+  agent?: string
   /** Prompt template with $SESSION_ID, $TIMESTAMP, $ARGUMENTS placeholders */
   template: string
   /** Hint shown for the argument (e.g., "[plan-name]") */

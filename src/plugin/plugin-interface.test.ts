@@ -130,7 +130,7 @@ describe("createPluginInterface", () => {
 
   it("config hook sets config.command from configHandler result", async () => {
     const fakeCommands = {
-      "start-work": { name: "start-work", description: "test", agent: "tapestry", template: "t" },
+      "start-work": { name: "start-work", description: "test", template: "t" },
     }
     const handler = {
       handle: async () => ({
@@ -300,8 +300,8 @@ describe("createPluginInterface", () => {
     expect(parts[0].text).toContain("---")
     // Should NOT have created a new part
     expect(parts.length).toBe(1)
-    // Agent should be switched to Tapestry display name
-    expect(message.agent).toBe("Tapestry (Execution Orchestrator)")
+    // Agent should NOT be switched — Loom stays active and delegates to Tapestry
+    expect(message.agent).toBe("Loom (Main Orchestrator)")
   })
 
   it("chat.message does not modify parts when startWork returns null contextInjection", async () => {

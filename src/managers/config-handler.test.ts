@@ -156,7 +156,7 @@ describe("ConfigHandler", () => {
     expect(cmds["start-work"]).toBeDefined()
   })
 
-  it("remaps command agent fields to display names", async () => {
+  it("commands do not have agent fields remapped when agent is absent", async () => {
     const handler = new ConfigHandler({ pluginConfig: {} })
 
     const result = await handler.handle({
@@ -166,19 +166,17 @@ describe("ConfigHandler", () => {
     })
 
     const cmds = result.commands as Record<string, Record<string, unknown>>
-    // The start-work command has agent: "tapestry" in BUILTIN_COMMANDS,
-    // which should be remapped to the Tapestry display name
-    expect(cmds["start-work"].agent).toBe(getAgentDisplayName("tapestry"))
-    expect(cmds["start-work"].agent).not.toBe("tapestry")
+    // start-work should not have an agent field (stays on current agent)
+    expect(cmds["start-work"].agent).toBeUndefined()
   })
 
-  it("does not mutate the original BUILTIN_COMMANDS when remapping agent fields", async () => {
+  it("does not mutate the original BUILTIN_COMMANDS", async () => {
     const handler = new ConfigHandler({ pluginConfig: {} })
 
     await handler.handle({ pluginConfig: {}, agents: makeAgents(), availableTools: [] })
 
-    // Original BUILTIN_COMMANDS should still have the config key
-    expect(BUILTIN_COMMANDS["start-work"].agent).toBe("tapestry")
+    // Original BUILTIN_COMMANDS should remain unchanged
+    expect(BUILTIN_COMMANDS["start-work"].agent).toBeUndefined()
   })
 
   it("returns empty MCPs and builtin commands", async () => {
