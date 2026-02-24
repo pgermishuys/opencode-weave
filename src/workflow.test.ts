@@ -18,6 +18,7 @@ import { checkContinuation } from "./hooks/work-continuation"
 import { checkPatternWrite } from "./hooks/pattern-md-only"
 import { buildVerificationReminder } from "./hooks/verification-reminder"
 import { createHooks } from "./hooks/create-hooks"
+import { getAgentDisplayName } from "./shared/agent-display-names"
 
 import {
   readWorkState,
@@ -559,7 +560,7 @@ describe("Integration: createHooks wired workflow", () => {
     markTaskComplete(planPath, 0)
     const cont2 = hooks.workContinuation!("sess_1")
     expect(cont2.continuationPrompt).not.toBeNull()
-    expect(cont2.targetAgent).toBe("loom")
+    expect(cont2.targetAgent).toBe(getAgentDisplayName("loom"))
     expect(cont2.continuationPrompt).toContain("post-execution review")
   })
 
@@ -694,7 +695,7 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
     // 14. Completed plan triggers review handoff to Loom
     const cont2 = checkContinuation({ sessionId: "sess_2", directory: testDir })
     expect(cont2.continuationPrompt).not.toBeNull()
-    expect(cont2.targetAgent).toBe("loom")
+    expect(cont2.targetAgent).toBe(getAgentDisplayName("loom"))
     expect(cont2.continuationPrompt).toContain("post-execution review")
 
     // 15. Verification reminder at completion uses self-verification protocol

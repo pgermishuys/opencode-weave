@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync, rmSync } from "fs"
 import { join } from "path"
 import { tmpdir } from "os"
 import { checkContinuation } from "./work-continuation"
+import { getAgentDisplayName } from "../shared/agent-display-names"
 import { writeWorkState, createWorkState } from "../features/work-state/storage"
 import { PLANS_DIR } from "../features/work-state/constants"
 
@@ -41,7 +42,7 @@ describe("checkContinuation", () => {
 
     const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
     expect(result.continuationPrompt).not.toBeNull()
-    expect(result.targetAgent).toBe("loom")
+    expect(result.targetAgent).toBe(getAgentDisplayName("loom"))
     expect(result.continuationPrompt).toContain("post-execution review")
     expect(result.continuationPrompt).toContain("Weft")
     expect(result.continuationPrompt).toContain("Warp")

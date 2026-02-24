@@ -4,6 +4,7 @@
  */
 
 import { readWorkState, getPlanProgress } from "../features/work-state"
+import { getAgentDisplayName } from "../shared/agent-display-names"
 
 export interface ContinuationInput {
   sessionId: string
@@ -46,7 +47,7 @@ You MUST now run the post-execution review gate (PlanWorkflow Step 5):
 4. If either rejects → address blocking issues, then re-run the rejecting reviewer
 
 This step is MANDATORY — no skip conditions. Do NOT report success to the user until both reviewers approve.`,
-      targetAgent: "loom",
+      targetAgent: getAgentDisplayName("loom"),
     }
   }
 
