@@ -189,10 +189,14 @@ export function createPluginInterface(args: {
               await client.session.promptAsync({
                 path: { id: sessionId },
                 body: {
+                  ...(result.targetAgent ? { agent: result.targetAgent } : {}),
                   parts: [{ type: "text", text: result.continuationPrompt }],
                 },
               })
-              log("[work-continuation] Injected continuation prompt", { sessionId })
+              log("[work-continuation] Injected continuation prompt", {
+                sessionId,
+                ...(result.targetAgent ? { targetAgent: result.targetAgent } : {}),
+              })
             } catch (err) {
               log("[work-continuation] Failed to inject continuation", { sessionId, error: String(err) })
             }
