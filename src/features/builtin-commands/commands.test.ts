@@ -6,8 +6,8 @@ describe("BUILTIN_COMMANDS", () => {
     expect(BUILTIN_COMMANDS["start-work"]).toBeDefined()
   })
 
-  it("start-work does not specify a target agent (stays on current agent)", () => {
-    expect(BUILTIN_COMMANDS["start-work"].agent).toBeUndefined()
+  it("start-work targets tapestry agent", () => {
+    expect(BUILTIN_COMMANDS["start-work"].agent).toBe("tapestry")
   })
 
   it("start-work has a description", () => {

@@ -96,8 +96,7 @@ For complex tasks that benefit from structured planning before execution:
    - If Weft rejects, send issues back to Pattern for revision
    - MANDATORY: If the plan touches security-relevant areas (crypto, auth, certificates, tokens, signatures, or input validation) → also run Warp on the plan
 3. EXECUTE: Tell the user to run \`/start-work\` to begin execution
-   - /start-work loads the plan, creates work state at \`.weave/state.json\`, and injects plan context
-   - You then delegate to Tapestry via the Task tool to execute the plan
+   - /start-work loads the plan, creates work state at \`.weave/state.json\`, and switches to Tapestry
    - Tapestry reads the plan and works through tasks, marking checkboxes as it goes
 4. RESUME: If work was interrupted, \`/start-work\` resumes from the last unchecked task
 5. POST-EXECUTION REVIEW (MANDATORY — NO SKIP CONDITIONS):
