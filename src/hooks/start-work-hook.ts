@@ -264,14 +264,13 @@ function buildFreshContext(
 **Plan file**: ${planPath}
 **Progress**: ${progress.completed}/${progress.total} tasks completed
 
-Read the plan file now and begin executing from the first unchecked \`- [ ]\` task.
+Delegate this plan to Tapestry now using the Task tool. Pass the plan file path and progress above in your delegation prompt.
 
 **SIDEBAR TODOS — DO THIS FIRST:**
-Before starting any work, use todowrite to populate the sidebar:
+Before delegating, use todowrite to populate the sidebar:
 1. Create a summary todo (in_progress): "${planName} ${progress.completed}/${progress.total}"
-2. Create a todo for the first unchecked task (in_progress)
-3. Create todos for the next 2-3 tasks (pending)
-Keep each todo under 35 chars. Update as you complete tasks.`
+2. Create a delegation todo (in_progress): "tapestry: executing plan"
+Keep each todo under 35 chars. Update after Tapestry completes.`
 }
 
 function buildResumeContext(
@@ -285,12 +284,11 @@ function buildResumeContext(
 **Progress**: ${progress.completed}/${progress.total} tasks completed
 **Status**: RESUMING — continuing from where the previous session left off.
 
-Read the plan file now and continue from the first unchecked \`- [ ]\` task.
+Delegate this plan to Tapestry now using the Task tool. Pass the plan file path and progress above in your delegation prompt. Tell Tapestry to continue from the first unchecked task.
 
 **SIDEBAR TODOS — RESTORE STATE:**
 Previous session's todos are lost. Use todowrite to restore the sidebar:
 1. Create a summary todo (in_progress): "${planName} ${progress.completed}/${progress.total}"
-2. Create a todo for the next unchecked task (in_progress)
-3. Create todos for the following 2-3 tasks (pending)
+2. Create a delegation todo (in_progress): "tapestry: resuming plan"
 Keep each todo under 35 chars. ${remaining} task${remaining !== 1 ? "s" : ""} remaining.`
 }
