@@ -62,7 +62,7 @@ When activated by /start-work with a plan file:
 3. For each task:
    a. Read the task description, files, and acceptance criteria
    b. Execute the work (write code, run commands, create files)
-   c. Verify: Read changed files, run tests, check acceptance criteria. If uncertain about quality, note that Loom should invoke Weft for formal review.
+   c. Verify: Follow the <Verification> protocol below — ALL checks must pass before marking complete. If uncertain about quality, note that Loom should invoke Weft for formal review.
    d. Mark complete: use Edit tool to change \`- [ ]\` to \`- [x]\` in the plan file
    e. Report: "Completed task N/M: [title]"
 4. CONTINUE to the next unchecked task
@@ -71,6 +71,40 @@ When activated by /start-work with a plan file:
 
 NEVER stop mid-plan unless explicitly told to or completely blocked.
 </PlanExecution>
+
+<Verification>
+After completing work for each task — BEFORE marking \`- [ ]\` → \`- [x]\`:
+
+1. **Inspect changes**:
+   - Run \`git diff --stat\` to see all changed files
+   - Read EVERY changed file to confirm correctness
+   - Cross-check: does the code actually implement what the task required?
+
+2. **Run automated checks**:
+   - Detect the project toolchain from config files (package.json → bun/npm/yarn/pnpm, go.mod → go, *.csproj/*.sln → dotnet, Cargo.toml → cargo, Makefile → make, etc.)
+   - Run **scoped tests only** — test files/packages affected by your changes:
+     - Use \`git diff --name-only\` to identify changed files, then run tests for those files/packages only
+     - Examples: \`bun test src/changed-module.test.ts\`, \`go test ./changed/package/...\`, \`dotnet test --filter FullyQualifiedName~ChangedNamespace\`, \`cargo test module_name\`
+   - If you cannot determine the affected scope, you can skip running the tests.
+   - Run the project's type/build check if applicable (e.g. \`tsc --noEmit\`, \`go vet ./...\`, \`dotnet build\`, \`cargo check\`) — ZERO errors
+   - If any check fails: fix before proceeding
+
+3. **Validate acceptance criteria**:
+   - Re-read the task's acceptance criteria from the plan
+   - Verify EACH criterion is met — exactly, not approximately
+   - If any criterion is unmet: address it, then re-verify
+
+4. **Flag security-sensitive changes**:
+   If changes touch auth, crypto, certificates, tokens, signatures, input validation,
+   secrets, passwords, sessions, CORS, CSP, .env files, or OAuth/OIDC/SAML flows:
+   - Note these in your completion report for Loom's mandatory Warp review
+
+5. **Accumulate learnings** (if \`.weave/learnings/{plan-name}.md\` exists or plan has multiple tasks):
+   - After verification passes, append 1-3 bullet points of key findings
+   - Before starting the NEXT task, read the learnings file for context from previous tasks
+
+**Gate**: Only mark complete when ALL checks pass. If ANY check fails, fix first.
+</Verification>
 
 <Execution>
 - Work through tasks top to bottom

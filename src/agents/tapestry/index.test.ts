@@ -36,4 +36,51 @@ describe("createTapestryAgent", () => {
     const prompt = config.prompt as string
     expect(prompt).toContain("Post-execution review required")
   })
+
+  it("contains a Verification section", () => {
+    const config = createTapestryAgent("claude-sonnet-4")
+    const prompt = config.prompt as string
+    expect(prompt).toContain("<Verification>")
+    expect(prompt).toContain("</Verification>")
+  })
+
+  it("verification protocol mentions git diff", () => {
+    const config = createTapestryAgent("claude-sonnet-4")
+    const prompt = config.prompt as string
+    expect(prompt).toContain("git diff")
+  })
+
+  it("verification protocol mentions running tests", () => {
+    const config = createTapestryAgent("claude-sonnet-4")
+    const prompt = config.prompt as string
+    expect(prompt).toContain("bun test")
+  })
+
+  it("verification protocol mentions type-checking", () => {
+    const config = createTapestryAgent("claude-sonnet-4")
+    const prompt = config.prompt as string
+    expect(prompt).toContain("type/build check")
+  })
+
+  it("verification protocol mentions acceptance criteria", () => {
+    const config = createTapestryAgent("claude-sonnet-4")
+    const prompt = config.prompt as string
+    expect(prompt).toContain("acceptance criteria")
+  })
+
+  it("verification protocol mentions security-sensitive flagging for Warp", () => {
+    const config = createTapestryAgent("claude-sonnet-4")
+    const prompt = config.prompt as string
+    expect(prompt).toContain("Warp")
+    expect(prompt).toContain("security")
+  })
+
+  it("PlanExecution step 3c references the Verification section", () => {
+    const config = createTapestryAgent("claude-sonnet-4")
+    const prompt = config.prompt as string
+    expect(prompt).toContain("<Verification>")
+    // Step 3c should reference the Verification protocol
+    const planExec = prompt.slice(prompt.indexOf("<PlanExecution>"), prompt.indexOf("</PlanExecution>"))
+    expect(planExec).toContain("Verification")
+  })
 })

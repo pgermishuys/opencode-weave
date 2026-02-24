@@ -265,6 +265,24 @@ export function createPluginInterface(args: {
           toolCallId: input.callID,
         })
       }
+
+      // Verification reminder: fire when an edit targets a plan file (.weave/plans/*.md)
+      if (input.tool === "edit" && hooks.verificationReminder) {
+        const inputArgs = (input as Record<string, unknown>).args as Record<string, unknown> | undefined
+        const filePath =
+          (inputArgs?.filePath as string | undefined) ??
+          (inputArgs?.file_path as string | undefined) ??
+          ""
+        const isPlanFile = filePath.includes(".weave/plans/") && filePath.endsWith(".md")
+        if (isPlanFile) {
+          const result = hooks.verificationReminder({})
+          log("[verification-reminder] Fired after plan file edit", {
+            filePath,
+            sessionId: input.sessionID,
+            hasPrompt: result.verificationPrompt !== null,
+          })
+        }
+      }
     },
   }
 }
