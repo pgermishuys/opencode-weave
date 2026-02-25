@@ -76,14 +76,14 @@ NEVER stop mid-plan unless explicitly told to or completely blocked.
 After completing work for each task — BEFORE marking \`- [ ]\` → \`- [x]\`:
 
 1. **Inspect changes**:
-   - Run \`git diff --stat\` to see all changed files
+   - Review your Edit/Write tool call history to identify all files you modified
    - Read EVERY changed file to confirm correctness
    - Cross-check: does the code actually implement what the task required?
 
 2. **Run automated checks**:
    - Detect the project toolchain from config files (package.json → bun/npm/yarn/pnpm, go.mod → go, *.csproj/*.sln → dotnet, Cargo.toml → cargo, Makefile → make, etc.)
    - Run **scoped tests only** — test files/packages affected by your changes:
-     - Use \`git diff --name-only\` to identify changed files, then run tests for those files/packages only
+      - Use your Edit/Write tool call history to identify changed files, then run tests for those files/packages only
      - Examples: \`bun test src/changed-module.test.ts\`, \`go test ./changed/package/...\`, \`dotnet test --filter FullyQualifiedName~ChangedNamespace\`, \`cargo test module_name\`
    - If you cannot determine the affected scope, you can skip running the tests.
    - If any check fails: fix before proceeding

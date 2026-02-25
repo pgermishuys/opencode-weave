@@ -32,9 +32,10 @@ describe("buildVerificationReminder", () => {
     expect(result.verificationPrompt).not.toContain("call_weave_agent")
   })
 
-  it("prompt mentions git diff", () => {
+  it("prompt mentions reviewing tool call history instead of git diff", () => {
     const result = buildVerificationReminder({})
-    expect(result.verificationPrompt).toContain("git diff")
+    expect(result.verificationPrompt).toContain("Edit/Write tool call history")
+    expect(result.verificationPrompt).not.toContain("git diff")
   })
 
   it("prompt mentions running tests", () => {
@@ -42,10 +43,10 @@ describe("buildVerificationReminder", () => {
     expect(result.verificationPrompt).toContain("bun test")
   })
 
-  it("prompt instructs scoped tests with skip fallback", () => {
+  it("prompt instructs scoped tests using tool call history", () => {
     const result = buildVerificationReminder({})
     expect(result.verificationPrompt).toContain("scoped tests only")
-    expect(result.verificationPrompt).toContain("git diff --name-only")
+    expect(result.verificationPrompt).toContain("Edit/Write tool call history")
     expect(result.verificationPrompt).toContain("skip running the tests")
   })
 

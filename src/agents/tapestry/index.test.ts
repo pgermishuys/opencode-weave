@@ -44,10 +44,11 @@ describe("createTapestryAgent", () => {
     expect(prompt).toContain("</Verification>")
   })
 
-  it("verification protocol mentions git diff", () => {
+  it("verification protocol mentions tool call history instead of git diff", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     const prompt = config.prompt as string
-    expect(prompt).toContain("git diff")
+    expect(prompt).toContain("Edit/Write tool call history")
+    expect(prompt).not.toContain("git diff")
   })
 
   it("verification protocol mentions running tests", () => {

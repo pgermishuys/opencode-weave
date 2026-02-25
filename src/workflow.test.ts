@@ -436,7 +436,7 @@ describe("Phase 6: Weft Review Gate", () => {
 
     expect(result.verificationPrompt).not.toBeNull()
     expect(result.verificationPrompt).toContain("VerificationProtocol")
-    expect(result.verificationPrompt).toContain("git diff")
+    expect(result.verificationPrompt).toContain("Edit/Write tool call history")
     expect(result.verificationPrompt).toContain("my-feature")
     expect(result.verificationPrompt).toContain("3/3")
   })
@@ -577,7 +577,7 @@ describe("Integration: createHooks wired workflow", () => {
     })
 
     expect(result.verificationPrompt).not.toBeNull()
-    expect(result.verificationPrompt).toContain("git diff")
+    expect(result.verificationPrompt).toContain("Edit/Write tool call history")
     expect(result.verificationPrompt).not.toContain("type/build check")
     expect(result.verificationPrompt).toContain("acceptance criteria")
     expect(result.verificationPrompt).toContain("test-plan")
@@ -658,7 +658,7 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
       planName: "e2e-feature",
       progress: { total: 4, completed: 1 },
     })
-    expect(reminder1.verificationPrompt).toContain("git diff")
+    expect(reminder1.verificationPrompt).toContain("Edit/Write tool call history")
     expect(reminder1.verificationPrompt).not.toContain("type/build check")
 
     // 8. Session goes idle → continuation prompt
@@ -704,7 +704,7 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
       progress: { total: 4, completed: 4 },
     })
     expect(reminder2.verificationPrompt).not.toContain("call_weave_agent")
-    expect(reminder2.verificationPrompt).toContain("git diff")
+    expect(reminder2.verificationPrompt).toContain("Edit/Write tool call history")
     expect(reminder2.verificationPrompt).not.toContain("type/build check")
     expect(reminder2.verificationPrompt).toContain("acceptance criteria")
     expect(reminder2.verificationPrompt).toContain("e2e-feature")
