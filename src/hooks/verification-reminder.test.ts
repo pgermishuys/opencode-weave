@@ -49,9 +49,9 @@ describe("buildVerificationReminder", () => {
     expect(result.verificationPrompt).toContain("skip running the tests")
   })
 
-  it("prompt mentions type-checking", () => {
+  it("prompt does NOT mention type/build check (LSP handles this)", () => {
     const result = buildVerificationReminder({})
-    expect(result.verificationPrompt).toContain("type/build check")
+    expect(result.verificationPrompt).not.toContain("type/build check")
   })
 
   it("prompt mentions acceptance criteria cross-check", () => {

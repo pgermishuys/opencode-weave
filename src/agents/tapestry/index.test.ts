@@ -56,10 +56,10 @@ describe("createTapestryAgent", () => {
     expect(prompt).toContain("bun test")
   })
 
-  it("verification protocol mentions type-checking", () => {
+  it("verification protocol does NOT mention type-checking (LSP handles this)", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     const prompt = config.prompt as string
-    expect(prompt).toContain("type/build check")
+    expect(prompt).not.toContain("type/build check")
   })
 
   it("verification protocol mentions acceptance criteria", () => {

@@ -45,7 +45,6 @@ Before marking this task complete, you MUST complete ALL of these steps:
   - Use \`git diff --name-only\` to identify changed files, then run tests for those files/packages only
   - Examples: \`bun test src/changed-module.test.ts\`, \`go test ./changed/package/...\`, \`dotnet test --filter FullyQualifiedName~ChangedNamespace\`, \`cargo test module_name\`
 - If you cannot determine the affected scope, you can skip running the tests.
-- Run the project's type/build check if applicable (e.g. \`tsc --noEmit\`, \`go vet ./...\`, \`dotnet build\`, \`cargo check\`) — ZERO errors
 - If any check fails: fix the issue before proceeding
 
 ### 3. Validate Acceptance Criteria

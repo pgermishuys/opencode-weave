@@ -578,7 +578,7 @@ describe("Integration: createHooks wired workflow", () => {
 
     expect(result.verificationPrompt).not.toBeNull()
     expect(result.verificationPrompt).toContain("git diff")
-    expect(result.verificationPrompt).toContain("type/build check")
+    expect(result.verificationPrompt).not.toContain("type/build check")
     expect(result.verificationPrompt).toContain("acceptance criteria")
     expect(result.verificationPrompt).toContain("test-plan")
     expect(result.verificationPrompt).not.toContain("call_weave_agent")
@@ -659,7 +659,7 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
       progress: { total: 4, completed: 1 },
     })
     expect(reminder1.verificationPrompt).toContain("git diff")
-    expect(reminder1.verificationPrompt).toContain("type/build check")
+    expect(reminder1.verificationPrompt).not.toContain("type/build check")
 
     // 8. Session goes idle → continuation prompt
     const cont1 = checkContinuation({ sessionId: "sess_1", directory: testDir })
@@ -705,7 +705,7 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
     })
     expect(reminder2.verificationPrompt).not.toContain("call_weave_agent")
     expect(reminder2.verificationPrompt).toContain("git diff")
-    expect(reminder2.verificationPrompt).toContain("type/build check")
+    expect(reminder2.verificationPrompt).not.toContain("type/build check")
     expect(reminder2.verificationPrompt).toContain("acceptance criteria")
     expect(reminder2.verificationPrompt).toContain("e2e-feature")
     expect(reminder2.verificationPrompt).toContain("4/4")
