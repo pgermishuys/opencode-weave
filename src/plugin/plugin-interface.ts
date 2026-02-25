@@ -287,6 +287,40 @@ export function createPluginInterface(args: {
           })
         }
       }
+
+      // Plan completion check: when a plan file edit completes all tasks, switch agent immediately
+      // This is deterministic — fires right after the completing edit rather than waiting for session.idle
+      if (input.tool === "edit" && hooks.workContinuation && client) {
+        const inputArgs = (input as Record<string, unknown>).args as Record<string, unknown> | undefined
+        const filePath =
+          (inputArgs?.filePath as string | undefined) ??
+          (inputArgs?.file_path as string | undefined) ??
+          ""
+        const isPlanFile = filePath.includes(".weave/plans/") && filePath.endsWith(".md")
+        if (isPlanFile) {
+          const result = hooks.workContinuation(input.sessionID)
+          if (result.continuationPrompt && result.targetAgent) {
+            try {
+              await client.session.promptAsync({
+                path: { id: input.sessionID },
+                body: {
+                  agent: result.targetAgent,
+                  parts: [{ type: "text", text: result.continuationPrompt }],
+                },
+              })
+              log("[plan-completion] Triggered agent switch after plan edit", {
+                sessionId: input.sessionID,
+                targetAgent: result.targetAgent,
+              })
+            } catch (err) {
+              log("[plan-completion] Failed to trigger agent switch", {
+                sessionId: input.sessionID,
+                error: String(err),
+              })
+            }
+          }
+        }
+      }
     },
   }
 }
