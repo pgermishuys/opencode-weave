@@ -3,7 +3,7 @@
  * and returns a continuation prompt to keep the executor going.
  */
 
-import { readWorkState, getPlanProgress } from "../features/work-state"
+import { readWorkState, writeWorkState, getPlanProgress } from "../features/work-state"
 import { getAgentDisplayName } from "../shared/agent-display-names"
 
 export interface ContinuationInput {
@@ -36,6 +36,14 @@ export function checkContinuation(input: ContinuationInput): ContinuationResult 
     return { continuationPrompt: null }
   }
   if (progress.isComplete) {
+    // Don't fire the review gate more than once per plan
+    if (state.review_triggered) {
+      return { continuationPrompt: null }
+    }
+
+    // Mark review as triggered so it won't fire again
+    writeWorkState(directory, { ...state, review_triggered: true })
+
     return {
       continuationPrompt: `All ${progress.total} tasks in plan "${state.plan_name}" are complete.
 

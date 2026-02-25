@@ -48,6 +48,31 @@ describe("checkContinuation", () => {
     expect(result.continuationPrompt).toContain("Warp")
   })
 
+  it("returns null on second call after review already triggered", () => {
+    const planPath = createPlanFile("done2", "# Done\n- [x] Task 1\n- [x] Task 2\n")
+    writeWorkState(testDir, createWorkState(planPath, "sess_1"))
+
+    // First call — fires review gate
+    const first = checkContinuation({ sessionId: "sess_1", directory: testDir })
+    expect(first.continuationPrompt).not.toBeNull()
+    expect(first.continuationPrompt).toContain("post-execution review")
+
+    // Second call — should NOT fire again
+    const second = checkContinuation({ sessionId: "sess_1", directory: testDir })
+    expect(second.continuationPrompt).toBeNull()
+  })
+
+  it("sets review_triggered flag in state after first fire", () => {
+    const planPath = createPlanFile("done3", "# Done\n- [x] Task 1\n")
+    writeWorkState(testDir, createWorkState(planPath, "sess_1"))
+
+    checkContinuation({ sessionId: "sess_1", directory: testDir })
+
+    const { readWorkState: readState } = require("../features/work-state/storage")
+    const state = readState(testDir)
+    expect(state?.review_triggered).toBe(true)
+  })
+
   it("returns null when plan file is missing", () => {
     // State references a non-existent plan file
     writeWorkState(testDir, createWorkState("/nonexistent/plan.md", "sess_1"))
