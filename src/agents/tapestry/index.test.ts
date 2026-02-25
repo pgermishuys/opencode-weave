@@ -51,10 +51,11 @@ describe("createTapestryAgent", () => {
     expect(prompt).not.toContain("git diff")
   })
 
-  it("verification protocol mentions running tests", () => {
+  it("verification protocol does NOT mention automated checks (removed)", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     const prompt = config.prompt as string
-    expect(prompt).toContain("bun test")
+    expect(prompt).not.toContain("Run automated checks")
+    expect(prompt).not.toContain("bun test")
   })
 
   it("verification protocol does NOT mention type-checking (LSP handles this)", () => {
@@ -69,11 +70,10 @@ describe("createTapestryAgent", () => {
     expect(prompt).toContain("acceptance criteria")
   })
 
-  it("verification protocol mentions security-sensitive flagging for Warp", () => {
+  it("verification protocol does NOT mention security-sensitive flagging (removed)", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     const prompt = config.prompt as string
-    expect(prompt).toContain("Warp")
-    expect(prompt).toContain("security")
+    expect(prompt).not.toContain("Flag security-sensitive")
   })
 
   it("PlanExecution step 3c references the Verification section", () => {

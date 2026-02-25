@@ -38,16 +38,11 @@ describe("buildVerificationReminder", () => {
     expect(result.verificationPrompt).not.toContain("git diff")
   })
 
-  it("prompt mentions running tests", () => {
+  it("prompt does NOT mention automated checks (removed)", () => {
     const result = buildVerificationReminder({})
-    expect(result.verificationPrompt).toContain("bun test")
-  })
-
-  it("prompt instructs scoped tests using tool call history", () => {
-    const result = buildVerificationReminder({})
-    expect(result.verificationPrompt).toContain("scoped tests only")
-    expect(result.verificationPrompt).toContain("Edit/Write tool call history")
-    expect(result.verificationPrompt).toContain("skip running the tests")
+    expect(result.verificationPrompt).not.toContain("Run Automated Checks")
+    expect(result.verificationPrompt).not.toContain("bun test")
+    expect(result.verificationPrompt).not.toContain("scoped tests only")
   })
 
   it("prompt does NOT mention type/build check (LSP handles this)", () => {
@@ -60,20 +55,10 @@ describe("buildVerificationReminder", () => {
     expect(result.verificationPrompt).toContain("acceptance criteria")
   })
 
-  it("prompt notes security concerns for Loom/Warp review (not delegating)", () => {
+  it("prompt does NOT contain security-sensitive flagging (removed from Tapestry verification)", () => {
     const result = buildVerificationReminder({})
-    expect(result.verificationPrompt).toContain("Warp")
-    expect(result.verificationPrompt).toContain("security")
-    expect(result.verificationPrompt).not.toContain("MUST delegate")
-    expect(result.verificationPrompt).not.toContain("NOT optional")
-  })
-
-  it("prompt contains all security trigger keywords", () => {
-    const result = buildVerificationReminder({})
-    const triggers = ["auth", "crypto", "certificates", "tokens", "signatures", "input validation", "secrets", "passwords", "sessions", "CORS", "CSP", ".env"]
-    for (const trigger of triggers) {
-      expect(result.verificationPrompt).toContain(trigger)
-    }
+    expect(result.verificationPrompt).not.toContain("Security-Sensitive")
+    expect(result.verificationPrompt).not.toContain("Warp")
   })
 
   it("prompt uses VerificationProtocol XML tags", () => {

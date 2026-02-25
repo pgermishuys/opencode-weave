@@ -506,27 +506,25 @@ describe("Phase 7: Warp Security Gate", () => {
     expect(permissions.isToolAllowed("warp", "glob")).toBe(true)
   })
 
-  it("verification reminder references warp for security review", () => {
+  it("verification reminder does not reference security flagging (removed from Tapestry)", () => {
     const result = buildVerificationReminder({
       planName: "auth-feature",
       progress: { total: 3, completed: 3 },
     })
 
     expect(result.verificationPrompt).not.toBeNull()
-    expect(result.verificationPrompt!.toLowerCase()).toContain("warp")
-    expect(result.verificationPrompt).toContain("security")
+    expect(result.verificationPrompt).not.toContain("Security-Sensitive")
+    expect(result.verificationPrompt).not.toContain("Warp")
   })
 
-  it("verification reminder notes security concerns for Warp review (not delegating)", () => {
+  it("verification reminder does not contain security trigger keywords (removed)", () => {
     const result = buildVerificationReminder({
       planName: "security-feature",
       progress: { total: 3, completed: 3 },
     })
 
-    expect(result.verificationPrompt).toContain("Warp")
-    expect(result.verificationPrompt).toContain("security")
-    expect(result.verificationPrompt).not.toContain("call_weave_agent")
-    expect(result.verificationPrompt).not.toContain("MUST delegate")
+    expect(result.verificationPrompt).not.toContain("Warp")
+    expect(result.verificationPrompt).not.toContain("Security-Sensitive")
   })
 })
 
