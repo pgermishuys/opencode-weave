@@ -13,8 +13,6 @@ export interface WorkState {
   plan_name: string
   /** Agent type to use when resuming (e.g., "tapestry") */
   agent?: string
-  /** Whether the post-execution review gate has been triggered */
-  review_triggered?: boolean
 }
 
 /**

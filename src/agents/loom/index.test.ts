@@ -47,7 +47,7 @@ describe("createLoomAgent", () => {
     expect(planWorkflow).toContain("5+ tasks")
   })
 
-  it("PlanWorkflow Step 2 has skip condition but Step 5 does not", () => {
+  it("PlanWorkflow Step 2 has skip condition", () => {
     const config = createLoomAgent("claude-opus-4")
     const prompt = config.prompt as string
     const planWorkflow = prompt.slice(
@@ -56,11 +56,6 @@ describe("createLoomAgent", () => {
     )
     // Step 2 still allows skip
     expect(planWorkflow).toContain("SKIP ONLY IF")
-    // Step 5 explicitly forbids it
-    const step5Start = planWorkflow.indexOf("5. POST-EXECUTION REVIEW")
-    const step5Text = planWorkflow.slice(step5Start)
-    expect(step5Text).toContain("NO SKIP CONDITIONS")
-    expect(step5Text).not.toContain("SKIP ONLY IF")
   })
 
   it("ReviewWorkflow contains mandatory Warp invocation language", () => {
@@ -108,50 +103,14 @@ describe("createLoomAgent", () => {
     expect(delegation).toContain("MUST use Warp")
   })
 
-  it("PlanWorkflow contains Step 5 POST-EXECUTION REVIEW", () => {
-    const config = createLoomAgent("claude-opus-4")
-    const prompt = config.prompt as string
-    const planWorkflow = prompt.slice(
-      prompt.indexOf("<PlanWorkflow>"),
-      prompt.indexOf("</PlanWorkflow>"),
-    )
-    expect(planWorkflow).toContain("5. POST-EXECUTION REVIEW")
-    expect(planWorkflow).toContain("MANDATORY")
-    expect(planWorkflow).toContain("NO SKIP CONDITIONS")
-  })
-
-  it("PlanWorkflow Step 5 always invokes both Weft and Warp", () => {
-    const config = createLoomAgent("claude-opus-4")
-    const prompt = config.prompt as string
-    const step5Start = prompt.indexOf("5. POST-EXECUTION REVIEW")
-    const planEnd = prompt.indexOf("</PlanWorkflow>")
-    const step5Text = prompt.slice(step5Start, planEnd)
-    expect(step5Text).toContain("Weft")
-    expect(step5Text).toContain("Warp")
-    expect(step5Text).toContain("BOTH")
-  })
-
-  it("PlanWorkflow Step 5 has no skip conditions", () => {
-    const config = createLoomAgent("claude-opus-4")
-    const prompt = config.prompt as string
-    const step5Start = prompt.indexOf("5. POST-EXECUTION REVIEW")
-    const planEnd = prompt.indexOf("</PlanWorkflow>")
-    const step5Text = prompt.slice(step5Start, planEnd)
-    expect(step5Text).not.toContain("SKIP ONLY IF")
-    expect(step5Text).not.toContain("skip review")
-    expect(step5Text).toContain("NO SKIP CONDITIONS")
-    expect(step5Text).toContain("workflow violation")
-  })
-
-  it("ReviewWorkflow distinguishes post-plan and ad-hoc review modes", () => {
+  it("ReviewWorkflow contains ad-hoc review mode", () => {
     const config = createLoomAgent("claude-opus-4")
     const prompt = config.prompt as string
     const reviewWorkflow = prompt.slice(
       prompt.indexOf("<ReviewWorkflow>"),
       prompt.indexOf("</ReviewWorkflow>"),
     )
-    expect(reviewWorkflow).toContain("Post-Plan-Execution Review")
     expect(reviewWorkflow).toContain("Ad-Hoc Review")
-    expect(reviewWorkflow).toContain("No skip conditions")
+    expect(reviewWorkflow).not.toContain("Post-Plan-Execution Review")
   })
 })

@@ -18,7 +18,6 @@ import { checkContinuation } from "./hooks/work-continuation"
 import { checkPatternWrite } from "./hooks/pattern-md-only"
 import { buildVerificationReminder } from "./hooks/verification-reminder"
 import { createHooks } from "./hooks/create-hooks"
-import { getAgentDisplayName } from "./shared/agent-display-names"
 
 import {
   readWorkState,
@@ -557,9 +556,7 @@ describe("Integration: createHooks wired workflow", () => {
     markTaskComplete(planPath, 0)
     markTaskComplete(planPath, 0)
     const cont2 = hooks.workContinuation!("sess_1")
-    expect(cont2.continuationPrompt).not.toBeNull()
-    expect(cont2.targetAgent).toBe(getAgentDisplayName("loom"))
-    expect(cont2.continuationPrompt).toContain("post-execution review")
+    expect(cont2.continuationPrompt).toBeNull()
   })
 
   it("verificationReminder is wired and uses self-verification protocol", () => {
@@ -690,11 +687,9 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
     const progress2 = getPlanProgress(planPath)
     expect(progress2).toMatchObject({ total: 4, completed: 4, isComplete: true })
 
-    // 14. Completed plan triggers review handoff to Loom
+    // 14. Completed plan returns null continuation (no review handoff)
     const cont2 = checkContinuation({ sessionId: "sess_2", directory: testDir })
-    expect(cont2.continuationPrompt).not.toBeNull()
-    expect(cont2.targetAgent).toBe(getAgentDisplayName("loom"))
-    expect(cont2.continuationPrompt).toContain("post-execution review")
+    expect(cont2.continuationPrompt).toBeNull()
 
     // 15. Verification reminder at completion uses self-verification protocol
     const reminder2 = buildVerificationReminder({
@@ -727,23 +722,20 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
     })
     expect(finalResult.contextInjection).toContain("All Plans Complete")
 
-    // 19. Loom's PlanWorkflow mandates post-execution review
+    // 19. Loom's PlanWorkflow does NOT mandate post-execution review (removed)
     const loomConfig = createLoomAgent("claude-opus-4")
     const loomPrompt = loomConfig.prompt as string
     const planWorkflow = loomPrompt.slice(
       loomPrompt.indexOf("<PlanWorkflow>"),
       loomPrompt.indexOf("</PlanWorkflow>"),
     )
-    expect(planWorkflow).toContain("5. POST-EXECUTION REVIEW")
-    expect(planWorkflow).toContain("MANDATORY")
-    expect(planWorkflow).toContain("Weft")
-    expect(planWorkflow).toContain("Warp")
-    expect(planWorkflow).toContain("BOTH")
+    expect(planWorkflow).not.toContain("5. POST-EXECUTION REVIEW")
+    expect(planWorkflow).not.toContain("NO SKIP CONDITIONS")
 
-    // 20. Tapestry's completion signals review is needed
+    // 20. Tapestry's completion step does NOT mandate review
     const tapestryConfig = createTapestryAgent("claude-sonnet-4")
     const tapestryPrompt = tapestryConfig.prompt as string
-    expect(tapestryPrompt).toContain("Post-execution review required")
+    expect(tapestryPrompt).not.toContain("Post-execution review required")
 
     // 21. Warp self-triages — always safe to invoke
     const warpConfig = createWarpAgent("test-model")

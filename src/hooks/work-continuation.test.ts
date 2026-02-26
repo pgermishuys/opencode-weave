@@ -3,7 +3,6 @@ import { mkdirSync, writeFileSync, rmSync } from "fs"
 import { join } from "path"
 import { tmpdir } from "os"
 import { checkContinuation } from "./work-continuation"
-import { getAgentDisplayName } from "../shared/agent-display-names"
 import { writeWorkState, createWorkState } from "../features/work-state/storage"
 import { PLANS_DIR } from "../features/work-state/constants"
 
@@ -36,41 +35,12 @@ describe("checkContinuation", () => {
     expect(result.continuationPrompt).toBeNull()
   })
 
-  it("returns review handoff when plan is complete", () => {
+  it("returns null when plan is complete", () => {
     const planPath = createPlanFile("done", "# Done\n- [x] Task 1\n- [x] Task 2\n")
     writeWorkState(testDir, createWorkState(planPath, "sess_1"))
 
     const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
-    expect(result.continuationPrompt).not.toBeNull()
-    expect(result.targetAgent).toBe(getAgentDisplayName("loom"))
-    expect(result.continuationPrompt).toContain("post-execution review")
-    expect(result.continuationPrompt).toContain("Weft")
-    expect(result.continuationPrompt).toContain("Warp")
-  })
-
-  it("returns null on second call after review already triggered", () => {
-    const planPath = createPlanFile("done2", "# Done\n- [x] Task 1\n- [x] Task 2\n")
-    writeWorkState(testDir, createWorkState(planPath, "sess_1"))
-
-    // First call — fires review gate
-    const first = checkContinuation({ sessionId: "sess_1", directory: testDir })
-    expect(first.continuationPrompt).not.toBeNull()
-    expect(first.continuationPrompt).toContain("post-execution review")
-
-    // Second call — should NOT fire again
-    const second = checkContinuation({ sessionId: "sess_1", directory: testDir })
-    expect(second.continuationPrompt).toBeNull()
-  })
-
-  it("sets review_triggered flag in state after first fire", () => {
-    const planPath = createPlanFile("done3", "# Done\n- [x] Task 1\n")
-    writeWorkState(testDir, createWorkState(planPath, "sess_1"))
-
-    checkContinuation({ sessionId: "sess_1", directory: testDir })
-
-    const { readWorkState: readState } = require("../features/work-state/storage")
-    const state = readState(testDir)
-    expect(state?.review_triggered).toBe(true)
+    expect(result.continuationPrompt).toBeNull()
   })
 
   it("returns null when plan file is missing", () => {
@@ -87,7 +57,6 @@ describe("checkContinuation", () => {
 
     const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
     expect(result.continuationPrompt).not.toBeNull()
-    expect(result.targetAgent).toBeUndefined()
     expect(result.continuationPrompt).toContain("my-plan")
     expect(result.continuationPrompt).toContain("1/3 tasks completed")
     expect(result.continuationPrompt).toContain("2 remaining")
