@@ -4,6 +4,7 @@ import { join } from "path"
 import { tmpdir } from "os"
 import { checkContinuation } from "./work-continuation"
 import { writeWorkState, createWorkState } from "../features/work-state/storage"
+import { readWorkState } from "../features/work-state"
 import { PLANS_DIR } from "../features/work-state/constants"
 
 let testDir: string
@@ -43,12 +44,29 @@ describe("checkContinuation", () => {
     expect(result.continuationPrompt).toBeNull()
   })
 
+  it("clears state.json when plan is complete", () => {
+    const planPath = createPlanFile("done", "# Done\n- [x] Task 1\n- [x] Task 2\n")
+    writeWorkState(testDir, createWorkState(planPath, "sess_1"))
+    expect(readWorkState(testDir)).not.toBeNull()
+
+    checkContinuation({ sessionId: "sess_1", directory: testDir })
+    expect(readWorkState(testDir)).toBeNull()
+  })
+
   it("returns null when plan file is missing", () => {
     // State references a non-existent plan file
     writeWorkState(testDir, createWorkState("/nonexistent/plan.md", "sess_1"))
 
     const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
     expect(result.continuationPrompt).toBeNull()
+  })
+
+  it("clears state.json when plan file is missing", () => {
+    writeWorkState(testDir, createWorkState("/nonexistent/plan.md", "sess_1"))
+    expect(readWorkState(testDir)).not.toBeNull()
+
+    checkContinuation({ sessionId: "sess_1", directory: testDir })
+    expect(readWorkState(testDir)).toBeNull()
   })
 
   it("returns continuation prompt for incomplete plan", () => {
@@ -70,5 +88,26 @@ describe("checkContinuation", () => {
 
     const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
     expect(result.continuationPrompt).toContain(planPath)
+  })
+
+  it("preserves state.json when plan is incomplete", () => {
+    const planPath = createPlanFile("wip", "# WIP\n- [x] Done\n- [ ] Pending\n")
+    writeWorkState(testDir, createWorkState(planPath, "sess_1"))
+
+    checkContinuation({ sessionId: "sess_1", directory: testDir })
+    expect(readWorkState(testDir)).not.toBeNull()
+  })
+
+  it("subsequent call returns null immediately after state cleared", () => {
+    const planPath = createPlanFile("done", "# Done\n- [x] Task 1\n")
+    writeWorkState(testDir, createWorkState(planPath, "sess_1"))
+
+    // First call clears state
+    checkContinuation({ sessionId: "sess_1", directory: testDir })
+    expect(readWorkState(testDir)).toBeNull()
+
+    // Second call takes the fast "no state" exit
+    const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
+    expect(result.continuationPrompt).toBeNull()
   })
 })

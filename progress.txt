@@ -1,5 +1,17 @@
 ## Progress Log
 
+### 2026-02-26 — Clear state.json on plan completion
+
+Implemented the deferred follow-up from the agent-switch hack removal: `checkContinuation` now calls `clearWorkState(directory)` when a plan is complete or missing, so subsequent `session.idle` events take the fast "no work state" exit path instead of repeatedly reading and parsing the completed plan file.
+
+**Changes**:
+- `src/hooks/work-continuation.ts` — imported `clearWorkState`; added calls in both the `total === 0` (missing plan) and `isComplete` (all tasks done) branches
+- `src/hooks/work-continuation.test.ts` — added 4 tests: clears state on complete plan, clears state on missing plan, preserves state on incomplete plan, subsequent call takes fast exit
+
+**Verification**: `bun run build` clean, `bun test` 528 pass / 0 fail.
+
+---
+
 ### 2026-02-26 — Plan complete: remove-agent-switch-hacks (13/13 tasks)
 
 Completed all 13 tasks in `.weave/plans/remove-agent-switch-hacks.md`. All Tapestry→Loom agent-switch hacks and mandatory post-execution review gates are removed.
@@ -15,11 +27,11 @@ Completed all 13 tasks in `.weave/plans/remove-agent-switch-hacks.md`. All Tapes
 
 ---
 
-### Follow-up: Clean up work state on plan completion
+### Follow-up: Clean up work state on plan completion ✓ RESOLVED (2026-02-26)
 
 After the agent-switch hack removal (see 2026-02-26 entry), `checkContinuation` still reads `.weave/state.json` on every `session.idle` event even after a plan is fully complete — it just returns null. The `review_triggered` flag that previously served as "plan acknowledged as done" is being removed.
 
-**TODO**: When `progress.isComplete` is true, `checkContinuation` should clear/delete `.weave/state.json` so subsequent `session.idle` events take the fast "no work state" exit path instead of repeatedly reading and parsing the completed plan file.
+**RESOLVED**: `checkContinuation` now calls `clearWorkState(directory)` in both the `total === 0` and `isComplete` branches, deleting `.weave/state.json` so subsequent idle events take the fast exit.
 
 ---
 

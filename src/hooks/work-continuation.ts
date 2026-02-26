@@ -3,7 +3,7 @@
  * and returns a continuation prompt to keep the executor going.
  */
 
-import { readWorkState, getPlanProgress } from "../features/work-state"
+import { readWorkState, getPlanProgress, clearWorkState } from "../features/work-state"
 
 export interface ContinuationInput {
   sessionId: string
@@ -29,11 +29,13 @@ export function checkContinuation(input: ContinuationInput): ContinuationResult 
 
   const progress = getPlanProgress(state.active_plan)
   if (progress.total === 0) {
-    // Plan file is missing or has no tasks — nothing to continue
+    // Plan file is missing or has no tasks — clean up stale state
+    clearWorkState(directory)
     return { continuationPrompt: null }
   }
   if (progress.isComplete) {
-    // Plan is done — nothing to nudge
+    // Plan is done — clean up so future idle events take the fast exit
+    clearWorkState(directory)
     return { continuationPrompt: null }
   }
 
