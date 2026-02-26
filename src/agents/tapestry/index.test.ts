@@ -54,6 +54,14 @@ describe("createTapestryAgent", () => {
     expect(reviewSection).toContain("Task tool")
   })
 
+  it("PostExecutionReview reports findings without fixing them", () => {
+    const config = createTapestryAgent("claude-sonnet-4")
+    const prompt = config.prompt as string
+    const reviewSection = prompt.slice(prompt.indexOf("<PostExecutionReview>"), prompt.indexOf("</PostExecutionReview>"))
+    expect(reviewSection).toContain("do NOT attempt to fix")
+    expect(reviewSection).toContain("user approval")
+  })
+
   it("contains a Verification section", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     const prompt = config.prompt as string

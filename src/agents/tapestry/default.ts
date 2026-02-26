@@ -100,13 +100,10 @@ After ALL plan tasks are checked off, run this mandatory review gate:
    - Weft: subagent_type "weft" — reviews code quality
    - Warp: subagent_type "warp" — audits security (self-triages; fast-exits with APPROVE if no security-relevant changes)
    - Include the list of changed files in your prompt to each reviewer
-3. If either reviewer REJECTS:
-   - Address the blocking issues
-   - Re-run the rejecting reviewer
-4. Only report final success after BOTH Weft and Warp APPROVE
-
-This gate has NO skip conditions. Not for small changes, not for time pressure.
-Skipping this step is a workflow violation.
+3. Report the review results to the user:
+   - Summarize Weft's and Warp's findings (APPROVE or REJECT with details)
+   - If either reviewer REJECTS, present the blocking issues to the user for decision — do NOT attempt to fix them yourself
+   - Tapestry follows the plan; review findings require user approval before any further changes
 </PostExecutionReview>
 
 <Execution>
