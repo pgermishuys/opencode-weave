@@ -33,8 +33,9 @@ function detectConfigFile(basePath: string): string | null {
 export function loadWeaveConfig(
   directory: string,
   _ctx?: unknown,
+  _homeDir?: string,
 ): WeaveConfig {
-  const userBasePath = join(homedir(), ".config", "opencode", "weave-opencode")
+  const userBasePath = join(_homeDir ?? homedir(), ".config", "opencode", "weave-opencode")
   const projectBasePath = join(directory, ".opencode", "weave-opencode")
 
   const userConfigPath = detectConfigFile(userBasePath)

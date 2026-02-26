@@ -19,7 +19,8 @@ export async function createTools(options: {
 }): Promise<ToolsResult> {
   const { ctx, pluginConfig } = options
 
-  const skillResult = loadSkills({
+  const skillResult = await loadSkills({
+    serverUrl: ctx.serverUrl,
     directory: ctx.directory,
     disabledSkills: pluginConfig.disabled_skills ?? [],
   })

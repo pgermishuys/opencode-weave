@@ -1,5 +1,40 @@
 ## Progress Log
 
+### 2026-02-26 — skill-opencode-integration plan (Tapestry)
+
+Completed all 11 tasks in `.weave/plans/skill-opencode-integration.md` — replaced Weave's custom filesystem skill scanning with OpenCode's `GET /skill` HTTP API.
+
+**Philosophy**: Users manage skills in one place (OpenCode's standard skill locations: `~/.config/opencode/skills/` and `.opencode/skills/`). Weave's specialized agents consume them via explicit config assignment in `weave-opencode.jsonc`. No more `weave-opencode/skills/` directory.
+
+**New files:**
+- `src/features/skill-loader/opencode-client.ts` — `fetchSkillsFromOpenCode(serverUrl, directory)` calls `GET /skill`, maps response to `LoadedSkill[]`, graceful fallback on error
+- `src/features/skill-loader/opencode-client.test.ts` — 10 tests covering mapping, scope derivation, error handling, URL encoding
+
+**Modified files:**
+- `src/features/skill-loader/loader.ts` — `loadSkills()` now async, uses `fetchSkillsFromOpenCode` instead of filesystem scanning; `LoadSkillsOptions` gains `serverUrl` field
+- `src/features/skill-loader/loader.test.ts` — fully rewritten with mocked HTTP responses (7 tests)
+- `src/features/skill-loader/index.ts` — updated barrel: removed deleted exports, added `fetchSkillsFromOpenCode`
+- `src/features/skill-loader/types.ts` — `LoadedSkill.scope` made optional; `SkillMetadata` removed (no longer needed)
+- `src/create-tools.ts` — passes `ctx.serverUrl` to `loadSkills()`
+- `src/config/schema.ts` — removed dead `SkillsConfigSchema`, `SkillsConfig`, and `skills` field from `WeaveConfigSchema`
+- `src/config/merge.ts` — removed dead `skills` field merge
+- `src/config/loader.ts` — added optional `homeDir` override parameter for test isolation
+- `src/config/loader.test.ts` — fixed pre-existing test isolation bug (user's real config was leaking into tests)
+
+**Deleted files:**
+- `src/features/skill-loader/discovery.ts` — filesystem scanning replaced by SDK
+- `src/features/skill-loader/discovery.test.ts`
+- `src/features/skill-loader/merger.ts` — priority merging now handled by OpenCode
+- `src/features/skill-loader/builtin-skills.ts` — vestigial empty array
+
+**Key design decisions:**
+- Raw `fetch()` to `GET /skill` rather than v2 SDK (v1 client has no `skills()` method; raw fetch avoids SDK version mismatch)
+- `scope` derived from `location` field: contains `.opencode` → project, else → user
+- Agent-specific skill assignment unchanged: `agents.tapestry.skills: ["skill-name"]` in `weave-opencode.jsonc`
+- Override skill resolution in `builtin-agents.ts` untouched — source-agnostic, works with any `resolveSkills` function
+
+536 tests pass. Build and typecheck clean.
+
 ### 2026-02-26 — tapestry-revert-v052: Full revert to v0.5.2 + cherry-pick Tapestry Verification
 
 Completed all 5 tasks in `.weave/plans/tapestry-revert-v052.md` — reverted all 14 files changed since v0.5.2 back to their tagged state, then re-applied only the Tapestry `<Verification>` section and step 3c reference.

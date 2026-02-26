@@ -22,7 +22,7 @@ describe("loadWeaveConfig", () => {
   })
 
   it("returns valid default config when no config files exist", () => {
-    const config = loadWeaveConfig(testDir)
+    const config = loadWeaveConfig(testDir, undefined, testDir) // override home → no user config
     expect(config).toBeDefined()
     expect(typeof config).toBe("object")
     // All optional fields should be undefined or default

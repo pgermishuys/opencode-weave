@@ -63,7 +63,6 @@ export function mergeConfigs(
     disabled_skills: mergeStringArrays(user.disabled_skills, project.disabled_skills),
     background: project.background ?? user.background,
     tmux: project.tmux ?? user.tmux,
-    skills: project.skills ?? user.skills,
     experimental:
       user.experimental || project.experimental
         ? { ...user.experimental, ...project.experimental }

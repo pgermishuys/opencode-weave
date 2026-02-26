@@ -48,11 +48,6 @@ export const TmuxConfigSchema = z.object({
   main_pane_size: z.number().optional(),
 })
 
-export const SkillsConfigSchema = z.object({
-  paths: z.array(z.string()).optional(),
-  recursive: z.boolean().optional(),
-})
-
 export const ExperimentalConfigSchema = z.object({
   plugin_load_timeout_ms: z.number().min(1000).optional(),
   context_window_warning_threshold: z.number().min(0).max(1).optional(),
@@ -69,7 +64,6 @@ export const WeaveConfigSchema = z.object({
   disabled_skills: z.array(z.string()).optional(),
   background: BackgroundConfigSchema.optional(),
   tmux: TmuxConfigSchema.optional(),
-  skills: SkillsConfigSchema.optional(),
   experimental: ExperimentalConfigSchema.optional(),
 })
 
@@ -79,6 +73,5 @@ export type CategoryConfig = z.infer<typeof CategoryConfigSchema>
 export type CategoriesConfig = z.infer<typeof CategoriesConfigSchema>
 export type BackgroundConfig = z.infer<typeof BackgroundConfigSchema>
 export type TmuxConfig = z.infer<typeof TmuxConfigSchema>
-export type SkillsConfig = z.infer<typeof SkillsConfigSchema>
 export type ExperimentalConfig = z.infer<typeof ExperimentalConfigSchema>
 export type WeaveConfig = z.infer<typeof WeaveConfigSchema>
