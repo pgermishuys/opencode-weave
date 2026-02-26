@@ -189,6 +189,7 @@ export function createPluginInterface(args: {
               await client.session.promptAsync({
                 path: { id: sessionId },
                 body: {
+                  ...(result.switchAgent ? { agent: getAgentDisplayName(result.switchAgent) } : {}),
                   parts: [
                     { type: "text" as const, text: result.continuationPrompt },
                   ],

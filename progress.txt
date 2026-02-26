@@ -1,5 +1,22 @@
 ## Progress Log
 
+### 2026-02-26 — post-execution-review plan: Automated Loom review after Tapestry completes
+
+Completed all 7 tasks in `.weave/plans/post-execution-review.md`. After Tapestry marks all plan checkboxes done, `session.idle` now automatically switches to Loom and injects a structured review prompt — closing the "no review after execution" gap.
+
+**Changes**:
+- `src/hooks/work-continuation.ts` — Extended `ContinuationResult` with `switchAgent?: string`; `checkContinuation` now returns a review prompt + `switchAgent: "loom"` when `progress.isComplete` (instead of `null`); plan info captured before `clearWorkState`
+- `src/plugin/plugin-interface.ts` — `promptAsync` call in `session.idle` handler now spreads `agent: getAgentDisplayName(result.switchAgent)` when `switchAgent` is set
+- `src/agents/loom/default.ts` — Added `<PostExecutionReview>` section after `</ReviewWorkflow>` with 5-step automated review instructions
+- `src/hooks/work-continuation.test.ts` — Updated 2 existing tests (null→review prompt assertions); added 5 new tests covering switchAgent, prompt content, task count, incomplete plan, no-state cases
+- `src/plugin/plugin-interface.test.ts` — Added 2 new tests: agent passed to promptAsync when switchAgent set; agent NOT passed when switchAgent undefined
+- `src/workflow.test.ts` — Updated 2 integration tests to expect review prompt (not null) on plan completion
+
+**Verification**: `bun run build` clean, `bun test` 534 pass / 0 fail.
+
+---
+
+
 ### 2026-02-26 — Clear state.json on plan completion
 
 Implemented the deferred follow-up from the agent-switch hack removal: `checkContinuation` now calls `clearWorkState(directory)` when a plan is complete or missing, so subsequent `session.idle` events take the fast "no work state" exit path instead of repeatedly reading and parsing the completed plan file.

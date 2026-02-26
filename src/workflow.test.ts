@@ -557,7 +557,9 @@ describe("Integration: createHooks wired workflow", () => {
     markTaskComplete(planPath, 0)
     markTaskComplete(planPath, 0)
     const cont2 = hooks.workContinuation!("sess_1")
-    expect(cont2.continuationPrompt).toBeNull()
+    expect(cont2.continuationPrompt).not.toBeNull()
+    expect(cont2.continuationPrompt).toContain("Weft")
+    expect(cont2.switchAgent).toBe("loom")
   })
 
   it("verificationReminder is wired and uses self-verification protocol", () => {
@@ -688,9 +690,11 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
     const progress2 = getPlanProgress(planPath)
     expect(progress2).toMatchObject({ total: 4, completed: 4, isComplete: true })
 
-    // 14. Completed plan returns null continuation (no review handoff)
+    // 14. Completed plan returns review prompt continuation (automated post-execution review)
     const cont2 = checkContinuation({ sessionId: "sess_2", directory: testDir })
-    expect(cont2.continuationPrompt).toBeNull()
+    expect(cont2.continuationPrompt).not.toBeNull()
+    expect(cont2.continuationPrompt).toContain("Weft")
+    expect(cont2.switchAgent).toBe("loom")
 
     // 15. Verification reminder at completion uses self-verification protocol
     const reminder2 = buildVerificationReminder({

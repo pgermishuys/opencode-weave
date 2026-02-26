@@ -453,6 +453,74 @@ describe("createPluginInterface", () => {
     // Should not throw
     await expect(iface.event({ event: event as Parameters<typeof iface.event>[0]["event"] })).resolves.toBeUndefined()
   })
+
+  it("event handler passes agent to promptAsync when workContinuation returns switchAgent", async () => {
+    const promptAsyncCalls: Array<{ path: { id: string }; body: { agent?: string; parts: Array<{ type: string; text: string }> } }> = []
+
+    const mockClient = {
+      session: {
+        promptAsync: async (opts: { path: { id: string }; body: { agent?: string; parts: Array<{ type: string; text: string }> } }) => {
+          promptAsyncCalls.push(opts)
+        },
+      },
+    } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+    const hooks = makeHooks({
+      workContinuation: (_sessionId: string) => ({
+        continuationPrompt: "Review the completed work.",
+        switchAgent: "loom",
+      }),
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+      client: mockClient,
+    })
+
+    const event = { type: "session.idle", properties: { sessionID: "sess-review-1" } }
+    await iface.event({ event: event as Parameters<typeof iface.event>[0]["event"] })
+
+    expect(promptAsyncCalls.length).toBe(1)
+    expect(promptAsyncCalls[0].body.agent).toBe("Loom (Main Orchestrator)")
+    expect(promptAsyncCalls[0].body.parts[0].text).toBe("Review the completed work.")
+  })
+
+  it("event handler does not pass agent to promptAsync when switchAgent is undefined", async () => {
+    const promptAsyncCalls: Array<{ path: { id: string }; body: Record<string, unknown> }> = []
+
+    const mockClient = {
+      session: {
+        promptAsync: async (opts: { path: { id: string }; body: Record<string, unknown> }) => {
+          promptAsyncCalls.push(opts)
+        },
+      },
+    } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+    const hooks = makeHooks({
+      workContinuation: (_sessionId: string) => ({
+        continuationPrompt: "Continue working.",
+      }),
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+      client: mockClient,
+    })
+
+    const event = { type: "session.idle", properties: { sessionID: "sess-no-switch" } }
+    await iface.event({ event: event as Parameters<typeof iface.event>[0]["event"] })
+
+    expect(promptAsyncCalls.length).toBe(1)
+    expect(promptAsyncCalls[0].body.agent).toBeUndefined()
+  })
 })
 
 describe("delegation logging via tool hooks", () => {
