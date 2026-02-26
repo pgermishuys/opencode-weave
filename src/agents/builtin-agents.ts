@@ -177,6 +177,12 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     })
 
     if (override) {
+      if (override.skills?.length && resolveSkills) {
+        const skillContent = resolveSkills(override.skills, disabledSkills)
+        if (skillContent) {
+          built.prompt = skillContent + (built.prompt ? "\n\n" + built.prompt : "")
+        }
+      }
       if (override.prompt_append) {
         built.prompt = (built.prompt ? built.prompt + "\n\n" : "") + override.prompt_append
       }

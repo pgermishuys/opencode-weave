@@ -52,6 +52,75 @@ describe("createBuiltinAgents", () => {
     expect(agents["loom"]?.temperature).toBe(0.3)
   })
 
+  it("resolves override skills and prepends them to the agent prompt", () => {
+    const agents = createBuiltinAgents({
+      agentOverrides: { pattern: { skills: ["test-skill"] } },
+      resolveSkills: () => "SKILL_CONTENT",
+    })
+    expect(agents["pattern"]?.prompt).toMatch(/^SKILL_CONTENT/)
+  })
+
+  it("override skills appear before the base prompt content", () => {
+    const agents = createBuiltinAgents({
+      agentOverrides: { pattern: { skills: ["test-skill"] } },
+      resolveSkills: () => "SKILL_CONTENT",
+    })
+    const prompt = agents["pattern"]?.prompt ?? ""
+    const skillIndex = prompt.indexOf("SKILL_CONTENT")
+    const baseIndex = prompt.indexOf("Pattern — strategic planner for Weave.")
+    expect(skillIndex).toBeGreaterThanOrEqual(0)
+    expect(baseIndex).toBeGreaterThan(skillIndex)
+  })
+
+  it("override skills work alongside prompt_append", () => {
+    const agents = createBuiltinAgents({
+      agentOverrides: { pattern: { skills: ["test-skill"], prompt_append: "APPENDED" } },
+      resolveSkills: () => "SKILL_CONTENT",
+    })
+    const prompt = agents["pattern"]?.prompt ?? ""
+    expect(prompt.startsWith("SKILL_CONTENT")).toBe(true)
+    expect(prompt.endsWith("APPENDED")).toBe(true)
+    expect(prompt.indexOf("Pattern — strategic planner for Weave.")).toBeGreaterThan(0)
+  })
+
+  it("empty skills array does not affect the prompt", () => {
+    const defaultAgents = createBuiltinAgents()
+    const overrideAgents = createBuiltinAgents({
+      agentOverrides: { pattern: { skills: [] } },
+      resolveSkills: () => "SKILL_CONTENT",
+    })
+    expect(overrideAgents["pattern"]?.prompt).toBe(defaultAgents["pattern"]?.prompt)
+  })
+
+  it("resolveSkills returning empty string does not affect the prompt", () => {
+    const defaultAgents = createBuiltinAgents()
+    const overrideAgents = createBuiltinAgents({
+      agentOverrides: { pattern: { skills: ["disabled-skill"] } },
+      resolveSkills: () => "",
+    })
+    expect(overrideAgents["pattern"]?.prompt).toBe(defaultAgents["pattern"]?.prompt)
+  })
+
+  it("disabledSkills set is forwarded to resolveSkills", () => {
+    let capturedDisabledSkills: Set<string> | undefined
+    createBuiltinAgents({
+      agentOverrides: { pattern: { skills: ["test-skill"] } },
+      disabledSkills: new Set(["blocked-skill"]),
+      resolveSkills: (_names, disabled) => { capturedDisabledSkills = disabled; return "SKILL_CONTENT" },
+    })
+    expect(capturedDisabledSkills).toBeDefined()
+    expect(capturedDisabledSkills?.has("blocked-skill")).toBe(true)
+  })
+
+  it("skills are no-op when resolveSkills is not provided", () => {
+    const defaultAgents = createBuiltinAgents()
+    const overrideAgents = createBuiltinAgents({
+      agentOverrides: { pattern: { skills: ["test-skill"] } },
+      // resolveSkills intentionally omitted
+    })
+    expect(overrideAgents["pattern"]?.prompt).toBe(defaultAgents["pattern"]?.prompt)
+  })
+
   it("thread agent has denied write tools", () => {
     const agents = createBuiltinAgents()
     const thread = agents["thread"]
