@@ -11,6 +11,7 @@ import {
   findPlans,
   getPlanProgress,
   getPlanName,
+  getHeadSha,
 } from "./storage"
 import { WEAVE_DIR, PLANS_DIR } from "./constants"
 
@@ -136,6 +137,37 @@ describe("createWorkState", () => {
   it("includes agent when provided", () => {
     const state = createWorkState("/path/plan.md", "sess_1", "tapestry")
     expect(state.agent).toBe("tapestry")
+  })
+
+  it("includes start_sha when directory is a git repo", () => {
+    // Use the actual weave repo root as the directory
+    const state = createWorkState("/path/plan.md", "sess_1", "tapestry", process.cwd())
+    expect(state.start_sha).toBeDefined()
+    expect(state.start_sha!.length).toBe(40)
+  })
+
+  it("omits start_sha when directory is not provided", () => {
+    const state = createWorkState("/path/plan.md", "sess_1", "tapestry")
+    expect(state.start_sha).toBeUndefined()
+  })
+
+  it("omits start_sha when directory is not a git repo", () => {
+    const state = createWorkState("/path/plan.md", "sess_1", "tapestry", testDir)
+    expect(state.start_sha).toBeUndefined()
+  })
+})
+
+describe("getHeadSha", () => {
+  it("returns a 40-char SHA for a git repo", () => {
+    const sha = getHeadSha(process.cwd())
+    expect(sha).toBeDefined()
+    expect(sha!.length).toBe(40)
+    expect(/^[0-9a-f]{40}$/.test(sha!)).toBe(true)
+  })
+
+  it("returns undefined for a non-git directory", () => {
+    const sha = getHeadSha(testDir)
+    expect(sha).toBeUndefined()
   })
 })
 

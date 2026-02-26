@@ -21,9 +21,9 @@ describe("createTapestryAgent", () => {
     expect(config.prompt!.length).toBeGreaterThan(0)
   })
 
-  it("denies task tool", () => {
+  it("allows task tool for post-execution reviews", () => {
     const config = createTapestryAgent("claude-sonnet-4")
-    expect(config.tools?.["task"]).toBe(false)
+    expect(config.tools?.["task"]).toBeUndefined()
   })
 
   it("denies call_weave_agent tool", () => {
@@ -31,10 +31,27 @@ describe("createTapestryAgent", () => {
     expect(config.tools?.["call_weave_agent"]).toBe(false)
   })
 
-  it("completion step mentions post-execution review", () => {
+  it("completion step references PostExecutionReview", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     const prompt = config.prompt as string
-    expect(prompt).toContain("Post-execution review required")
+    const planExec = prompt.slice(prompt.indexOf("<PlanExecution>"), prompt.indexOf("</PlanExecution>"))
+    expect(planExec).toContain("PostExecutionReview")
+  })
+
+  it("contains a PostExecutionReview section", () => {
+    const config = createTapestryAgent("claude-sonnet-4")
+    const prompt = config.prompt as string
+    expect(prompt).toContain("<PostExecutionReview>")
+    expect(prompt).toContain("</PostExecutionReview>")
+  })
+
+  it("PostExecutionReview invokes Weft and Warp directly", () => {
+    const config = createTapestryAgent("claude-sonnet-4")
+    const prompt = config.prompt as string
+    const reviewSection = prompt.slice(prompt.indexOf("<PostExecutionReview>"), prompt.indexOf("</PostExecutionReview>"))
+    expect(reviewSection).toContain("Weft")
+    expect(reviewSection).toContain("Warp")
+    expect(reviewSection).toContain("Task tool")
   })
 
   it("contains a Verification section", () => {
@@ -47,8 +64,9 @@ describe("createTapestryAgent", () => {
   it("verification protocol mentions tool call history instead of git diff", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     const prompt = config.prompt as string
-    expect(prompt).toContain("Edit/Write tool call history")
-    expect(prompt).not.toContain("git diff")
+    const verificationSection = prompt.slice(prompt.indexOf("<Verification>"), prompt.indexOf("</Verification>"))
+    expect(verificationSection).toContain("Edit/Write tool call history")
+    expect(verificationSection).not.toContain("git diff")
   })
 
   it("verification protocol does NOT mention automated checks (removed)", () => {

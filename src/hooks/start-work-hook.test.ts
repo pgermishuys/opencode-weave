@@ -111,6 +111,27 @@ describe("handleStartWork", () => {
       expect(state!.agent).toBe("tapestry")
     })
 
+    it("does not include Start SHA for non-git directory", () => {
+      createPlanFile(
+        "no-git-plan",
+        validPlanContent(
+          "- [ ] 1. Task 1\n  **What**: Do it\n  **Files**: src/new.ts (new)\n  **Acceptance**: Works"
+        )
+      )
+
+      const result = handleStartWork({
+        promptText: makePrompt(),
+        sessionId: "sess_1",
+        directory: testDir,
+      })
+
+      expect(result.contextInjection).toContain("Starting Plan: no-git-plan")
+      expect(result.contextInjection).not.toContain("Start SHA")
+
+      const state = readWorkState(testDir)
+      expect(state!.start_sha).toBeUndefined()
+    })
+
     it("blocks execution when plan is missing ## TODOs section", () => {
       createPlanFile(
         "bad-plan",

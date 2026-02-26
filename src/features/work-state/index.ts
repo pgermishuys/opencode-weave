@@ -10,5 +10,6 @@ export {
   findPlans,
   getPlanProgress,
   getPlanName,
+  getHeadSha,
 } from "./storage"
 export { validatePlan } from "./validation"

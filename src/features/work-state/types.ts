@@ -13,6 +13,8 @@ export interface WorkState {
   plan_name: string
   /** Agent type to use when resuming (e.g., "tapestry") */
   agent?: string
+  /** Git HEAD SHA at the time work started (absent if not a git repo) */
+  start_sha?: string
 }
 
 /**

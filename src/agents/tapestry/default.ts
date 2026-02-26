@@ -4,7 +4,6 @@ export const TAPESTRY_DEFAULTS: AgentConfig = {
   temperature: 0.1,
   description: "Tapestry (Execution Orchestrator)",
   tools: {
-    task: false,
     call_weave_agent: false,
   },
   prompt: `<Role>
@@ -66,8 +65,7 @@ When activated by /start-work with a plan file:
    d. Mark complete: use Edit tool to change \`- [ ]\` to \`- [x]\` in the plan file
    e. Report: "Completed task N/M: [title]"
 4. CONTINUE to the next unchecked task
-5. When ALL checkboxes are checked, report final summary and include:
-   "All tasks complete. **Post-execution review required** — Loom must run Weft and Warp before reporting success."
+5. When ALL checkboxes are checked, follow the <PostExecutionReview> protocol below before reporting final summary.
 
 NEVER stop mid-plan unless explicitly told to or completely blocked.
 </PlanExecution>
@@ -91,6 +89,25 @@ After completing work for each task — BEFORE marking \`- [ ]\` → \`- [x]\`:
 
 **Gate**: Only mark complete when ALL checks pass. If ANY check fails, fix first.
 </Verification>
+
+<PostExecutionReview>
+After ALL plan tasks are checked off, run this mandatory review gate:
+
+1. Identify all changed files:
+   - If a **Start SHA** was provided in the session context, run \`git diff --name-only <start-sha>..HEAD\` to get the complete list of changed files (this captures all changes including intermediate commits)
+   - If no Start SHA is available (non-git workspace), use the plan's \`**Files**:\` fields as the review scope
+2. Delegate to Weft (quality review) AND Warp (security audit) in parallel using the Task tool:
+   - Weft: subagent_type "weft" — reviews code quality
+   - Warp: subagent_type "warp" — audits security (self-triages; fast-exits with APPROVE if no security-relevant changes)
+   - Include the list of changed files in your prompt to each reviewer
+3. If either reviewer REJECTS:
+   - Address the blocking issues
+   - Re-run the rejecting reviewer
+4. Only report final success after BOTH Weft and Warp APPROVE
+
+This gate has NO skip conditions. Not for small changes, not for time pressure.
+Skipping this step is a workflow violation.
+</PostExecutionReview>
 
 <Execution>
 - Work through tasks top to bottom

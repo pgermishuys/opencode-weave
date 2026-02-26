@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync, readdirSync, statSync } from "fs"
 import { join, basename } from "path"
+import { execSync } from "child_process"
 import type { WorkState, PlanProgress } from "./types"
 import { WEAVE_DIR, WORK_STATE_FILE, PLANS_DIR } from "./constants"
 
@@ -78,13 +79,32 @@ export function appendSessionId(directory: string, sessionId: string): WorkState
 /**
  * Create a fresh WorkState for a plan file.
  */
-export function createWorkState(planPath: string, sessionId: string, agent?: string): WorkState {
+export function createWorkState(planPath: string, sessionId: string, agent?: string, directory?: string): WorkState {
+  const startSha = directory ? getHeadSha(directory) : undefined
   return {
     active_plan: planPath,
     started_at: new Date().toISOString(),
     session_ids: [sessionId],
     plan_name: getPlanName(planPath),
     ...(agent !== undefined ? { agent } : {}),
+    ...(startSha !== undefined ? { start_sha: startSha } : {}),
+  }
+}
+
+/**
+ * Get the current HEAD SHA of the git repo at the given directory.
+ * Returns undefined if not a git repo or git is unavailable.
+ */
+export function getHeadSha(directory: string): string | undefined {
+  try {
+    const sha = execSync("git rev-parse HEAD", {
+      cwd: directory,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim()
+    return sha || undefined
+  } catch {
+    return undefined
   }
 }
 

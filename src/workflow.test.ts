@@ -714,23 +714,21 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
     })
     expect(finalResult.contextInjection).toContain("All Plans Complete")
 
-    // 19. Loom's PlanWorkflow mandates post-execution review
+    // 19. Loom's PlanWorkflow notes Tapestry handles post-execution review
     const loomConfig = createLoomAgent("claude-opus-4")
     const loomPrompt = loomConfig.prompt as string
     const planWorkflow = loomPrompt.slice(
       loomPrompt.indexOf("<PlanWorkflow>"),
       loomPrompt.indexOf("</PlanWorkflow>"),
     )
-    expect(planWorkflow).toContain("5. POST-EXECUTION REVIEW")
-    expect(planWorkflow).toContain("MANDATORY")
-    expect(planWorkflow).toContain("Weft")
-    expect(planWorkflow).toContain("Warp")
-    expect(planWorkflow).toContain("BOTH")
+    expect(planWorkflow).toContain("Tapestry runs Weft and Warp")
 
-    // 20. Tapestry's completion signals review is needed
+    // 20. Tapestry invokes Weft and Warp directly via PostExecutionReview
     const tapestryConfig = createTapestryAgent("claude-sonnet-4")
     const tapestryPrompt = tapestryConfig.prompt as string
-    expect(tapestryPrompt).toContain("Post-execution review required")
+    expect(tapestryPrompt).toContain("<PostExecutionReview>")
+    expect(tapestryPrompt).toContain("Weft")
+    expect(tapestryPrompt).toContain("Warp")
 
     // 21. Warp self-triages — always safe to invoke
     const warpConfig = createWarpAgent("test-model")
