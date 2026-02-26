@@ -31,10 +31,10 @@ describe("createTapestryAgent", () => {
     expect(config.tools?.["call_weave_agent"]).toBe(false)
   })
 
-  it("completion step does not mention post-execution review (removed)", () => {
+  it("completion step mentions post-execution review", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     const prompt = config.prompt as string
-    expect(prompt).not.toContain("Post-execution review required")
+    expect(prompt).toContain("Post-execution review required")
   })
 
   it("contains a Verification section", () => {

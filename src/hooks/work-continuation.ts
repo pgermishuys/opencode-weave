@@ -3,7 +3,7 @@
  * and returns a continuation prompt to keep the executor going.
  */
 
-import { readWorkState, getPlanProgress, clearWorkState } from "../features/work-state"
+import { readWorkState, getPlanProgress } from "../features/work-state"
 
 export interface ContinuationInput {
   sessionId: string
@@ -11,10 +11,8 @@ export interface ContinuationInput {
 }
 
 export interface ContinuationResult {
-  /** Continuation prompt to inject, or null if no active work */
+  /** Continuation prompt to inject, or null if no active work / plan complete */
   continuationPrompt: string | null
-  /** Agent to switch to when injecting the prompt (config key, e.g. "loom") */
-  switchAgent?: string
 }
 
 /**
@@ -30,33 +28,8 @@ export function checkContinuation(input: ContinuationInput): ContinuationResult 
   }
 
   const progress = getPlanProgress(state.active_plan)
-  if (progress.total === 0) {
-    // Plan file is missing or has no tasks — clean up stale state
-    clearWorkState(directory)
-    return { continuationPrompt: null }
-  }
   if (progress.isComplete) {
-    // Capture plan info before clearing state
-    const planPath = state.active_plan
-    const planName = state.plan_name
-    // Plan is done — clean up so future idle events take the fast exit
-    clearWorkState(directory)
-    return {
-      continuationPrompt: `Tapestry has completed all tasks in the plan "${planName}".
-
-**Plan file**: ${planPath}
-**Status**: All ${progress.total} tasks marked complete.
-
-## Review Instructions
-
-1. **Invoke Weft** to review all changes made during this plan execution. Tell Weft to check the git diff for quality, correctness, and adherence to the plan's acceptance criteria.
-2. **Invoke Warp** if any changes touch security-relevant areas (auth, crypto, certificates, tokens, signatures, input validation, secrets, passwords, sessions, CORS, CSP, .env files, or OAuth/OIDC/SAML flows). When in doubt, invoke Warp — false positives are cheap.
-3. **Report findings** to the user with a concise summary of the review results.
-4. **Suggest next steps** if any issues are found.
-
-This is an automated post-execution review. Do NOT skip it.`,
-      switchAgent: "loom",
-    }
+    return { continuationPrompt: null }
   }
 
   const remaining = progress.total - progress.completed

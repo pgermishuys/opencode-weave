@@ -4,7 +4,6 @@ import { join } from "path"
 import { tmpdir } from "os"
 import { checkContinuation } from "./work-continuation"
 import { writeWorkState, createWorkState } from "../features/work-state/storage"
-import { readWorkState } from "../features/work-state"
 import { PLANS_DIR } from "../features/work-state/constants"
 
 let testDir: string
@@ -36,23 +35,12 @@ describe("checkContinuation", () => {
     expect(result.continuationPrompt).toBeNull()
   })
 
-  it("returns review prompt when plan is complete", () => {
+  it("returns null when plan is complete", () => {
     const planPath = createPlanFile("done", "# Done\n- [x] Task 1\n- [x] Task 2\n")
     writeWorkState(testDir, createWorkState(planPath, "sess_1"))
 
     const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
-    expect(result.continuationPrompt).not.toBeNull()
-    expect(result.continuationPrompt).toContain("Weft")
-    expect(result.switchAgent).toBe("loom")
-  })
-
-  it("clears state.json when plan is complete", () => {
-    const planPath = createPlanFile("done", "# Done\n- [x] Task 1\n- [x] Task 2\n")
-    writeWorkState(testDir, createWorkState(planPath, "sess_1"))
-    expect(readWorkState(testDir)).not.toBeNull()
-
-    checkContinuation({ sessionId: "sess_1", directory: testDir })
-    expect(readWorkState(testDir)).toBeNull()
+    expect(result.continuationPrompt).toBeNull()
   })
 
   it("returns null when plan file is missing", () => {
@@ -61,14 +49,6 @@ describe("checkContinuation", () => {
 
     const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
     expect(result.continuationPrompt).toBeNull()
-  })
-
-  it("clears state.json when plan file is missing", () => {
-    writeWorkState(testDir, createWorkState("/nonexistent/plan.md", "sess_1"))
-    expect(readWorkState(testDir)).not.toBeNull()
-
-    checkContinuation({ sessionId: "sess_1", directory: testDir })
-    expect(readWorkState(testDir)).toBeNull()
   })
 
   it("returns continuation prompt for incomplete plan", () => {
@@ -90,61 +70,5 @@ describe("checkContinuation", () => {
 
     const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
     expect(result.continuationPrompt).toContain(planPath)
-  })
-
-  it("preserves state.json when plan is incomplete", () => {
-    const planPath = createPlanFile("wip", "# WIP\n- [x] Done\n- [ ] Pending\n")
-    writeWorkState(testDir, createWorkState(planPath, "sess_1"))
-
-    checkContinuation({ sessionId: "sess_1", directory: testDir })
-    expect(readWorkState(testDir)).not.toBeNull()
-  })
-
-  it("subsequent call returns null immediately after state cleared", () => {
-    const planPath = createPlanFile("done", "# Done\n- [x] Task 1\n")
-    writeWorkState(testDir, createWorkState(planPath, "sess_1"))
-
-    // First call returns review prompt and clears state
-    const firstResult = checkContinuation({ sessionId: "sess_1", directory: testDir })
-    expect(firstResult.continuationPrompt).not.toBeNull()
-    expect(readWorkState(testDir)).toBeNull()
-
-    // Second call takes the fast "no state" exit
-    const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
-    expect(result.continuationPrompt).toBeNull()
-  })
-
-  it("returns review prompt with switchAgent when plan is complete", () => {
-    const planPath = createPlanFile("done", "# Done\n- [x] Task 1\n- [x] Task 2\n")
-    writeWorkState(testDir, createWorkState(planPath, "sess_1"))
-
-    const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
-    expect(result.continuationPrompt).not.toBeNull()
-    expect(result.continuationPrompt).toContain("Weft")
-    expect(result.continuationPrompt).toContain("Warp")
-    expect(result.continuationPrompt).toContain("done")
-    expect(result.continuationPrompt).toContain(planPath)
-    expect(result.switchAgent).toBe("loom")
-  })
-
-  it("review prompt includes task count", () => {
-    const planPath = createPlanFile("big-plan", "# Big\n- [x] A\n- [x] B\n- [x] C\n")
-    writeWorkState(testDir, createWorkState(planPath, "sess_1"))
-
-    const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
-    expect(result.continuationPrompt).toContain("3")
-  })
-
-  it("does not set switchAgent for incomplete plans", () => {
-    const planPath = createPlanFile("wip", "# WIP\n- [x] Done\n- [ ] Pending\n")
-    writeWorkState(testDir, createWorkState(planPath, "sess_1"))
-
-    const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
-    expect(result.switchAgent).toBeUndefined()
-  })
-
-  it("does not set switchAgent when no work state", () => {
-    const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
-    expect(result.switchAgent).toBeUndefined()
   })
 })

@@ -27,43 +27,27 @@ describe("buildVerificationReminder", () => {
     expect(result.verificationPrompt).not.toContain("**Plan**")
   })
 
-  it("prompt does NOT contain call_weave_agent (Tapestry cannot spawn subagents)", () => {
+  it("prompt mentions weft agent", () => {
     const result = buildVerificationReminder({})
-    expect(result.verificationPrompt).not.toContain("call_weave_agent")
+    expect(result.verificationPrompt).toContain("weft")
   })
 
-  it("prompt mentions reviewing tool call history instead of git diff", () => {
+  it("prompt mentions git diff", () => {
     const result = buildVerificationReminder({})
-    expect(result.verificationPrompt).toContain("Edit/Write tool call history")
-    expect(result.verificationPrompt).not.toContain("git diff")
+    expect(result.verificationPrompt).toContain("git diff")
   })
 
-  it("prompt does NOT mention automated checks (removed)", () => {
+  it("prompt uses mandatory language for warp delegation", () => {
     const result = buildVerificationReminder({})
-    expect(result.verificationPrompt).not.toContain("Run Automated Checks")
-    expect(result.verificationPrompt).not.toContain("bun test")
-    expect(result.verificationPrompt).not.toContain("scoped tests only")
+    expect(result.verificationPrompt).toContain("MUST delegate")
+    expect(result.verificationPrompt).toContain("NOT optional")
   })
 
-  it("prompt does NOT mention type/build check (LSP handles this)", () => {
+  it("prompt contains all security trigger keywords for warp", () => {
     const result = buildVerificationReminder({})
-    expect(result.verificationPrompt).not.toContain("type/build check")
-  })
-
-  it("prompt mentions acceptance criteria cross-check", () => {
-    const result = buildVerificationReminder({})
-    expect(result.verificationPrompt).toContain("acceptance criteria")
-  })
-
-  it("prompt does NOT contain security-sensitive flagging (removed from Tapestry verification)", () => {
-    const result = buildVerificationReminder({})
-    expect(result.verificationPrompt).not.toContain("Security-Sensitive")
-    expect(result.verificationPrompt).not.toContain("Warp")
-  })
-
-  it("prompt uses VerificationProtocol XML tags", () => {
-    const result = buildVerificationReminder({})
-    expect(result.verificationPrompt).toContain("<VerificationProtocol>")
-    expect(result.verificationPrompt).toContain("</VerificationProtocol>")
+    const triggers = ["auth", "crypto", "certificates", "tokens", "signatures", "input validation"]
+    for (const trigger of triggers) {
+      expect(result.verificationPrompt).toContain(trigger)
+    }
   })
 })

@@ -142,7 +142,7 @@ describe("Phase 1: Plan to Execution", () => {
     expect(state!.active_plan).not.toContain("alpha")
   })
 
-  it("no plans → instructs to use Loom agent", () => {
+  it("no plans → instructs to use Pattern agent", () => {
     const result = handleStartWork({
       promptText: makeStartWorkPrompt(),
       sessionId: "sess_1",
@@ -150,7 +150,6 @@ describe("Phase 1: Plan to Execution", () => {
     })
 
     expect(result.contextInjection).toContain("No Plans Found")
-    expect(result.contextInjection).toContain("Loom")
     expect(result.contextInjection).toContain("Pattern")
     expect(result.switchAgent).toBe("tapestry")
     expect(readWorkState(testDir)).toBeNull()
@@ -186,7 +185,7 @@ describe("Phase 2: Work Progress Tracking", () => {
     expect(getPlanProgress(planPath)).toMatchObject({ total: 4, completed: 4, isComplete: true })
   })
 
-  it("verification reminder includes progress context and self-verification protocol", () => {
+  it("verification reminder includes progress context and references weft", () => {
     const result = buildVerificationReminder({
       planName: "my-plan",
       progress: { total: 5, completed: 2 },
@@ -195,8 +194,7 @@ describe("Phase 2: Work Progress Tracking", () => {
     expect(result.verificationPrompt).not.toBeNull()
     expect(result.verificationPrompt).toContain("my-plan")
     expect(result.verificationPrompt).toContain("2/5")
-    expect(result.verificationPrompt).toContain("VerificationProtocol")
-    expect(result.verificationPrompt).toContain("Inspect Changes")
+    expect(result.verificationPrompt!.toLowerCase()).toContain("weft")
   })
 })
 
@@ -428,27 +426,26 @@ describe("Phase 6: Weft Review Gate", () => {
     expect(permissions.isToolAllowed("tapestry", "write")).toBe(true)
   })
 
-  it("verification reminder generates correct self-verification prompt after plan completion", () => {
+  it("verification reminder generates correct Weft review prompt after plan completion", () => {
     const result = buildVerificationReminder({
       planName: "my-feature",
       progress: { total: 3, completed: 3 },
     })
 
     expect(result.verificationPrompt).not.toBeNull()
-    expect(result.verificationPrompt).toContain("VerificationProtocol")
-    expect(result.verificationPrompt).toContain("Edit/Write tool call history")
+    expect(result.verificationPrompt!.toLowerCase()).toContain("weft")
+    expect(result.verificationPrompt).toContain("git diff")
     expect(result.verificationPrompt).toContain("my-feature")
     expect(result.verificationPrompt).toContain("3/3")
   })
 
-  it("verification reminder mid-progress includes self-verification steps", () => {
+  it("verification reminder mid-progress still references Weft as review option", () => {
     const result = buildVerificationReminder({
       planName: "partial",
       progress: { total: 5, completed: 2 },
     })
 
-    expect(result.verificationPrompt).toContain("VerificationProtocol")
-    expect(result.verificationPrompt).toContain("Acceptance Criteria")
+    expect(result.verificationPrompt!.toLowerCase()).toContain("weft")
     expect(result.verificationPrompt).toContain("2/5")
   })
 })
@@ -506,25 +503,25 @@ describe("Phase 7: Warp Security Gate", () => {
     expect(permissions.isToolAllowed("warp", "glob")).toBe(true)
   })
 
-  it("verification reminder does not reference security flagging (removed from Tapestry)", () => {
+  it("verification reminder references both weft and warp", () => {
     const result = buildVerificationReminder({
       planName: "auth-feature",
       progress: { total: 3, completed: 3 },
     })
 
     expect(result.verificationPrompt).not.toBeNull()
-    expect(result.verificationPrompt).not.toContain("Security-Sensitive")
-    expect(result.verificationPrompt).not.toContain("Warp")
+    expect(result.verificationPrompt!.toLowerCase()).toContain("weft")
+    expect(result.verificationPrompt!.toLowerCase()).toContain("warp")
   })
 
-  it("verification reminder does not contain security trigger keywords (removed)", () => {
+  it("verification reminder uses mandatory language for warp invocation", () => {
     const result = buildVerificationReminder({
       planName: "security-feature",
       progress: { total: 3, completed: 3 },
     })
 
-    expect(result.verificationPrompt).not.toContain("Warp")
-    expect(result.verificationPrompt).not.toContain("Security-Sensitive")
+    expect(result.verificationPrompt).toContain("MUST delegate")
+    expect(result.verificationPrompt).toContain("NOT optional")
   })
 })
 
@@ -557,12 +554,10 @@ describe("Integration: createHooks wired workflow", () => {
     markTaskComplete(planPath, 0)
     markTaskComplete(planPath, 0)
     const cont2 = hooks.workContinuation!("sess_1")
-    expect(cont2.continuationPrompt).not.toBeNull()
-    expect(cont2.continuationPrompt).toContain("Weft")
-    expect(cont2.switchAgent).toBe("loom")
+    expect(cont2.continuationPrompt).toBeNull()
   })
 
-  it("verificationReminder is wired and uses self-verification protocol", () => {
+  it("verificationReminder is wired and references Weft", () => {
     const hooks = createHooks({
       pluginConfig: {} as any,
       isHookEnabled: () => true,
@@ -575,11 +570,8 @@ describe("Integration: createHooks wired workflow", () => {
     })
 
     expect(result.verificationPrompt).not.toBeNull()
-    expect(result.verificationPrompt).toContain("Edit/Write tool call history")
-    expect(result.verificationPrompt).not.toContain("type/build check")
-    expect(result.verificationPrompt).toContain("acceptance criteria")
+    expect(result.verificationPrompt!.toLowerCase()).toContain("weft")
     expect(result.verificationPrompt).toContain("test-plan")
-    expect(result.verificationPrompt).not.toContain("call_weave_agent")
   })
 
   it("createHooks patternMdOnly guard is wired correctly", () => {
@@ -651,13 +643,12 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
     const progress1 = getPlanProgress(planPath)
     expect(progress1).toMatchObject({ total: 4, completed: 1, isComplete: false })
 
-   // 7. Mid-progress verification reminder uses self-verification protocol
+    // 7. Mid-progress verification reminder mentions Weft
     const reminder1 = buildVerificationReminder({
       planName: "e2e-feature",
       progress: { total: 4, completed: 1 },
     })
-    expect(reminder1.verificationPrompt).toContain("Edit/Write tool call history")
-    expect(reminder1.verificationPrompt).not.toContain("type/build check")
+    expect(reminder1.verificationPrompt!.toLowerCase()).toContain("weft")
 
     // 8. Session goes idle → continuation prompt
     const cont1 = checkContinuation({ sessionId: "sess_1", directory: testDir })
@@ -690,21 +681,17 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
     const progress2 = getPlanProgress(planPath)
     expect(progress2).toMatchObject({ total: 4, completed: 4, isComplete: true })
 
-    // 14. Completed plan returns review prompt continuation (automated post-execution review)
+    // 14. No more continuation
     const cont2 = checkContinuation({ sessionId: "sess_2", directory: testDir })
-    expect(cont2.continuationPrompt).not.toBeNull()
-    expect(cont2.continuationPrompt).toContain("Weft")
-    expect(cont2.switchAgent).toBe("loom")
+    expect(cont2.continuationPrompt).toBeNull()
 
-    // 15. Verification reminder at completion uses self-verification protocol
+    // 15. Weft review gate — verification reminder at completion
     const reminder2 = buildVerificationReminder({
       planName: "e2e-feature",
       progress: { total: 4, completed: 4 },
     })
-    expect(reminder2.verificationPrompt).not.toContain("call_weave_agent")
-    expect(reminder2.verificationPrompt).toContain("Edit/Write tool call history")
-    expect(reminder2.verificationPrompt).not.toContain("type/build check")
-    expect(reminder2.verificationPrompt).toContain("acceptance criteria")
+    expect(reminder2.verificationPrompt!.toLowerCase()).toContain("weft")
+    expect(reminder2.verificationPrompt).toContain("git diff")
     expect(reminder2.verificationPrompt).toContain("e2e-feature")
     expect(reminder2.verificationPrompt).toContain("4/4")
 
@@ -727,20 +714,23 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
     })
     expect(finalResult.contextInjection).toContain("All Plans Complete")
 
-    // 19. Loom's PlanWorkflow does NOT mandate post-execution review (removed)
+    // 19. Loom's PlanWorkflow mandates post-execution review
     const loomConfig = createLoomAgent("claude-opus-4")
     const loomPrompt = loomConfig.prompt as string
     const planWorkflow = loomPrompt.slice(
       loomPrompt.indexOf("<PlanWorkflow>"),
       loomPrompt.indexOf("</PlanWorkflow>"),
     )
-    expect(planWorkflow).not.toContain("5. POST-EXECUTION REVIEW")
-    expect(planWorkflow).not.toContain("NO SKIP CONDITIONS")
+    expect(planWorkflow).toContain("5. POST-EXECUTION REVIEW")
+    expect(planWorkflow).toContain("MANDATORY")
+    expect(planWorkflow).toContain("Weft")
+    expect(planWorkflow).toContain("Warp")
+    expect(planWorkflow).toContain("BOTH")
 
-    // 20. Tapestry's completion step does NOT mandate review
+    // 20. Tapestry's completion signals review is needed
     const tapestryConfig = createTapestryAgent("claude-sonnet-4")
     const tapestryPrompt = tapestryConfig.prompt as string
-    expect(tapestryPrompt).not.toContain("Post-execution review required")
+    expect(tapestryPrompt).toContain("Post-execution review required")
 
     // 21. Warp self-triages — always safe to invoke
     const warpConfig = createWarpAgent("test-model")

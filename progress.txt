@@ -1,82 +1,28 @@
 ## Progress Log
 
-### 2026-02-26 — post-execution-review plan: Automated Loom review after Tapestry completes
+### 2026-02-26 — tapestry-revert-v052: Full revert to v0.5.2 + cherry-pick Tapestry Verification
 
-Completed all 7 tasks in `.weave/plans/post-execution-review.md`. After Tapestry marks all plan checkboxes done, `session.idle` now automatically switches to Loom and injects a structured review prompt — closing the "no review after execution" gap.
+Completed all 5 tasks in `.weave/plans/tapestry-revert-v052.md` — reverted all 14 files changed since v0.5.2 back to their tagged state, then re-applied only the Tapestry `<Verification>` section and step 3c reference.
 
-**Changes**:
-- `src/hooks/work-continuation.ts` — Extended `ContinuationResult` with `switchAgent?: string`; `checkContinuation` now returns a review prompt + `switchAgent: "loom"` when `progress.isComplete` (instead of `null`); plan info captured before `clearWorkState`
-- `src/plugin/plugin-interface.ts` — `promptAsync` call in `session.idle` handler now spreads `agent: getAgentDisplayName(result.switchAgent)` when `switchAgent` is set
-- `src/agents/loom/default.ts` — Added `<PostExecutionReview>` section after `</ReviewWorkflow>` with 5-step automated review instructions
-- `src/hooks/work-continuation.test.ts` — Updated 2 existing tests (null→review prompt assertions); added 5 new tests covering switchAgent, prompt content, task count, incomplete plan, no-state cases
-- `src/plugin/plugin-interface.test.ts` — Added 2 new tests: agent passed to promptAsync when switchAgent set; agent NOT passed when switchAgent undefined
-- `src/workflow.test.ts` — Updated 2 integration tests to expect review prompt (not null) on plan completion
+**Files changed:**
+- `src/agents/tapestry/default.ts` — step 3c now references `<Verification>` protocol; `<Verification>` section added between `</PlanExecution>` and `<Execution>`; all other content is byte-identical to v0.5.2 (including step 5 post-execution review wording)
+- `src/agents/tapestry/index.test.ts` — 7 Verification-related tests added; 7 original v0.5.2 tests preserved; total 14 tests
 
-**Verification**: `bun run build` clean, `bun test` 534 pass / 0 fail.
+**Reverted to v0.5.2 (no post-v0.5.2 content):**
+- `src/agents/loom/default.ts` — restored mandatory Step 5 post-execution review in PlanWorkflow
+- `src/agents/loom/index.test.ts` — restored 3 deleted tests, reverted renamed test
+- `src/hooks/start-work-hook.ts` — reverted "Loom" references back to "Pattern"
+- `src/hooks/start-work-hook.test.ts` — reverted test assertions
+- `src/hooks/verification-reminder.ts` — reverted to Weft/Warp delegation with git diff and automated checks
+- `src/hooks/verification-reminder.test.ts` — reverted test assertions
+- `src/hooks/work-continuation.ts` — removed switchAgent/clearWorkState on completion
+- `src/hooks/work-continuation.test.ts` — removed 7 new tests
+- `src/plugin/plugin-interface.ts` — removed agent passing to promptAsync
+- `src/plugin/plugin-interface.test.ts` — removed 7 new tests
+- `src/workflow.test.ts` — reverted integration tests
+- `progress.txt` — reverted to v0.5.2 state (this entry is the only post-v0.5.2 addition)
 
----
-
-
-### 2026-02-26 — Clear state.json on plan completion
-
-Implemented the deferred follow-up from the agent-switch hack removal: `checkContinuation` now calls `clearWorkState(directory)` when a plan is complete or missing, so subsequent `session.idle` events take the fast "no work state" exit path instead of repeatedly reading and parsing the completed plan file.
-
-**Changes**:
-- `src/hooks/work-continuation.ts` — imported `clearWorkState`; added calls in both the `total === 0` (missing plan) and `isComplete` (all tasks done) branches
-- `src/hooks/work-continuation.test.ts` — added 4 tests: clears state on complete plan, clears state on missing plan, preserves state on incomplete plan, subsequent call takes fast exit
-
-**Verification**: `bun run build` clean, `bun test` 528 pass / 0 fail.
-
----
-
-### 2026-02-26 — Plan complete: remove-agent-switch-hacks (13/13 tasks)
-
-Completed all 13 tasks in `.weave/plans/remove-agent-switch-hacks.md`. All Tapestry→Loom agent-switch hacks and mandatory post-execution review gates are removed.
-
-**Changes made (Tasks 10–13, completing the plan)**:
-- `src/workflow.test.ts` — removed `getAgentDisplayName` import; changed `cont2` assertions from review-handoff expectations to `toBeNull()`; removed Loom Step 5 assertions (lines ~730-741); reversed Tapestry post-review assertion to `.not.toContain`
-- `src/agents/tapestry/index.test.ts` — reversed "completion step mentions post-execution review" to assert it does NOT contain that text
-- `src/agents/loom/index.test.ts` — renamed "Step 2 has skip condition but Step 5 does not" test; deleted 3 Step 5 tests; updated ReviewWorkflow test to assert only Ad-Hoc Review (no Post-Plan-Execution Review)
-
-**Verification**: `bun run build` clean, `bun test` 524 pass / 0 fail. All grep checks pass.
-
-**Follow-up (deferred)**: `checkContinuation` should eventually clear `.weave/state.json` when a plan is complete so `session.idle` takes the fast exit. See follow-up note below.
-
----
-
-### Follow-up: Clean up work state on plan completion ✓ RESOLVED (2026-02-26)
-
-After the agent-switch hack removal (see 2026-02-26 entry), `checkContinuation` still reads `.weave/state.json` on every `session.idle` event even after a plan is fully complete — it just returns null. The `review_triggered` flag that previously served as "plan acknowledged as done" is being removed.
-
-**RESOLVED**: `checkContinuation` now calls `clearWorkState(directory)` in both the `total === 0` and `isComplete` branches, deleting `.weave/state.json` so subsequent idle events take the fast exit.
-
----
-
-### 2026-02-25 — Deterministic agent switch: pendingAgentSwitch in chat.message
-
-Completed the `pendingAgentSwitch` wiring so that when Tapestry finishes a plan, the UI's active agent switches to Loom deterministically.
-
-**Problem**: `promptAsync` sends a message to the correct agent (Loom responds in chat), but does NOT update OpenCode's UI prompt box — it still shows Tapestry.
-
-**Solution**: The only way to update the UI active agent is to mutate `message.agent` in the `chat.message` hook. Implemented a two-phase approach:
-1. `tool.execute.after`: When plan completion is detected, calls `promptAsync` AND stores `sessionId → targetAgent` in a module-level `pendingAgentSwitch` Map
-2. `chat.message`: At the start of the handler, checks the Map. If a pending switch exists for the session, consumes it (deletes from Map) and mutates `message.agent` to the target agent's display name
-
-**Key behaviors**:
-- Switch is consumed exactly once (Map entry deleted after use)
-- Session-scoped (different sessions don't interfere)
-- If `promptAsync` throws, no pending switch is stored (avoids orphaned state)
-- Cleaned up verbose diagnostic logging (kept operational logs only)
-
-**Files changed**:
-- `src/plugin/plugin-interface.ts` — Added pending switch storage in `tool.execute.after`, consumption in `chat.message`, removed 2 verbose diagnostic logs
-- `src/plugin/plugin-interface.test.ts` — Added 5 tests: consume-and-mutate, no-switch-no-mutation, consume-once, session-isolation, error-no-orphan
-
-539 tests pass. Build clean.
-
-**Status**: Ready for manual testing. Clear `.weave/state.json` (remove `review_triggered: true`) before test runs.
-
----
+**Result:** 519 tests pass, 0 failures. Non-Tapestry files are byte-identical to v0.5.2.
 
 ### 2026-02-22 — plan-validation plan: Add plan validation before /start-work (Tapestry)
 
