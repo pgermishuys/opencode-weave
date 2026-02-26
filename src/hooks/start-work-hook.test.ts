@@ -82,7 +82,7 @@ describe("handleStartWork", () => {
         directory: testDir,
       })
       expect(result.contextInjection).toContain("No Plans Found")
-      expect(result.contextInjection).toContain("Pattern")
+      expect(result.contextInjection).toContain("Loom")
     })
   })
 

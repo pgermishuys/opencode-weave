@@ -142,7 +142,7 @@ describe("Phase 1: Plan to Execution", () => {
     expect(state!.active_plan).not.toContain("alpha")
   })
 
-  it("no plans → instructs to use Pattern agent", () => {
+  it("no plans → instructs to use Loom agent", () => {
     const result = handleStartWork({
       promptText: makeStartWorkPrompt(),
       sessionId: "sess_1",
@@ -150,6 +150,7 @@ describe("Phase 1: Plan to Execution", () => {
     })
 
     expect(result.contextInjection).toContain("No Plans Found")
+    expect(result.contextInjection).toContain("Loom")
     expect(result.contextInjection).toContain("Pattern")
     expect(result.switchAgent).toBe("tapestry")
     expect(readWorkState(testDir)).toBeNull()

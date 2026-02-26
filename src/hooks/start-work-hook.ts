@@ -120,7 +120,7 @@ function handleExplicitPlan(
   if (progress.isComplete) {
     return {
       switchAgent: "tapestry",
-      contextInjection: `## Plan Already Complete\nThe plan "${getPlanName(matched)}" has all ${progress.total} tasks completed.\nTell the user this plan is already done and suggest creating a new one with Pattern.`,
+      contextInjection: `## Plan Already Complete\nThe plan "${getPlanName(matched)}" has all ${progress.total} tasks completed.\nTell the user this plan is already done and suggest creating a new one with Loom.`,
     }
   }
 
@@ -163,7 +163,7 @@ function handlePlanDiscovery(
     return {
       switchAgent: "tapestry",
       contextInjection:
-        "## No Plans Found\nNo plan files found at `.weave/plans/`.\nTell the user to switch to Pattern agent to create a work plan first.",
+        "## No Plans Found\nNo plan files found at `.weave/plans/`.\nTell the user to switch to the Loom agent, which will delegate to Pattern to create a structured work plan.",
     }
   }
 
@@ -173,7 +173,7 @@ function handlePlanDiscovery(
     return {
       switchAgent: "tapestry",
       contextInjection:
-        "## All Plans Complete\nAll existing plans have been completed.\nTell the user to switch to Pattern agent to create a new plan.",
+        "## All Plans Complete\nAll existing plans have been completed.\nTell the user to switch to the Loom agent, which will delegate to Pattern to create a new plan.",
     }
   }
 
