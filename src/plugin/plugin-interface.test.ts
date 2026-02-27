@@ -452,6 +452,121 @@ describe("createPluginInterface", () => {
     // Should not throw
     await expect(iface.event({ event: event as Parameters<typeof iface.event>[0]["event"] })).resolves.toBeUndefined()
   })
+
+  it("suppresses work continuation after user interrupt via tui.command.execute", async () => {
+    const promptAsyncCalls: Array<{ path: { id: string }; body: { parts: Array<{ type: string; text: string }> } }> = []
+
+    const mockClient = {
+      session: {
+        promptAsync: async (opts: { path: { id: string }; body: { parts: Array<{ type: string; text: string }> } }) => {
+          promptAsyncCalls.push(opts)
+        },
+      },
+    } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+    const hooks = makeHooks({
+      workContinuation: (_sessionId: string) => ({
+        continuationPrompt: "Continue working on your plan.",
+      }),
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+      client: mockClient,
+    })
+
+    // User interrupts via TUI
+    const interruptEvent = { type: "tui.command.execute", properties: { command: "session.interrupt" } }
+    await iface.event({ event: interruptEvent as Parameters<typeof iface.event>[0]["event"] })
+
+    // Session goes idle after interrupt — continuation should be suppressed
+    const idleEvent = { type: "session.idle", properties: { sessionID: "sess-interrupted" } }
+    await iface.event({ event: idleEvent as Parameters<typeof iface.event>[0]["event"] })
+
+    expect(promptAsyncCalls.length).toBe(0)
+  })
+
+  it("resumes work continuation after interrupt flag is consumed", async () => {
+    const promptAsyncCalls: Array<{ path: { id: string }; body: { parts: Array<{ type: string; text: string }> } }> = []
+
+    const mockClient = {
+      session: {
+        promptAsync: async (opts: { path: { id: string }; body: { parts: Array<{ type: string; text: string }> } }) => {
+          promptAsyncCalls.push(opts)
+        },
+      },
+    } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+    const hooks = makeHooks({
+      workContinuation: (_sessionId: string) => ({
+        continuationPrompt: "Continue working on your plan.",
+      }),
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+      client: mockClient,
+    })
+
+    // User interrupts
+    const interruptEvent = { type: "tui.command.execute", properties: { command: "session.interrupt" } }
+    await iface.event({ event: interruptEvent as Parameters<typeof iface.event>[0]["event"] })
+
+    // First idle — suppressed
+    const idleEvent1 = { type: "session.idle", properties: { sessionID: "sess-1" } }
+    await iface.event({ event: idleEvent1 as Parameters<typeof iface.event>[0]["event"] })
+    expect(promptAsyncCalls.length).toBe(0)
+
+    // Second idle (no new interrupt) — should continue normally
+    const idleEvent2 = { type: "session.idle", properties: { sessionID: "sess-1" } }
+    await iface.event({ event: idleEvent2 as Parameters<typeof iface.event>[0]["event"] })
+    expect(promptAsyncCalls.length).toBe(1)
+  })
+
+  it("does not suppress continuation for non-interrupt TUI commands", async () => {
+    const promptAsyncCalls: Array<{ path: { id: string }; body: { parts: Array<{ type: string; text: string }> } }> = []
+
+    const mockClient = {
+      session: {
+        promptAsync: async (opts: { path: { id: string }; body: { parts: Array<{ type: string; text: string }> } }) => {
+          promptAsyncCalls.push(opts)
+        },
+      },
+    } as unknown as Parameters<typeof createPluginInterface>[0]["client"]
+
+    const hooks = makeHooks({
+      workContinuation: (_sessionId: string) => ({
+        continuationPrompt: "Continue working on your plan.",
+      }),
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks,
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+      client: mockClient,
+    })
+
+    // Non-interrupt TUI command (e.g., compact)
+    const compactEvent = { type: "tui.command.execute", properties: { command: "session.compact" } }
+    await iface.event({ event: compactEvent as Parameters<typeof iface.event>[0]["event"] })
+
+    // Session goes idle — should still continue (not suppressed)
+    const idleEvent = { type: "session.idle", properties: { sessionID: "sess-compact" } }
+    await iface.event({ event: idleEvent as Parameters<typeof iface.event>[0]["event"] })
+
+    expect(promptAsyncCalls.length).toBe(1)
+  })
 })
 
 describe("delegation logging via tool hooks", () => {
