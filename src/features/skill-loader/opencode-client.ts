@@ -21,7 +21,7 @@ export async function fetchSkillsFromOpenCode(
   const url = `${base}/skill?directory=${encodeURIComponent(directory)}`
   let response: Response
   try {
-    response = await fetch(url)
+    response = await fetch(url, { signal: AbortSignal.timeout(3000) })
   } catch (err) {
     log("Failed to fetch skills from OpenCode — skills will not be loaded", { url, error: String(err) })
     return []
