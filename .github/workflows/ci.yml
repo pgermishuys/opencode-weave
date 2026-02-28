@@ -26,3 +26,7 @@ jobs:
 
       - name: Run tests
         run: bun test
+
+      - name: Audit dependencies for known vulnerabilities
+        run: bunx audit-ci --low
+        continue-on-error: true
