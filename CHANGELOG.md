@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-02-28
+
+### Added
+
+- Add 3-second timeout to skill fetch to support lazy loading without blocking startup ([8cc586f](https://github.com/pgermishuys/weave/commit/8cc586f))
+
+### Fixed
+
+- Honor user interrupts by suppressing work-continuation after `session.interrupt` ([c16e89a](https://github.com/pgermishuys/weave/commit/c16e89a))
+
 ## [0.6.0] - 2026-02-26
 
 ### Added
@@ -30,4 +40,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove Tapestry→Loom agent-switch hacks and mandatory post-execution review gate ([da184b3](https://github.com/pgermishuys/weave/commit/da184b3))
 - Clear `state.json` on plan completion so `session.idle` takes fast exit path ([13df42e](https://github.com/pgermishuys/weave/commit/13df42e))
 
+[0.6.1]: https://github.com/pgermishuys/weave/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/pgermishuys/weave/compare/v0.5.2...v0.6.0
