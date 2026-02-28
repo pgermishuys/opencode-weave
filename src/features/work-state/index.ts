@@ -11,5 +11,7 @@ export {
   getPlanProgress,
   getPlanName,
   getHeadSha,
+  pauseWork,
+  resumeWork,
 } from "./storage"
 export { validatePlan } from "./validation"

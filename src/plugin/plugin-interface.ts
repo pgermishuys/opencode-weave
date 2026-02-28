@@ -12,6 +12,7 @@ import {
   getState as getTokenState,
   clearTokenSession,
 } from "../hooks"
+import { pauseWork } from "../features/work-state"
 
 export function createPluginInterface(args: {
   pluginConfig: WeaveConfig
@@ -20,13 +21,9 @@ export function createPluginInterface(args: {
   configHandler: ConfigHandler
   agents: Record<string, AgentConfig>
   client?: PluginContext["client"]
+  directory?: string
 }): PluginInterface {
-  const { pluginConfig, hooks, tools, configHandler, agents, client } = args
-
-  // Track user-initiated interrupts so work-continuation doesn't immediately resume.
-  // When OpenCode's TUI fires "session.interrupt", we set this flag and consume it
-  // on the next "session.idle" to suppress the continuation prompt.
-  let pendingInterrupt = false
+  const { pluginConfig, hooks, tools, configHandler, agents, client, directory = "" } = args
 
   return {
     tool: tools,
@@ -183,42 +180,36 @@ export function createPluginInterface(args: {
         }
       }
 
-      // Detect user-initiated interrupts via TUI command
+      // Detect user-initiated interrupts via TUI command and persist to work state
       if (event.type === "tui.command.execute") {
         const evt = event as { type: string; properties: { command: string } }
         if (evt.properties?.command === "session.interrupt") {
-          pendingInterrupt = true
-          log("[work-continuation] User interrupt detected — will suppress next continuation")
+          pauseWork(directory)
+          log("[work-continuation] User interrupt detected — work paused")
         }
       }
 
       // Work continuation: nudge idle sessions with active plans
       if (hooks.workContinuation && event.type === "session.idle") {
-        // If the user explicitly interrupted, consume the flag and skip continuation
-        if (pendingInterrupt) {
-          pendingInterrupt = false
-          log("[work-continuation] Skipping continuation — session was interrupted by user")
-        } else {
-          const evt = event as { type: string; properties: { sessionID: string } }
-          const sessionId = evt.properties?.sessionID ?? ""
-          if (sessionId) {
-            const result = hooks.workContinuation(sessionId)
-            if (result.continuationPrompt && client) {
-              try {
-                await client.session.promptAsync({
-                  path: { id: sessionId },
-                  body: {
-                    parts: [{ type: "text", text: result.continuationPrompt }],
-                  },
-                })
-                log("[work-continuation] Injected continuation prompt", { sessionId })
-              } catch (err) {
-                log("[work-continuation] Failed to inject continuation", { sessionId, error: String(err) })
-              }
-            } else if (result.continuationPrompt) {
-              // client not available — log for diagnostics
-              log("[work-continuation] continuationPrompt available but no client", { sessionId })
+        const evt = event as { type: string; properties: { sessionID: string } }
+        const sessionId = evt.properties?.sessionID ?? ""
+        if (sessionId) {
+          const result = hooks.workContinuation(sessionId)
+          if (result.continuationPrompt && client) {
+            try {
+              await client.session.promptAsync({
+                path: { id: sessionId },
+                body: {
+                  parts: [{ type: "text", text: result.continuationPrompt }],
+                },
+              })
+              log("[work-continuation] Injected continuation prompt", { sessionId })
+            } catch (err) {
+              log("[work-continuation] Failed to inject continuation", { sessionId, error: String(err) })
             }
+          } else if (result.continuationPrompt) {
+            // client not available — log for diagnostics
+            log("[work-continuation] continuationPrompt available but no client", { sessionId })
           }
         }
       }

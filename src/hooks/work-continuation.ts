@@ -27,6 +27,10 @@ export function checkContinuation(input: ContinuationInput): ContinuationResult 
     return { continuationPrompt: null }
   }
 
+  if (state.paused) {
+    return { continuationPrompt: null }
+  }
+
   const progress = getPlanProgress(state.active_plan)
   if (progress.isComplete) {
     return { continuationPrompt: null }

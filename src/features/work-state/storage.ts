@@ -161,3 +161,25 @@ export function getPlanProgress(planPath: string): PlanProgress {
 export function getPlanName(planPath: string): string {
   return basename(planPath, ".md")
 }
+
+/**
+ * Pause work by setting paused: true in the work state.
+ * Returns false if no state exists (e.g., no active plan).
+ */
+export function pauseWork(directory: string): boolean {
+  const state = readWorkState(directory)
+  if (!state) return false
+  state.paused = true
+  return writeWorkState(directory, state)
+}
+
+/**
+ * Resume work by setting paused: false in the work state.
+ * Returns false if no state exists.
+ */
+export function resumeWork(directory: string): boolean {
+  const state = readWorkState(directory)
+  if (!state) return false
+  state.paused = false
+  return writeWorkState(directory, state)
+}

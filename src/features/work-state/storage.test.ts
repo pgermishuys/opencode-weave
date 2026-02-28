@@ -12,6 +12,8 @@ import {
   getPlanProgress,
   getPlanName,
   getHeadSha,
+  pauseWork,
+  resumeWork,
 } from "./storage"
 import { WEAVE_DIR, PLANS_DIR } from "./constants"
 
@@ -251,5 +253,50 @@ describe("getPlanName", () => {
 
   it("handles path without .md extension", () => {
     expect(getPlanName("/proj/.weave/plans/readme")).toBe("readme")
+  })
+})
+
+describe("pauseWork", () => {
+  it("returns false when no state exists", () => {
+    expect(pauseWork(testDir)).toBe(false)
+  })
+
+  it("sets paused: true on existing state", () => {
+    writeWorkState(testDir, createWorkState("/path/plan.md", "sess_1"))
+    expect(pauseWork(testDir)).toBe(true)
+    const state = readWorkState(testDir)
+    expect(state!.paused).toBe(true)
+  })
+
+  it("preserves other state fields when pausing", () => {
+    const original = createWorkState("/path/plan.md", "sess_1", "tapestry")
+    writeWorkState(testDir, original)
+    pauseWork(testDir)
+    const state = readWorkState(testDir)
+    expect(state!.active_plan).toBe("/path/plan.md")
+    expect(state!.session_ids).toEqual(["sess_1"])
+    expect(state!.agent).toBe("tapestry")
+    expect(state!.paused).toBe(true)
+  })
+})
+
+describe("resumeWork", () => {
+  it("returns false when no state exists", () => {
+    expect(resumeWork(testDir)).toBe(false)
+  })
+
+  it("sets paused: false on existing state", () => {
+    const state = createWorkState("/path/plan.md", "sess_1")
+    writeWorkState(testDir, { ...state, paused: true })
+    expect(resumeWork(testDir)).toBe(true)
+    const updated = readWorkState(testDir)
+    expect(updated!.paused).toBe(false)
+  })
+
+  it("clears paused even when it was already false", () => {
+    writeWorkState(testDir, createWorkState("/path/plan.md", "sess_1"))
+    expect(resumeWork(testDir)).toBe(true)
+    const state = readWorkState(testDir)
+    expect(state!.paused).toBe(false)
   })
 })

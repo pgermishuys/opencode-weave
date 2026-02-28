@@ -21,6 +21,7 @@ const WeavePlugin: Plugin = async (ctx) => {
     configHandler: managers.configHandler,
     agents: managers.agents,
     client: ctx.client,
+    directory: ctx.directory,
   })
 }
 

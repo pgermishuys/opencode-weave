@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync, rmSync } from "fs"
 import { join } from "path"
 import { tmpdir } from "os"
 import { checkContinuation } from "./work-continuation"
-import { writeWorkState, createWorkState } from "../features/work-state/storage"
+import { writeWorkState, createWorkState, readWorkState } from "../features/work-state/storage"
 import { PLANS_DIR } from "../features/work-state/constants"
 
 let testDir: string
@@ -70,5 +70,38 @@ describe("checkContinuation", () => {
 
     const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
     expect(result.continuationPrompt).toContain(planPath)
+  })
+
+  it("returns null when work state has paused: true", () => {
+    const planPath = createPlanFile("paused-plan", "# Plan\n- [x] Done 1\n- [ ] Todo 2\n")
+    const state = createWorkState(planPath, "sess_1")
+    writeWorkState(testDir, { ...state, paused: true })
+
+    const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
+    expect(result.continuationPrompt).toBeNull()
+  })
+
+  it("returns continuation prompt when paused is false", () => {
+    const planPath = createPlanFile("active-plan", "# Plan\n- [x] Done 1\n- [ ] Todo 2\n")
+    const state = createWorkState(planPath, "sess_1")
+    writeWorkState(testDir, { ...state, paused: false })
+
+    const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
+    expect(result.continuationPrompt).not.toBeNull()
+  })
+
+  it("returns continuation prompt when paused is absent (backward compat)", () => {
+    const planPath = createPlanFile("legacy-plan", "# Plan\n- [ ] Todo 1\n")
+    // Simulate a state.json written before the paused field existed
+    const state = createWorkState(planPath, "sess_1")
+    const legacyState = { ...state }
+    // Ensure paused is undefined (absent from JSON)
+    writeWorkState(testDir, legacyState)
+    // Verify paused is not in the raw JSON
+    const written = readWorkState(testDir)
+    expect(written!.paused).toBeUndefined()
+
+    const result = checkContinuation({ sessionId: "sess_1", directory: testDir })
+    expect(result.continuationPrompt).not.toBeNull()
   })
 })

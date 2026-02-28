@@ -13,6 +13,7 @@ import {
   getPlanProgress,
   getPlanName,
   validatePlan,
+  resumeWork,
 } from "../features/work-state"
 import type { ValidationResult } from "../features/work-state"
 
@@ -64,6 +65,7 @@ export function handleStartWork(input: StartWorkInput): StartWorkResult {
         }
       }
       appendSessionId(directory, sessionId)
+      resumeWork(directory)
       const resumeContext = buildResumeContext(existingState.active_plan, existingState.plan_name, progress, existingState.start_sha)
       if (validation.warnings.length > 0) {
         return {
