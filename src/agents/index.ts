@@ -1,4 +1,4 @@
-export { createBuiltinAgents, AGENT_METADATA } from "./builtin-agents"
+export { createBuiltinAgents, AGENT_METADATA, registerCustomAgentMetadata, getAllAgentMetadata } from "./builtin-agents"
 export type { CreateBuiltinAgentsOptions } from "./builtin-agents"
 export { buildAgent, stripDisabledAgentReferences } from "./agent-builder"
 export type { BuildAgentOptions, ResolveSkillsFn } from "./agent-builder"

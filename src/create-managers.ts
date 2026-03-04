@@ -6,9 +6,8 @@ import type { ProjectFingerprint } from "./features/analytics/types"
 import { ConfigHandler } from "./managers/config-handler"
 import { BackgroundManager } from "./managers/background-manager"
 import { SkillMcpManager } from "./managers/skill-mcp-manager"
-import { createBuiltinAgents } from "./agents/builtin-agents"
+import { createBuiltinAgents, registerCustomAgentMetadata } from "./agents/builtin-agents"
 import { buildCustomAgent, buildCustomAgentMetadata } from "./agents/custom-agent-factory"
-import { AGENT_METADATA } from "./agents/builtin-agents"
 
 export interface WeaveManagers {
   configHandler: ConfigHandler
@@ -48,7 +47,7 @@ export function createManagers(options: {
 
       // Register metadata for Loom's dynamic prompt integration
       const metadata = buildCustomAgentMetadata(name, customConfig)
-      ;(AGENT_METADATA as Record<string, typeof metadata>)[name] = metadata
+      registerCustomAgentMetadata(name, metadata)
     }
   }
 

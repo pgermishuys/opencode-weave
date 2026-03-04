@@ -124,5 +124,8 @@ export function resolveAgentModel(agentName: string, options: ResolveAgentModelO
     }
   }
 
+  console.warn(
+    `[weave] No model resolved for agent "${agentName}" — falling back to default github-copilot/claude-opus-4.6`,
+  )
   return "github-copilot/claude-opus-4.6"
 }

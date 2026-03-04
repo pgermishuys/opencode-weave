@@ -34,35 +34,33 @@ describe("buildCustomAgent", () => {
   })
 
   it("loads prompt from prompt_file", () => {
-    const promptPath = join(TEST_DIR, "agent.md")
-    writeFileSync(promptPath, "Loaded from file.")
+    writeFileSync(join(TEST_DIR, "agent.md"), "Loaded from file.")
     const config: CustomAgentConfig = {
-      prompt_file: promptPath,
+      prompt_file: "agent.md",
       model: "test-model/v1",
     }
-    const agent = buildCustomAgent("file-agent", config)
+    const agent = buildCustomAgent("file-agent", config, { configDir: TEST_DIR })
     expect(agent.prompt).toBe("Loaded from file.")
   })
 
   it("prompt_file takes priority over inline prompt", () => {
-    const promptPath = join(TEST_DIR, "priority.md")
-    writeFileSync(promptPath, "File wins.")
+    writeFileSync(join(TEST_DIR, "priority.md"), "File wins.")
     const config: CustomAgentConfig = {
       prompt: "Inline loses.",
-      prompt_file: promptPath,
+      prompt_file: "priority.md",
       model: "test-model/v1",
     }
-    const agent = buildCustomAgent("test-agent", config)
+    const agent = buildCustomAgent("test-agent", config, { configDir: TEST_DIR })
     expect(agent.prompt).toBe("File wins.")
   })
 
   it("falls back to inline prompt when prompt_file not found", () => {
     const config: CustomAgentConfig = {
       prompt: "Fallback prompt.",
-      prompt_file: join(TEST_DIR, "missing.md"),
+      prompt_file: "missing.md",
       model: "test-model/v1",
     }
-    const agent = buildCustomAgent("test-agent", config)
+    const agent = buildCustomAgent("test-agent", config, { configDir: TEST_DIR })
     expect(agent.prompt).toBe("Fallback prompt.")
   })
 
@@ -105,6 +103,46 @@ describe("buildCustomAgent", () => {
     }
     const agent = buildCustomAgent("test-agent", config)
     expect(agent.tools).toEqual({ write: false, edit: false })
+  })
+
+  it("throws on unknown tool names", () => {
+    const config: CustomAgentConfig = {
+      prompt: "Test.",
+      model: "test-model/v1",
+      tools: { write: true, "dangerous-tool": true },
+    }
+    expect(() => buildCustomAgent("test-agent", config)).toThrow(/unknown tool/)
+  })
+
+  it("accepts all known tool names", () => {
+    const config: CustomAgentConfig = {
+      prompt: "Test.",
+      model: "test-model/v1",
+      tools: { write: true, edit: true, bash: true, glob: true, grep: true, read: true, task: true, call_weave_agent: true, webfetch: true, todowrite: true, skill: true },
+    }
+    expect(() => buildCustomAgent("test-agent", config)).not.toThrow()
+  })
+
+  it("throws on invalid agent name with spaces", () => {
+    const config: CustomAgentConfig = { prompt: "Test.", model: "test-model/v1" }
+    expect(() => buildCustomAgent("My Agent", config)).toThrow(/Invalid custom agent name/)
+  })
+
+  it("throws on agent name with special characters", () => {
+    const config: CustomAgentConfig = { prompt: "Test.", model: "test-model/v1" }
+    expect(() => buildCustomAgent("agent!", config)).toThrow(/Invalid custom agent name/)
+  })
+
+  it("throws on agent name starting with number", () => {
+    const config: CustomAgentConfig = { prompt: "Test.", model: "test-model/v1" }
+    expect(() => buildCustomAgent("123agent", config)).toThrow(/Invalid custom agent name/)
+  })
+
+  it("accepts valid agent names with hyphens and underscores", () => {
+    const config: CustomAgentConfig = { prompt: "Test.", model: "test-model/v1" }
+    expect(() => buildCustomAgent("my-custom_agent", config)).not.toThrow()
+    // Clean up
+    delete AGENT_DISPLAY_NAMES["my-custom_agent"]
   })
 
   it("applies custom mode", () => {

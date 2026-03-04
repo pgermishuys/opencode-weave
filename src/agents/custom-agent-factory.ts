@@ -7,6 +7,24 @@ import { resolveAgentModel } from "./model-resolution"
 import type { FallbackEntry } from "./model-resolution"
 import { registerAgentDisplayName } from "../shared/agent-display-names"
 
+/** Known tool names that can be granted/denied via config */
+const KNOWN_TOOL_NAMES = new Set([
+  "write",
+  "edit",
+  "bash",
+  "glob",
+  "grep",
+  "read",
+  "task",
+  "call_weave_agent",
+  "webfetch",
+  "todowrite",
+  "skill",
+])
+
+/** Agent name must be lowercase alphanumeric with hyphens/underscores */
+const AGENT_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/
+
 export interface BuildCustomAgentOptions {
   resolveSkills?: ResolveSkillsFn
   disabledSkills?: Set<string>
@@ -41,6 +59,13 @@ export function buildCustomAgent(
   config: CustomAgentConfig,
   options: BuildCustomAgentOptions = {},
 ): AgentConfig {
+  // Validate agent name format
+  if (!AGENT_NAME_PATTERN.test(name)) {
+    throw new Error(
+      `Invalid custom agent name "${name}": must be lowercase alphanumeric, starting with a letter, using only hyphens and underscores`,
+    )
+  }
+
   const { resolveSkills, disabledSkills, availableModels = new Set(), systemDefaultModel, uiSelectedModel, configDir } = options
 
   // Resolve prompt: prompt_file takes priority if both specified
@@ -90,7 +115,17 @@ export function buildCustomAgent(
   if (config.temperature !== undefined) agentConfig.temperature = config.temperature
   if (config.top_p !== undefined) agentConfig.top_p = config.top_p
   if (config.maxTokens !== undefined) agentConfig.maxTokens = config.maxTokens
-  if (config.tools) agentConfig.tools = config.tools
+  if (config.tools) {
+    // Validate tool names against known allowlist
+    const unknownTools = Object.keys(config.tools).filter((t) => !KNOWN_TOOL_NAMES.has(t))
+    if (unknownTools.length > 0) {
+      throw new Error(
+        `Custom agent "${name}" specifies unknown tool(s): ${unknownTools.join(", ")}. ` +
+          `Known tools: ${[...KNOWN_TOOL_NAMES].join(", ")}`,
+      )
+    }
+    agentConfig.tools = config.tools
+  }
 
   return agentConfig
 }

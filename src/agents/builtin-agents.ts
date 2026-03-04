@@ -145,6 +145,28 @@ export const AGENT_METADATA: Record<WeaveAgentName, AgentPromptMetadata> = {
   },
 }
 
+/**
+ * Separate map for custom agent metadata — avoids unsafe mutation of the
+ * strongly-typed AGENT_METADATA record.
+ */
+const CUSTOM_AGENT_METADATA: Record<string, AgentPromptMetadata> = {}
+
+/**
+ * Register metadata for a custom agent. Used by create-managers.ts
+ * to integrate custom agents into Loom's dynamic prompt builder.
+ */
+export function registerCustomAgentMetadata(name: string, metadata: AgentPromptMetadata): void {
+  CUSTOM_AGENT_METADATA[name] = metadata
+}
+
+/**
+ * Get all agent metadata — builtins + registered custom agents.
+ * Returns a new merged record on each call.
+ */
+export function getAllAgentMetadata(): Record<string, AgentPromptMetadata> {
+  return { ...AGENT_METADATA, ...CUSTOM_AGENT_METADATA }
+}
+
 export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): Record<string, AgentConfig> {
   const {
     disabledAgents = [],

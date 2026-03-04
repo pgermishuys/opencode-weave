@@ -14,11 +14,12 @@ describe("loadPromptFile", () => {
     rmSync(TEST_DIR, { recursive: true, force: true })
   })
 
-  it("loads a prompt from an absolute path", () => {
+  it("rejects absolute paths", () => {
     const filePath = join(TEST_DIR, "prompt.md")
     writeFileSync(filePath, "You are a helpful assistant.")
+    // Absolute paths are rejected for security — must be relative to basePath
     const result = loadPromptFile(filePath)
-    expect(result).toBe("You are a helpful assistant.")
+    expect(result).toBeNull()
   })
 
   it("loads a prompt from a relative path with basePath", () => {
@@ -29,14 +30,14 @@ describe("loadPromptFile", () => {
   })
 
   it("returns null for non-existent file", () => {
-    const result = loadPromptFile(join(TEST_DIR, "does-not-exist.md"))
+    const result = loadPromptFile("does-not-exist.md", TEST_DIR)
     expect(result).toBeNull()
   })
 
   it("trims whitespace from loaded content", () => {
     const filePath = join(TEST_DIR, "whitespace.md")
     writeFileSync(filePath, "  prompt with whitespace  \n\n")
-    const result = loadPromptFile(filePath)
+    const result = loadPromptFile("whitespace.md", TEST_DIR)
     expect(result).toBe("prompt with whitespace")
   })
 
@@ -44,7 +45,32 @@ describe("loadPromptFile", () => {
     const filePath = join(TEST_DIR, "multi.md")
     const content = "<Role>\nYou are a code reviewer.\n</Role>\n\n<Rules>\nBe thorough.\n</Rules>"
     writeFileSync(filePath, content)
-    const result = loadPromptFile(filePath)
+    const result = loadPromptFile("multi.md", TEST_DIR)
     expect(result).toBe(content)
+  })
+
+  // Path traversal security tests
+  it("rejects path traversal via ../", () => {
+    const result = loadPromptFile("../../../etc/passwd", TEST_DIR)
+    expect(result).toBeNull()
+  })
+
+  it("rejects path traversal via nested ../", () => {
+    const result = loadPromptFile("subdir/../../.ssh/id_rsa", TEST_DIR)
+    expect(result).toBeNull()
+  })
+
+  it("allows subdirectory paths within basePath", () => {
+    const subDir = join(TEST_DIR, "prompts")
+    mkdirSync(subDir, { recursive: true })
+    writeFileSync(join(subDir, "agent.md"), "Sub-dir prompt.")
+    const result = loadPromptFile("prompts/agent.md", TEST_DIR)
+    expect(result).toBe("Sub-dir prompt.")
+  })
+
+  it("rejects path that resolves outside basePath despite starting relative", () => {
+    // Even if the path looks relative, if it escapes the base dir it's rejected
+    const result = loadPromptFile("./../outside.md", TEST_DIR)
+    expect(result).toBeNull()
   })
 })

@@ -79,7 +79,7 @@ describe("registerAgentDisplayName", () => {
     expect(getAgentConfigKey("Custom Test Agent")).toBe("custom-test-agent")
   })
 
-  it("overwrites existing display name", () => {
+  it("overwrites existing display name for same custom agent", () => {
     registerAgentDisplayName("custom-test-agent", "First Name")
     registerAgentDisplayName("custom-test-agent", "Second Name")
     expect(getAgentDisplayName("custom-test-agent")).toBe("Second Name")
@@ -90,5 +90,32 @@ describe("registerAgentDisplayName", () => {
     registerAgentDisplayName("another-custom", "Agent B")
     expect(getAgentDisplayName("custom-test-agent")).toBe("Agent A")
     expect(getAgentDisplayName("another-custom")).toBe("Agent B")
+  })
+
+  it("throws when trying to register a builtin config key", () => {
+    expect(() => registerAgentDisplayName("loom", "My Loom")).toThrow(
+      /built-in agent name/,
+    )
+    expect(() => registerAgentDisplayName("warp", "My Warp")).toThrow(
+      /built-in agent name/,
+    )
+  })
+
+  it("throws when display name collides with a builtin agent's display name", () => {
+    expect(() =>
+      registerAgentDisplayName("custom-test-agent", "Loom (Main Orchestrator)"),
+    ).toThrow(/reserved for built-in agent/)
+  })
+
+  it("throws on case-insensitive collision with builtin display name", () => {
+    expect(() =>
+      registerAgentDisplayName("custom-test-agent", "loom (main orchestrator)"),
+    ).toThrow(/reserved for built-in agent/)
+  })
+
+  it("allows display names that don't collide with builtins", () => {
+    expect(() =>
+      registerAgentDisplayName("custom-test-agent", "My Custom Reviewer"),
+    ).not.toThrow()
   })
 })
