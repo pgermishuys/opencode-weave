@@ -1,6 +1,6 @@
 import type { AgentConfig } from "@opencode-ai/sdk"
-import { createLoomAgent } from "./loom"
-import { createTapestryAgent } from "./tapestry"
+import { createLoomAgent, createLoomAgentWithOptions } from "./loom"
+import { createTapestryAgent, createTapestryAgentWithOptions } from "./tapestry"
 import { createShuttleAgent } from "./shuttle"
 import { createPatternAgent } from "./pattern"
 import { createThreadAgent } from "./thread"
@@ -122,6 +122,7 @@ export const AGENT_METADATA: Record<WeaveAgentName, AgentPromptMetadata> = {
   warp: {
     category: "advisor",
     cost: "EXPENSIVE",
+    mandatory: true,
     triggers: [
       { domain: "Security Review", trigger: "After changes touching auth, crypto, tokens, or input handling" },
       { domain: "Spec Compliance", trigger: "When implementing OAuth, OIDC, WebAuthn, JWT, or similar protocols" },
@@ -154,6 +155,14 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
   } = options
 
   const disabledSet = new Set(disabledAgents)
+
+  // Mandatory agents cannot be disabled — remove them from the disabled set
+  for (const [name, meta] of Object.entries(AGENT_METADATA) as [WeaveAgentName, AgentPromptMetadata][]) {
+    if (meta.mandatory) {
+      disabledSet.delete(name)
+    }
+  }
+
   const result: Record<string, AgentConfig> = {}
 
   for (const [name, factory] of Object.entries(AGENT_FACTORIES) as [WeaveAgentName, AgentFactory][]) {
@@ -170,11 +179,20 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
       overrideModel,
     })
 
-    const built = buildAgent(factory, resolvedModel, {
-      categories,
-      disabledSkills,
-      resolveSkills,
-    })
+    // Use prompt-composer-aware constructors for loom and tapestry
+    // so their prompts conditionally omit references to disabled agents
+    let built: AgentConfig
+    if (name === "loom") {
+      built = createLoomAgentWithOptions(resolvedModel, disabledSet)
+    } else if (name === "tapestry") {
+      built = createTapestryAgentWithOptions(resolvedModel, disabledSet)
+    } else {
+      built = buildAgent(factory, resolvedModel, {
+        categories,
+        disabledSkills,
+        resolveSkills,
+      })
+    }
 
     if (override) {
       if (override.skills?.length && resolveSkills) {

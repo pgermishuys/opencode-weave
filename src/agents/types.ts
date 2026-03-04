@@ -69,6 +69,12 @@ export interface AgentPromptMetadata {
 
   /** Key trigger that should appear in Phase 0 quick checks */
   keyTrigger?: string
+
+  /**
+   * When true, this agent cannot be disabled via disabled_agents config.
+   * Used for critical agents like Warp (security gate) that must always be available.
+   */
+  mandatory?: boolean
 }
 
 /**

@@ -180,4 +180,39 @@ describe("AGENT_METADATA", () => {
   it("loom has keyTrigger for ultrawork", () => {
     expect(AGENT_METADATA.loom.keyTrigger).toContain("ultrawork")
   })
+
+  it("warp has mandatory flag", () => {
+    expect(AGENT_METADATA.warp.mandatory).toBe(true)
+  })
+
+  it("mandatory agents cannot be disabled", () => {
+    const agents = createBuiltinAgents({ disabledAgents: ["warp"] })
+    expect(agents["warp"]).toBeDefined()
+  })
+
+  it("non-mandatory agents can be disabled", () => {
+    const agents = createBuiltinAgents({ disabledAgents: ["spindle"] })
+    expect(agents["spindle"]).toBeUndefined()
+  })
+
+  it("loom prompt strips references to disabled agents", () => {
+    const agents = createBuiltinAgents({ disabledAgents: ["spindle", "thread"] })
+    const prompt = agents["loom"]?.prompt ?? ""
+    expect(prompt).not.toContain("Use spindle")
+    expect(prompt).not.toContain("Use thread")
+    // Warp should still be present (mandatory)
+    expect(prompt).toContain("MUST use Warp")
+  })
+
+  it("tapestry prompt adapts PostExecutionReview when weft disabled", () => {
+    const agents = createBuiltinAgents({ disabledAgents: ["weft"] })
+    const prompt = agents["tapestry"]?.prompt ?? ""
+    const reviewSection = prompt.slice(
+      prompt.indexOf("<PostExecutionReview>"),
+      prompt.indexOf("</PostExecutionReview>"),
+    )
+    // Should have Warp (mandatory) but not Weft
+    expect(reviewSection).toContain("Warp")
+    expect(reviewSection).not.toContain("Weft")
+  })
 })
