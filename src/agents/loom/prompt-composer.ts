@@ -6,9 +6,14 @@
  * hardcoded LOOM_DEFAULTS.prompt string.
  */
 
+import type { ProjectFingerprint } from "../../features/analytics/types"
+import { buildProjectContextSection } from "../dynamic-prompt-builder"
+
 export interface LoomPromptOptions {
   /** Set of disabled agent names (lowercase config keys) */
   disabledAgents?: Set<string>
+  /** Project fingerprint for injecting project context into the prompt */
+  fingerprint?: ProjectFingerprint | null
 }
 
 function isEnabled(name: string, disabled: Set<string>): boolean {
@@ -264,9 +269,11 @@ export function buildStyleSection(): string {
  */
 export function composeLoomPrompt(options: LoomPromptOptions = {}): string {
   const disabled = options.disabledAgents ?? new Set()
+  const fingerprint = options.fingerprint
 
   const sections = [
     buildRoleSection(),
+    buildProjectContextSection(fingerprint),
     buildDisciplineSection(),
     buildSidebarTodosSection(),
     buildDelegationSection(disabled),

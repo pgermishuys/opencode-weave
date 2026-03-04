@@ -10,6 +10,7 @@ import {
   buildReviewWorkflowSection,
   buildStyleSection,
 } from "./prompt-composer"
+import type { ProjectFingerprint } from "../../features/analytics/types"
 
 describe("composeLoomPrompt", () => {
   it("produces a non-empty prompt with default options", () => {
@@ -45,6 +46,47 @@ describe("composeLoomPrompt", () => {
   it("preserves Tapestry post-execution review note", () => {
     const prompt = composeLoomPrompt()
     expect(prompt).toContain("Tapestry runs Weft and Warp")
+  })
+
+  it("does not include ProjectContext with no fingerprint", () => {
+    const prompt = composeLoomPrompt()
+    expect(prompt).not.toContain("<ProjectContext>")
+  })
+
+  it("does not include ProjectContext with null fingerprint", () => {
+    const prompt = composeLoomPrompt({ fingerprint: null })
+    expect(prompt).not.toContain("<ProjectContext>")
+  })
+
+  it("includes ProjectContext when fingerprint is provided", () => {
+    const fp: ProjectFingerprint = {
+      generatedAt: new Date().toISOString(),
+      stack: [{ name: "bun", confidence: "high", evidence: "bun.lockb" }],
+      isMonorepo: false,
+      primaryLanguage: "typescript",
+      packageManager: "bun",
+    }
+    const prompt = composeLoomPrompt({ fingerprint: fp })
+    expect(prompt).toContain("<ProjectContext>")
+    expect(prompt).toContain("typescript")
+    expect(prompt).toContain("bun")
+    expect(prompt).toContain("</ProjectContext>")
+  })
+
+  it("places ProjectContext between Role and Discipline sections", () => {
+    const fp: ProjectFingerprint = {
+      generatedAt: new Date().toISOString(),
+      stack: [],
+      isMonorepo: false,
+      primaryLanguage: "typescript",
+      packageManager: "npm",
+    }
+    const prompt = composeLoomPrompt({ fingerprint: fp })
+    const roleEnd = prompt.indexOf("</Role>")
+    const contextStart = prompt.indexOf("<ProjectContext>")
+    const disciplineStart = prompt.indexOf("<Discipline>")
+    expect(contextStart).toBeGreaterThan(roleEnd)
+    expect(contextStart).toBeLessThan(disciplineStart)
   })
 })
 

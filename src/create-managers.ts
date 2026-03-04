@@ -2,6 +2,7 @@ import type { PluginInput } from "@opencode-ai/plugin"
 import type { AgentConfig } from "@opencode-ai/sdk"
 import type { WeaveConfig } from "./config/schema"
 import type { ResolveSkillsFn } from "./agents/agent-builder"
+import type { ProjectFingerprint } from "./features/analytics/types"
 import { ConfigHandler } from "./managers/config-handler"
 import { BackgroundManager } from "./managers/background-manager"
 import { SkillMcpManager } from "./managers/skill-mcp-manager"
@@ -20,13 +21,15 @@ export function createManagers(options: {
   ctx: PluginInput
   pluginConfig: WeaveConfig
   resolveSkills?: ResolveSkillsFn
+  fingerprint?: ProjectFingerprint | null
 }): WeaveManagers {
-  const { pluginConfig, resolveSkills } = options
+  const { pluginConfig, resolveSkills, fingerprint } = options
 
   const agents = createBuiltinAgents({
     disabledAgents: pluginConfig.disabled_agents,
     agentOverrides: pluginConfig.agents,
     resolveSkills,
+    fingerprint,
   })
 
   // Register custom agents from config

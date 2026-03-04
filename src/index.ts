@@ -5,14 +5,18 @@ import { createTools } from "./create-tools"
 import { createHooks } from "./hooks/create-hooks"
 import { createPluginInterface } from "./plugin/plugin-interface"
 import { createAnalytics } from "./features/analytics"
+import { getOrCreateFingerprint } from "./features/analytics/fingerprint"
 
 const WeavePlugin: Plugin = async (ctx) => {
   const pluginConfig = loadWeaveConfig(ctx.directory, ctx)
   const disabledHooks = new Set(pluginConfig.disabled_hooks ?? [])
   const isHookEnabled = (name: string) => !disabledHooks.has(name)
 
+  // Generate fingerprint early so it can be injected into agent prompts
+  const fingerprint = isHookEnabled("analytics") ? getOrCreateFingerprint(ctx.directory) : null
+
   const toolsResult = await createTools({ ctx, pluginConfig })
-  const managers = createManagers({ ctx, pluginConfig, resolveSkills: toolsResult.resolveSkillsFn })
+  const managers = createManagers({ ctx, pluginConfig, resolveSkills: toolsResult.resolveSkillsFn, fingerprint })
   const hooks = createHooks({ pluginConfig, isHookEnabled, directory: ctx.directory })
 
   // Analytics: session tracking + project fingerprinting (fire-and-forget)

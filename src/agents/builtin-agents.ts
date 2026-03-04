@@ -12,6 +12,7 @@ import { buildAgent } from "./agent-builder"
 import type { AgentFactory, AgentPromptMetadata, WeaveAgentName } from "./types"
 import type { CategoriesConfig, AgentOverrideConfig } from "../config/schema"
 import type { ResolveSkillsFn } from "./agent-builder"
+import type { ProjectFingerprint } from "../features/analytics/types"
 
 export interface CreateBuiltinAgentsOptions {
   disabledAgents?: string[]
@@ -22,6 +23,8 @@ export interface CreateBuiltinAgentsOptions {
   availableModels?: Set<string>
   disabledSkills?: Set<string>
   resolveSkills?: ResolveSkillsFn
+  /** Project fingerprint for injecting project context into agent prompts */
+  fingerprint?: ProjectFingerprint | null
 }
 
 const AGENT_FACTORIES: Record<WeaveAgentName, AgentFactory> = {
@@ -152,6 +155,7 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     availableModels = new Set<string>(),
     disabledSkills,
     resolveSkills,
+    fingerprint,
   } = options
 
   const disabledSet = new Set(disabledAgents)
@@ -183,7 +187,7 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     // so their prompts conditionally omit references to disabled agents
     let built: AgentConfig
     if (name === "loom") {
-      built = createLoomAgentWithOptions(resolvedModel, disabledSet)
+      built = createLoomAgentWithOptions(resolvedModel, disabledSet, fingerprint)
     } else if (name === "tapestry") {
       built = createTapestryAgentWithOptions(resolvedModel, disabledSet)
     } else {

@@ -9,8 +9,10 @@ import {
   buildWarpSection,
   buildDelegationTable,
   buildCategorySkillsDelegationGuide,
+  buildProjectContextSection,
 } from "./dynamic-prompt-builder"
 import type { AvailableAgent, AvailableSkill, AvailableCategory } from "./dynamic-prompt-builder"
+import type { ProjectFingerprint } from "../features/analytics/types"
 
 function makeAgent(name: string, overrides: Partial<AvailableAgent["metadata"]> = {}): AvailableAgent {
   return {
@@ -229,5 +231,92 @@ describe("buildCategorySkillsDelegationGuide", () => {
     expect(result).toContain("**Built-in**: playwright")
     expect(result).toContain("**⚡ YOUR SKILLS (PRIORITY)**")
     expect(result).toContain("my-skill (user)")
+  })
+})
+
+describe("buildProjectContextSection", () => {
+  it("returns empty string for null fingerprint", () => {
+    expect(buildProjectContextSection(null)).toBe("")
+  })
+
+  it("returns empty string for undefined fingerprint", () => {
+    expect(buildProjectContextSection(undefined)).toBe("")
+  })
+
+  it("includes language and package manager when present", () => {
+    const fp: ProjectFingerprint = {
+      generatedAt: new Date().toISOString(),
+      stack: [],
+      isMonorepo: false,
+      primaryLanguage: "typescript",
+      packageManager: "bun",
+    }
+    const result = buildProjectContextSection(fp)
+    expect(result).toContain("<ProjectContext>")
+    expect(result).toContain("</ProjectContext>")
+    expect(result).toContain("typescript")
+    expect(result).toContain("bun")
+    expect(result).toContain("This is a typescript project using bun.")
+  })
+
+  it("includes language without package manager", () => {
+    const fp: ProjectFingerprint = {
+      generatedAt: new Date().toISOString(),
+      stack: [],
+      isMonorepo: false,
+      primaryLanguage: "python",
+    }
+    const result = buildProjectContextSection(fp)
+    expect(result).toContain("This is a python project.")
+    expect(result).not.toContain("using")
+  })
+
+  it("includes high-confidence stack entries only", () => {
+    const fp: ProjectFingerprint = {
+      generatedAt: new Date().toISOString(),
+      stack: [
+        { name: "react", confidence: "high", evidence: "package.json dep" },
+        { name: "tailwind", confidence: "medium", evidence: "devDep" },
+        { name: "typescript", confidence: "high", evidence: "tsconfig.json exists" },
+      ],
+      isMonorepo: false,
+      primaryLanguage: "typescript",
+      packageManager: "npm",
+    }
+    const result = buildProjectContextSection(fp)
+    expect(result).toContain("react, typescript")
+    expect(result).not.toContain("tailwind")
+  })
+
+  it("includes monorepo flag when detected", () => {
+    const fp: ProjectFingerprint = {
+      generatedAt: new Date().toISOString(),
+      stack: [],
+      isMonorepo: true,
+      primaryLanguage: "typescript",
+    }
+    const result = buildProjectContextSection(fp)
+    expect(result).toContain("Monorepo structure detected.")
+  })
+
+  it("omits monorepo line when not a monorepo", () => {
+    const fp: ProjectFingerprint = {
+      generatedAt: new Date().toISOString(),
+      stack: [],
+      isMonorepo: false,
+      primaryLanguage: "typescript",
+    }
+    const result = buildProjectContextSection(fp)
+    expect(result).not.toContain("Monorepo")
+  })
+
+  it("returns empty string when fingerprint has no useful data", () => {
+    const fp: ProjectFingerprint = {
+      generatedAt: new Date().toISOString(),
+      stack: [],
+      isMonorepo: false,
+    }
+    const result = buildProjectContextSection(fp)
+    expect(result).toBe("")
   })
 })

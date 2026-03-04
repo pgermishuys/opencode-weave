@@ -1,4 +1,5 @@
 import type { AgentPromptMetadata } from "./types"
+import type { ProjectFingerprint } from "../features/analytics/types"
 
 export interface AvailableAgent {
   name: string
@@ -290,4 +291,40 @@ task(
 \`\`\`typescript
 task(category="...", load_skills=[], run_in_background=false, prompt="...")  // Empty load_skills without justification
 \`\`\``
+}
+
+/**
+ * Build a project context section from a codebase fingerprint.
+ * Returns an empty string if no fingerprint is available.
+ */
+export function buildProjectContextSection(fingerprint: ProjectFingerprint | null | undefined): string {
+  if (!fingerprint) return ""
+
+  const parts: string[] = []
+
+  // Primary language + package manager summary
+  if (fingerprint.primaryLanguage || fingerprint.packageManager) {
+    const lang = fingerprint.primaryLanguage ?? "unknown"
+    const pm = fingerprint.packageManager
+    const desc = pm ? `a ${lang} project using ${pm}` : `a ${lang} project`
+    parts.push(`This is ${desc}.`)
+  }
+
+  // Stack summary (high-confidence detections only)
+  const highConfidence = fingerprint.stack.filter((s) => s.confidence === "high")
+  if (highConfidence.length > 0) {
+    const names = highConfidence.map((s) => s.name).join(", ")
+    parts.push(`Detected stack: ${names}.`)
+  }
+
+  // Monorepo flag
+  if (fingerprint.isMonorepo) {
+    parts.push("Monorepo structure detected.")
+  }
+
+  if (parts.length === 0) return ""
+
+  return `<ProjectContext>
+${parts.join("\n")}
+</ProjectContext>`
 }
