@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { mkdirSync, rmSync, writeFileSync } from "fs"
+import { mkdtempSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { tmpdir } from "os"
 import {
@@ -16,8 +16,7 @@ import { readFingerprint } from "./storage"
 let tempDir: string
 
 beforeEach(() => {
-  tempDir = join(tmpdir(), `weave-fp-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
-  mkdirSync(tempDir, { recursive: true })
+  tempDir = mkdtempSync(join(tmpdir(), "weave-fp-test-"))
 })
 
 afterEach(() => {
@@ -220,7 +219,7 @@ describe("fingerprintProject", () => {
     // Pass a non-writable path to trigger a failure
     const fp = fingerprintProject("/nonexistent/path/that/should/fail/deeply/nested")
     // On some OSes this might succeed (creating dirs) or fail — either way, no throw
-    expect(fp === null || fp !== null).toBe(true)
+    expect(() => fp).not.toThrow()
   })
 })
 

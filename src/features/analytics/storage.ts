@@ -10,7 +10,7 @@ import { ANALYTICS_DIR, SESSION_SUMMARIES_FILE, FINGERPRINT_FILE } from "./types
 export function ensureAnalyticsDir(directory: string): string {
   const dir = join(directory, ANALYTICS_DIR)
   if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true })
+    mkdirSync(dir, { recursive: true, mode: 0o700 })
   }
   return dir
 }
