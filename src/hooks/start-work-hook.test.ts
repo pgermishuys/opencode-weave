@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync, rmSync } from "fs"
 import { join } from "path"
 import { tmpdir } from "os"
 import { handleStartWork, formatValidationResults } from "./start-work-hook"
-import { PLANS_DIR, WEAVE_DIR } from "../features/work-state/constants"
+import { PLANS_DIR } from "../features/work-state/constants"
 import { writeWorkState, createWorkState, readWorkState } from "../features/work-state/storage"
 
 let testDir: string
@@ -295,7 +295,7 @@ describe("handleStartWork", () => {
 
     it("clears state and blocks when resumed plan has validation errors", () => {
       // Create a malformed plan (no ## TODOs)
-      const planPath = createPlanFile(
+      const _planPath = createPlanFile(
         "corrupt-plan",
         "## TL;DR\n> **Summary**: Broken.\n> **Estimated Effort**: Quick\n\n## Verification\n- [ ] Done\n"
       )

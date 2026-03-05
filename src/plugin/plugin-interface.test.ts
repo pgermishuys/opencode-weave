@@ -1,6 +1,6 @@
 import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test"
 import * as fs from "fs"
-import { mkdirSync, writeFileSync, rmSync, readFileSync } from "fs"
+import { mkdirSync, writeFileSync, rmSync } from "fs"
 import { join } from "path"
 import { tmpdir } from "os"
 import { createPluginInterface } from "./plugin-interface"
@@ -13,7 +13,7 @@ import { clearAllTokenState, getState as getTokenState } from "../hooks"
 import { getLogFilePath } from "../shared/log"
 import { checkContinuation } from "../hooks/work-continuation"
 import { writeWorkState, createWorkState, readWorkState } from "../features/work-state/storage"
-import { WEAVE_DIR, PLANS_DIR } from "../features/work-state/constants"
+import { WEAVE_DIR } from "../features/work-state/constants"
 
 const baseConfig: WeaveConfig = {}
 
@@ -850,8 +850,6 @@ describe("context window monitoring", () => {
   })
 
   it("event handler fires warn action when usage exceeds 80% threshold", async () => {
-    let resultAction: string | undefined
-
     const hooks = makeHooks({
       checkContextWindow: (state) => {
         const usagePct = state.usedTokens / state.maxTokens

@@ -25,7 +25,7 @@ export function appendSessionSummary(directory: string, summary: SessionSummary)
     const dir = ensureAnalyticsDir(directory)
     const filePath = join(dir, SESSION_SUMMARIES_FILE)
     const line = JSON.stringify(summary) + "\n"
-    appendFileSync(filePath, line, "utf-8")
+    appendFileSync(filePath, line, { encoding: "utf-8", mode: 0o600 })
 
     // Rotate if needed — trim to MAX_SESSION_ENTRIES
     try {
@@ -33,7 +33,7 @@ export function appendSessionSummary(directory: string, summary: SessionSummary)
       const lines = content.split("\n").filter((l) => l.trim().length > 0)
       if (lines.length > MAX_SESSION_ENTRIES) {
         const trimmed = lines.slice(-MAX_SESSION_ENTRIES).join("\n") + "\n"
-        writeFileSync(filePath, trimmed, "utf-8")
+        writeFileSync(filePath, trimmed, { encoding: "utf-8", mode: 0o600 })
       }
     } catch {
       // rotation failure is non-fatal
@@ -77,7 +77,7 @@ export function writeFingerprint(directory: string, fingerprint: ProjectFingerpr
   try {
     const dir = ensureAnalyticsDir(directory)
     const filePath = join(dir, FINGERPRINT_FILE)
-    writeFileSync(filePath, JSON.stringify(fingerprint, null, 2), "utf-8")
+    writeFileSync(filePath, JSON.stringify(fingerprint, null, 2), { encoding: "utf-8", mode: 0o600 })
     return true
   } catch {
     return false
