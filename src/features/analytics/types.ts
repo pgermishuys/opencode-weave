@@ -80,6 +80,8 @@ export interface ProjectFingerprint {
   os?: string
   /** CPU architecture (e.g., "arm64", "x64") */
   arch?: string
+  /** Weave version that generated this fingerprint (e.g., "0.6.3") */
+  weaveVersion?: string
 }
 
 // ── Suggestions ──────────────────────────────────────────────────

@@ -11,7 +11,8 @@ import {
   fingerprintProject,
   getOrCreateFingerprint,
 } from "./fingerprint"
-import { readFingerprint } from "./storage"
+import { readFingerprint, writeFingerprint } from "./storage"
+import { getWeaveVersion } from "../../shared/version"
 
 let tempDir: string
 
@@ -236,6 +237,13 @@ describe("generateFingerprint", () => {
     expect(typeof fp.arch).toBe("string")
     expect(fp.arch!.length).toBeGreaterThan(0)
   })
+
+  it("includes weaveVersion field", () => {
+    const fp = generateFingerprint(tempDir)
+    expect(typeof fp.weaveVersion).toBe("string")
+    expect(fp.weaveVersion).toMatch(/^\d+\.\d+\.\d+/)
+    expect(fp.weaveVersion).toBe(getWeaveVersion())
+  })
 })
 
 describe("fingerprintProject", () => {
@@ -249,11 +257,15 @@ describe("fingerprintProject", () => {
     expect(persisted!.primaryLanguage).toBe(fp!.primaryLanguage)
   })
 
-  it("returns null on failure without throwing", () => {
-    // Pass a non-writable path to trigger a failure
-    const fp = fingerprintProject("/nonexistent/path/that/should/fail/deeply/nested")
-    // On some OSes this might succeed (creating dirs) or fail — either way, no throw
-    expect(() => fp).not.toThrow()
+  it("does not throw on failure", () => {
+    // Pass a non-writable path — on some OSes this succeeds, on others it fails.
+    // Either way, fingerprintProject must never throw.
+    let fp: ReturnType<typeof fingerprintProject>
+    expect(() => {
+      fp = fingerprintProject("/nonexistent/path/that/should/fail/deeply/nested")
+    }).not.toThrow()
+    // Result is either a valid fingerprint or null — both are acceptable
+    expect(fp! === null || typeof fp!.generatedAt === "string").toBe(true)
   })
 })
 
@@ -271,5 +283,46 @@ describe("getOrCreateFingerprint", () => {
     const fp = getOrCreateFingerprint(tempDir)
     expect(fp).not.toBeNull()
     expect(fp!.stack.some((s) => s.name === "node")).toBe(true)
+  })
+
+  it("regenerates when cached fingerprint has no weaveVersion (legacy)", () => {
+    // Write a legacy fingerprint without weaveVersion
+    writeFingerprint(tempDir, {
+      generatedAt: "2024-01-01T00:00:00.000Z",
+      stack: [],
+      isMonorepo: false,
+    })
+    const fp = getOrCreateFingerprint(tempDir)
+    expect(fp).not.toBeNull()
+    // Should have regenerated — generatedAt must differ from the legacy value
+    expect(fp!.generatedAt).not.toBe("2024-01-01T00:00:00.000Z")
+    // New fingerprint must include weaveVersion
+    expect(fp!.weaveVersion).toBe(getWeaveVersion())
+  })
+
+  it("regenerates when cached fingerprint has a stale weaveVersion", () => {
+    // Write a fingerprint with an old version
+    writeFingerprint(tempDir, {
+      generatedAt: "2024-01-01T00:00:00.000Z",
+      stack: [],
+      isMonorepo: false,
+      weaveVersion: "0.0.1",
+    })
+    const fp = getOrCreateFingerprint(tempDir)
+    expect(fp).not.toBeNull()
+    expect(fp!.weaveVersion).toBe(getWeaveVersion())
+    expect(fp!.generatedAt).not.toBe("2024-01-01T00:00:00.000Z")
+  })
+
+  it("returns cached fingerprint when weaveVersion matches", () => {
+    // Generate a fresh fingerprint (has correct weaveVersion)
+    const first = fingerprintProject(tempDir)
+    expect(first).not.toBeNull()
+    expect(first!.weaveVersion).toBe(getWeaveVersion())
+
+    // getOrCreateFingerprint should return from cache (same generatedAt)
+    const second = getOrCreateFingerprint(tempDir)
+    expect(second).not.toBeNull()
+    expect(second!.generatedAt).toBe(first!.generatedAt)
   })
 })
