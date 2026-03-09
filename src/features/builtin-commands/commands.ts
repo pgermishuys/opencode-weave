@@ -1,5 +1,6 @@
 import type { BuiltinCommand, BuiltinCommandName } from "./types"
 import { START_WORK_TEMPLATE } from "./templates/start-work"
+import { METRICS_TEMPLATE } from "./templates/metrics"
 
 export const BUILTIN_COMMANDS: Record<BuiltinCommandName, BuiltinCommand> = {
   "start-work": {
@@ -21,5 +22,15 @@ ${START_WORK_TEMPLATE}
 Display the token usage report that has been injected below. Present it clearly to the user.
 </command-instruction>
 <token-report>$ARGUMENTS</token-report>`,
+  },
+  "metrics": {
+    name: "metrics",
+    description: "Show Weave analytics and plan metrics reports",
+    agent: "loom",
+    template: `<command-instruction>
+${METRICS_TEMPLATE}
+</command-instruction>
+<metrics-data>$ARGUMENTS</metrics-data>`,
+    argumentHint: "[plan-name|all]",
   },
 }

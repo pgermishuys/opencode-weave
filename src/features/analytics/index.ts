@@ -3,13 +3,23 @@ export type {
   DelegationEntry,
   SessionSummary,
   TokenUsage,
+  MetricsTokenUsage,
+  AdherenceReport,
+  MetricsReport,
   DetectedStack,
   ProjectFingerprint,
   Suggestion,
   InFlightToolCall,
   TrackedSession,
 } from "./types"
-export { ANALYTICS_DIR, SESSION_SUMMARIES_FILE, FINGERPRINT_FILE } from "./types"
+export {
+  ANALYTICS_DIR,
+  SESSION_SUMMARIES_FILE,
+  FINGERPRINT_FILE,
+  METRICS_REPORTS_FILE,
+  MAX_METRICS_ENTRIES,
+  zeroTokenUsage,
+} from "./types"
 
 export {
   ensureAnalyticsDir,
@@ -17,6 +27,8 @@ export {
   readSessionSummaries,
   writeFingerprint,
   readFingerprint,
+  writeMetricsReport,
+  readMetricsReports,
 } from "./storage"
 
 export {
@@ -34,6 +46,18 @@ export { SessionTracker, createSessionTracker } from "./session-tracker"
 export { generateSuggestions, getSuggestionsForProject } from "./suggestions"
 
 export { generateTokenReport, getTokenReport } from "./token-report"
+
+export { formatMetricsMarkdown } from "./format-metrics"
+
+export { generateMetricsReport } from "./generate-metrics-report"
+
+export { extractPlannedFiles } from "./plan-parser"
+
+export { getChangedFiles } from "./git-diff"
+
+export { calculateAdherence } from "./adherence"
+
+export { aggregateTokensForPlan } from "./plan-token-aggregator"
 
 import { createSessionTracker } from "./session-tracker"
 import { getOrCreateFingerprint } from "./fingerprint"
