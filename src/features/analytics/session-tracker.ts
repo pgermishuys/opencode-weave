@@ -4,6 +4,7 @@ import type {
   ToolUsageEntry,
   DelegationEntry,
   InFlightToolCall,
+  TokenUsage,
 } from "./types"
 import { appendSessionSummary } from "./storage"
 import { log } from "../../shared/log"
@@ -38,6 +39,14 @@ export class SessionTracker {
       toolCounts: {},
       delegations: [],
       inFlight: {},
+      tokenUsage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalMessages: 0,
+      },
     }
     this.sessions.set(sessionId, session)
     return session
@@ -87,6 +96,33 @@ export class SessionTracker {
   }
 
   /**
+   * Track token usage from a message.updated event.
+   * Accumulates all token fields into the session's running totals.
+   * Lazily starts the session if needed.
+   */
+  trackTokenUsage(
+    sessionId: string,
+    tokens: {
+      input?: number
+      output?: number
+      reasoning?: number
+      cacheRead?: number
+      cacheWrite?: number
+    },
+  ): void {
+    const session = this.startSession(sessionId)
+    const safeNum = (v: number | undefined): number =>
+      typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0
+
+    session.tokenUsage.inputTokens += safeNum(tokens.input)
+    session.tokenUsage.outputTokens += safeNum(tokens.output)
+    session.tokenUsage.reasoningTokens += safeNum(tokens.reasoning)
+    session.tokenUsage.cacheReadTokens += safeNum(tokens.cacheRead)
+    session.tokenUsage.cacheWriteTokens += safeNum(tokens.cacheWrite)
+    session.tokenUsage.totalMessages += 1
+  }
+
+  /**
    * End a session and persist the summary. Removes the session from tracking.
    * Returns the generated summary, or null if the session wasn't being tracked.
    */
@@ -115,6 +151,11 @@ export class SessionTracker {
       totalDelegations: session.delegations.length,
     }
 
+    // Include token usage only when at least one message contributed token data
+    if (session.tokenUsage.totalMessages > 0) {
+      summary.tokenUsage = { ...session.tokenUsage }
+    }
+
     // Persist to JSONL — fire-and-forget
     try {
       appendSessionSummary(this.directory, summary)
@@ -122,6 +163,10 @@ export class SessionTracker {
         sessionId,
         totalToolCalls,
         totalDelegations: session.delegations.length,
+        ...(summary.tokenUsage ? {
+          inputTokens: summary.tokenUsage.inputTokens,
+          outputTokens: summary.tokenUsage.outputTokens,
+        } : {}),
       })
     } catch (err) {
       log("[analytics] Failed to persist session summary (non-fatal)", {

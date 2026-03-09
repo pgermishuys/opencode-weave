@@ -4,7 +4,7 @@ import { join } from "path"
 import { tmpdir } from "os"
 import { generateSuggestions, getSuggestionsForProject } from "./suggestions"
 import { appendSessionSummary } from "./storage"
-import type { SessionSummary } from "./types"
+import type { SessionSummary, TokenUsage } from "./types"
 
 let tempDir: string
 
@@ -190,9 +190,97 @@ describe("generateSuggestions", () => {
     for (const s of suggestions) {
       expect(s.id).toBeTruthy()
       expect(s.text).toBeTruthy()
-      expect(["tool-usage", "delegation", "workflow"]).toContain(s.category)
+      expect(["tool-usage", "delegation", "workflow", "token-usage"]).toContain(s.category)
       expect(["high", "medium", "low"]).toContain(s.confidence)
     }
+  })
+
+  describe("token usage suggestions", () => {
+    function makeTokenUsage(overrides?: Partial<TokenUsage>): TokenUsage {
+      return {
+        inputTokens: 50_000,
+        outputTokens: 10_000,
+        reasoningTokens: 5_000,
+        cacheReadTokens: 20_000,
+        cacheWriteTokens: 5_000,
+        totalMessages: 10,
+        ...overrides,
+      }
+    }
+
+    it("detects high token usage (>100k avg input tokens)", () => {
+      const summaries = Array.from({ length: 3 }, (_, i) =>
+        makeSummary({
+          sessionId: `s${i}`,
+          tokenUsage: makeTokenUsage({ inputTokens: 150_000 }),
+        }),
+      )
+      const suggestions = generateSuggestions(summaries)
+      expect(suggestions.some((s) => s.id === "high-token-usage")).toBe(true)
+    })
+
+    it("does not flag high token usage when under threshold", () => {
+      const summaries = Array.from({ length: 3 }, (_, i) =>
+        makeSummary({
+          sessionId: `s${i}`,
+          tokenUsage: makeTokenUsage({ inputTokens: 50_000 }),
+        }),
+      )
+      const suggestions = generateSuggestions(summaries)
+      expect(suggestions.some((s) => s.id === "high-token-usage")).toBe(false)
+    })
+
+    it("detects low cache hit ratio (<30%)", () => {
+      const summaries = Array.from({ length: 3 }, (_, i) =>
+        makeSummary({
+          sessionId: `s${i}`,
+          tokenUsage: makeTokenUsage({
+            inputTokens: 100_000,
+            cacheReadTokens: 10_000, // 10% ratio
+          }),
+        }),
+      )
+      const suggestions = generateSuggestions(summaries)
+      expect(suggestions.some((s) => s.id === "low-cache-hit-ratio")).toBe(true)
+    })
+
+    it("does not flag cache ratio when above threshold", () => {
+      const summaries = Array.from({ length: 3 }, (_, i) =>
+        makeSummary({
+          sessionId: `s${i}`,
+          tokenUsage: makeTokenUsage({
+            inputTokens: 100_000,
+            cacheReadTokens: 50_000, // 50% ratio
+          }),
+        }),
+      )
+      const suggestions = generateSuggestions(summaries)
+      expect(suggestions.some((s) => s.id === "low-cache-hit-ratio")).toBe(false)
+    })
+
+    it("gracefully handles summaries without tokenUsage field", () => {
+      // Mix of old (no tokenUsage) and new summaries — fewer than 3 with tokens
+      const summaries = [
+        makeSummary({ sessionId: "s1" }), // no tokenUsage
+        makeSummary({ sessionId: "s2" }), // no tokenUsage
+        makeSummary({
+          sessionId: "s3",
+          tokenUsage: makeTokenUsage({ inputTokens: 200_000 }),
+        }),
+      ]
+      const suggestions = generateSuggestions(summaries)
+      // Should not generate token suggestions (only 1 session with tokens < 3 minimum)
+      expect(suggestions.some((s) => s.category === "token-usage")).toBe(false)
+    })
+
+    it("skips token suggestions when fewer than 3 sessions have token data", () => {
+      const summaries = Array.from({ length: 5 }, (_, i) =>
+        makeSummary({ sessionId: `s${i}` }),
+      )
+      // 5 sessions but none have tokenUsage
+      const suggestions = generateSuggestions(summaries)
+      expect(suggestions.some((s) => s.category === "token-usage")).toBe(false)
+    })
   })
 })
 

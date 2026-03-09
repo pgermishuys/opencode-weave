@@ -19,6 +19,7 @@ export function generateSuggestions(summaries: SessionSummary[]): Suggestion[] {
   suggestions.push(...analyzeToolUsage(summaries))
   suggestions.push(...analyzeDelegations(summaries))
   suggestions.push(...analyzeWorkflow(summaries))
+  suggestions.push(...analyzeTokenUsage(summaries))
 
   return suggestions
 }
@@ -118,6 +119,43 @@ function analyzeDelegations(summaries: SessionSummary[]): Suggestion[] {
         })
       }
     }
+  }
+
+  return suggestions
+}
+
+/**
+ * Analyze token usage patterns across sessions.
+ * Only processes summaries that have tokenUsage data (guards for old entries).
+ */
+function analyzeTokenUsage(summaries: SessionSummary[]): Suggestion[] {
+  const suggestions: Suggestion[] = []
+
+  // Filter to summaries that have token data
+  const withTokens = summaries.filter((s) => s.tokenUsage && s.tokenUsage.totalMessages > 0)
+  if (withTokens.length < MIN_SESSIONS_FOR_SUGGESTIONS) return suggestions
+
+  // Check for high average input tokens per session (>100k)
+  const totalInputTokens = withTokens.reduce((sum, s) => sum + s.tokenUsage!.inputTokens, 0)
+  const avgInputTokens = totalInputTokens / withTokens.length
+  if (avgInputTokens > 100_000) {
+    suggestions.push({
+      id: "high-token-usage",
+      text: `Average of ${Math.round(avgInputTokens).toLocaleString()} input tokens per session — consider breaking tasks into smaller sessions to reduce context size.`,
+      category: "token-usage",
+      confidence: "medium",
+    })
+  }
+
+  // Check for low cache hit ratio (<30%)
+  const totalCacheRead = withTokens.reduce((sum, s) => sum + s.tokenUsage!.cacheReadTokens, 0)
+  if (totalInputTokens > 0 && totalCacheRead / totalInputTokens < 0.3) {
+    suggestions.push({
+      id: "low-cache-hit-ratio",
+      text: `Cache hit ratio is ${Math.round((totalCacheRead / totalInputTokens) * 100)}% — consider prompt caching strategies to reduce token consumption.`,
+      category: "token-usage",
+      confidence: "low",
+    })
   }
 
   return suggestions

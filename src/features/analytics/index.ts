@@ -2,6 +2,7 @@ export type {
   ToolUsageEntry,
   DelegationEntry,
   SessionSummary,
+  TokenUsage,
   DetectedStack,
   ProjectFingerprint,
   Suggestion,

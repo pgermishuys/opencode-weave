@@ -50,6 +50,8 @@ export interface SessionSummary {
   totalToolCalls: number
   /** Total number of delegations */
   totalDelegations: number
+  /** Aggregated token usage across all messages (absent for old entries) */
+  tokenUsage?: TokenUsage
 }
 
 // ── Project Fingerprint ──────────────────────────────────────────
@@ -93,9 +95,27 @@ export interface Suggestion {
   /** Human-readable suggestion text */
   text: string
   /** Category of suggestion */
-  category: "tool-usage" | "delegation" | "workflow"
+  category: "tool-usage" | "delegation" | "workflow" | "token-usage"
   /** Confidence level */
   confidence: "high" | "medium" | "low"
+}
+
+// ── Token Usage ─────────────────────────────────────────────────
+
+/** Aggregated token counts across all messages in a session */
+export interface TokenUsage {
+  /** Total input (prompt) tokens consumed */
+  inputTokens: number
+  /** Total output (completion) tokens generated */
+  outputTokens: number
+  /** Total reasoning tokens used */
+  reasoningTokens: number
+  /** Total cache-read tokens */
+  cacheReadTokens: number
+  /** Total cache-write tokens */
+  cacheWriteTokens: number
+  /** Number of messages that contributed token data */
+  totalMessages: number
 }
 
 // ── Session Tracker ──────────────────────────────────────────────
@@ -122,4 +142,6 @@ export interface TrackedSession {
   delegations: DelegationEntry[]
   /** In-flight tool calls keyed by callID */
   inFlight: Record<string, InFlightToolCall>
+  /** Cumulative token usage across all messages */
+  tokenUsage: TokenUsage
 }

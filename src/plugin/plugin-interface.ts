@@ -182,38 +182,57 @@ export function createPluginInterface(args: {
         }
       }
 
-      // Context window monitoring: process assistant message token usage
-      if (event.type === "message.updated" && hooks.checkContextWindow) {
+      // Process assistant message token data from message.updated events
+      if (event.type === "message.updated") {
         const evt = event as {
           type: string
           properties: {
             info: {
               role?: string
               sessionID?: string
-              tokens?: { input?: number }
+              tokens?: {
+                input?: number
+                output?: number
+                reasoning?: number
+                cache?: { read?: number; write?: number }
+              }
             }
           }
         }
         const info = evt.properties?.info
         if (info?.role === "assistant" && info.sessionID) {
-          const inputTokens = info.tokens?.input ?? 0
-          if (inputTokens > 0) {
-            updateUsage(info.sessionID, inputTokens)
-            const tokenState = getTokenState(info.sessionID)
-            if (tokenState && tokenState.maxTokens > 0) {
-              const result = hooks.checkContextWindow({
-                usedTokens: tokenState.usedTokens,
-                maxTokens: tokenState.maxTokens,
-                sessionId: info.sessionID,
-              })
-              if (result.action !== "none") {
-                log("[context-window] Threshold crossed", {
+          // Context window monitoring
+          if (hooks.checkContextWindow) {
+            const inputTokens = info.tokens?.input ?? 0
+            if (inputTokens > 0) {
+              updateUsage(info.sessionID, inputTokens)
+              const tokenState = getTokenState(info.sessionID)
+              if (tokenState && tokenState.maxTokens > 0) {
+                const result = hooks.checkContextWindow({
+                  usedTokens: tokenState.usedTokens,
+                  maxTokens: tokenState.maxTokens,
                   sessionId: info.sessionID,
-                  action: result.action,
-                  usagePct: result.usagePct,
                 })
+                if (result.action !== "none") {
+                  log("[context-window] Threshold crossed", {
+                    sessionId: info.sessionID,
+                    action: result.action,
+                    usagePct: result.usagePct,
+                  })
+                }
               }
             }
+          }
+
+          // Analytics: track token usage from this message
+          if (tracker && hooks.analyticsEnabled) {
+            tracker.trackTokenUsage(info.sessionID, {
+              input: info.tokens?.input,
+              output: info.tokens?.output,
+              reasoning: info.tokens?.reasoning,
+              cacheRead: info.tokens?.cache?.read,
+              cacheWrite: info.tokens?.cache?.write,
+            })
           }
         }
       }
