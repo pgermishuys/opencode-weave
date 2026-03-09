@@ -14,9 +14,12 @@ import {
   clearTokenSession,
 } from "../hooks"
 import { pauseWork, readWorkState } from "../features/work-state"
+import { getPlanProgress } from "../features/work-state/storage"
 import { CONTINUATION_MARKER } from "../hooks/work-continuation"
-import { readSessionSummaries } from "../features/analytics/storage"
+import { readSessionSummaries, readMetricsReports } from "../features/analytics/storage"
 import { generateTokenReport } from "../features/analytics/token-report"
+import { formatMetricsMarkdown } from "../features/analytics/format-metrics"
+import { generateMetricsReport } from "../features/analytics/generate-metrics-report"
 
 export function createPluginInterface(args: {
   pluginConfig: WeaveConfig
@@ -186,6 +189,21 @@ export function createPluginInterface(args: {
             tracker.endSession(evt.properties.info.id)
           } catch (err) {
             log("[analytics] Failed to end session (non-fatal)", { error: String(err) })
+          }
+
+          // Generate metrics report if a plan just completed
+          if (directory) {
+            try {
+              const state = readWorkState(directory)
+              if (state) {
+                const progress = getPlanProgress(state.active_plan)
+                if (progress.isComplete) {
+                  generateMetricsReport(directory, state)
+                }
+              }
+            } catch (err) {
+              log("[analytics] Failed to generate metrics report on session end (non-fatal)", { error: String(err) })
+            }
           }
         }
       }
@@ -391,12 +409,27 @@ export function createPluginInterface(args: {
     },
 
     "command.execute.before": async (input, output) => {
-      const { command } = input as { command: string; sessionID: string; arguments: string }
+      const { command, arguments: args } = input as { command: string; sessionID: string; arguments: string }
+      const parts = (output as { parts: Array<{ type: string; text: string }> }).parts
+
       if (command === "token-report") {
         const summaries = readSessionSummaries(directory)
         const reportText = generateTokenReport(summaries)
-        const parts = (output as { parts: Array<{ type: string; text: string }> }).parts
         parts.push({ type: "text", text: reportText })
+      }
+
+      if (command === "metrics") {
+        if (!hooks.analyticsEnabled) {
+          parts.push({
+            type: "text",
+            text: "Analytics is not enabled. To enable it, set `\"analytics\": { \"enabled\": true }` in your `weave.json`.",
+          })
+          return
+        }
+        const reports = readMetricsReports(directory)
+        const summaries = readSessionSummaries(directory)
+        const metricsMarkdown = formatMetricsMarkdown(reports, summaries, args)
+        parts.push({ type: "text", text: metricsMarkdown })
       }
     },
   }

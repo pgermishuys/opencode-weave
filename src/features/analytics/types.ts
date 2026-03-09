@@ -120,6 +120,77 @@ export interface Suggestion {
   confidence: "high" | "medium" | "low"
 }
 
+// ── Metrics Report ───────────────────────────────────────────────
+
+/** File name for metrics reports (JSONL format) */
+export const METRICS_REPORTS_FILE = "metrics-reports.jsonl"
+
+/** Maximum number of metrics report entries to keep in the JSONL file */
+export const MAX_METRICS_ENTRIES = 100
+
+/** Token usage for metrics reports (simplified field names vs session TokenUsage) */
+export interface MetricsTokenUsage {
+  /** Total input tokens consumed */
+  input: number
+  /** Total output tokens generated */
+  output: number
+  /** Total reasoning tokens used */
+  reasoning: number
+  /** Total cache read tokens */
+  cacheRead: number
+  /** Total cache write tokens */
+  cacheWrite: number
+}
+
+/** Create a zero-valued MetricsTokenUsage */
+export function zeroTokenUsage(): MetricsTokenUsage {
+  return { input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 }
+}
+
+/** Plan execution adherence metrics */
+export interface AdherenceReport {
+  /** Proportion of planned files that actually changed (0-1) */
+  coverage: number
+  /** Proportion of actual changes that were planned (0-1) */
+  precision: number
+  /** Planned files that actually changed */
+  plannedFilesChanged: string[]
+  /** Files changed but not in the plan */
+  unplannedChanges: string[]
+  /** Planned files that did not change */
+  missedFiles: string[]
+  /** Total number of files in the plan */
+  totalPlannedFiles: number
+  /** Total number of files actually changed */
+  totalActualFiles: number
+}
+
+/** Metrics report for a completed plan */
+export interface MetricsReport {
+  /** Plan name (from plan file basename) */
+  planName: string
+  /** ISO timestamp when report was generated */
+  generatedAt: string
+  /** Adherence metrics */
+  adherence: AdherenceReport
+  /** Code quality score (Phase 2 — undefined in Phase 1) */
+  quality?: unknown
+  /** Quality gaps (Phase 2 — undefined in Phase 1) */
+  gaps?: unknown
+  /** Token usage across all sessions */
+  tokenUsage: MetricsTokenUsage
+  /** Total duration of all sessions in milliseconds */
+  durationMs: number
+  /** Number of sessions that worked on this plan */
+  sessionCount: number
+  /** Git HEAD SHA when work started */
+  startSha?: string
+  /** Git HEAD SHA when work ended (optional) */
+  endSha?: string
+  /** Session IDs that contributed to this report */
+  sessionIds: string[]
+}
+
 // ── Session Tracker ──────────────────────────────────────────────
 
 /** Tracks in-flight tool calls for duration measurement */

@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, appendFileSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
-import type { SessionSummary, ProjectFingerprint } from "./types"
-import { ANALYTICS_DIR, SESSION_SUMMARIES_FILE, FINGERPRINT_FILE } from "./types"
+import type { SessionSummary, ProjectFingerprint, MetricsReport } from "./types"
+import { ANALYTICS_DIR, SESSION_SUMMARIES_FILE, FINGERPRINT_FILE, METRICS_REPORTS_FILE, MAX_METRICS_ENTRIES } from "./types"
 
 /** Maximum number of session summary entries to keep in the JSONL file */
 export const MAX_SESSION_ENTRIES = 1000
@@ -98,5 +98,61 @@ export function readFingerprint(directory: string): ProjectFingerprint | null {
     return parsed as ProjectFingerprint
   } catch {
     return null
+  }
+}
+
+// ── Metrics Reports ─────────────────────────────────────────────
+
+/**
+ * Write a metrics report to the JSONL file.
+ * Auto-creates the analytics directory if needed.
+ * Appends the report and rotates if exceeding MAX_METRICS_ENTRIES.
+ */
+export function writeMetricsReport(directory: string, report: MetricsReport): boolean {
+  try {
+    const dir = ensureAnalyticsDir(directory)
+    const filePath = join(dir, METRICS_REPORTS_FILE)
+    const line = JSON.stringify(report) + "\n"
+    appendFileSync(filePath, line, { encoding: "utf-8", mode: 0o600 })
+
+    // Rotate if needed — trim to MAX_METRICS_ENTRIES
+    try {
+      const content = readFileSync(filePath, "utf-8")
+      const lines = content.split("\n").filter((l) => l.trim().length > 0)
+      if (lines.length > MAX_METRICS_ENTRIES) {
+        const trimmed = lines.slice(-MAX_METRICS_ENTRIES).join("\n") + "\n"
+        writeFileSync(filePath, trimmed, { encoding: "utf-8", mode: 0o600 })
+      }
+    } catch {
+      // rotation failure is non-fatal
+    }
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Read all metrics reports from the JSONL file.
+ * Returns an empty array if the file doesn't exist or is unparseable.
+ */
+export function readMetricsReports(directory: string): MetricsReport[] {
+  const filePath = join(directory, ANALYTICS_DIR, METRICS_REPORTS_FILE)
+  try {
+    if (!existsSync(filePath)) return []
+    const content = readFileSync(filePath, "utf-8")
+    const lines = content.split("\n").filter((line) => line.trim().length > 0)
+    const reports: MetricsReport[] = []
+    for (const line of lines) {
+      try {
+        reports.push(JSON.parse(line) as MetricsReport)
+      } catch {
+        // skip malformed lines
+      }
+    }
+    return reports
+  } catch {
+    return []
   }
 }
