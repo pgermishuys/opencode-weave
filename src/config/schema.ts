@@ -99,6 +99,10 @@ export const AnalyticsConfigSchema = z.object({
   enabled: z.boolean().optional(),
 })
 
+export const WorkflowConfigSchema = z.object({
+  disabled_workflows: z.array(z.string()).optional(),
+})
+
 export const WeaveConfigSchema = z.object({
   $schema: z.string().optional(),
   agents: AgentOverridesSchema.optional(),
@@ -112,6 +116,7 @@ export const WeaveConfigSchema = z.object({
   analytics: AnalyticsConfigSchema.optional(),
   tmux: TmuxConfigSchema.optional(),
   experimental: ExperimentalConfigSchema.optional(),
+  workflows: WorkflowConfigSchema.optional(),
 })
 
 export type AgentOverrideConfig = z.infer<typeof AgentOverrideConfigSchema>
@@ -124,4 +129,5 @@ export type BackgroundConfig = z.infer<typeof BackgroundConfigSchema>
 export type AnalyticsConfig = z.infer<typeof AnalyticsConfigSchema>
 export type TmuxConfig = z.infer<typeof TmuxConfigSchema>
 export type ExperimentalConfig = z.infer<typeof ExperimentalConfigSchema>
+export type WorkflowConfig = z.infer<typeof WorkflowConfigSchema>
 export type WeaveConfig = z.infer<typeof WeaveConfigSchema>

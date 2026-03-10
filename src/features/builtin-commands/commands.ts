@@ -1,6 +1,7 @@
 import type { BuiltinCommand, BuiltinCommandName } from "./types"
 import { START_WORK_TEMPLATE } from "./templates/start-work"
 import { METRICS_TEMPLATE } from "./templates/metrics"
+import { RUN_WORKFLOW_TEMPLATE } from "./templates/run-workflow"
 
 export const BUILTIN_COMMANDS: Record<BuiltinCommandName, BuiltinCommand> = {
   "start-work": {
@@ -32,5 +33,16 @@ ${METRICS_TEMPLATE}
 </command-instruction>
 <metrics-data>$ARGUMENTS</metrics-data>`,
     argumentHint: "[plan-name|all]",
+  },
+  "run-workflow": {
+    name: "run-workflow",
+    description: "Run a multi-step workflow",
+    agent: "loom",
+    template: `<command-instruction>
+${RUN_WORKFLOW_TEMPLATE}
+</command-instruction>
+<session-context>Session ID: $SESSION_ID  Timestamp: $TIMESTAMP</session-context>
+<user-request>$ARGUMENTS</user-request>`,
+    argumentHint: "<workflow-name> [\"goal\"]",
   },
 }

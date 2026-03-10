@@ -16,6 +16,8 @@ import {
 import { pauseWork, readWorkState } from "../features/work-state"
 import { getPlanProgress } from "../features/work-state/storage"
 import { CONTINUATION_MARKER } from "../hooks/work-continuation"
+import { WORKFLOW_CONTINUATION_MARKER } from "../features/workflow/hook"
+import { getActiveWorkflowInstance, pauseWorkflow } from "../features/workflow"
 import { readSessionSummaries, readMetricsReports } from "../features/analytics/storage"
 import { generateTokenReport } from "../features/analytics/token-report"
 import { formatMetricsMarkdown } from "../features/analytics/format-metrics"
@@ -32,6 +34,15 @@ export function createPluginInterface(args: {
   tracker?: SessionTracker
 }): PluginInterface {
   const { pluginConfig, hooks, tools, configHandler, agents, client, directory = "", tracker } = args
+
+  /**
+   * Track assistant message text from message.part.updated events.
+   * message.updated events do NOT carry message content — only metadata.
+   * We accumulate the latest text per session for workflow completion detection.
+   */
+  const lastAssistantMessageText = new Map<string, string>()
+  /** Track last user message text per session for user_confirm completion detection. */
+  const lastUserMessageText = new Map<string, string>()
 
   return {
     tool: tools,
@@ -114,8 +125,88 @@ export function createPluginInterface(args: {
         }
       }
 
-      // Auto-pause work when a user message arrives that is NOT a /start-work command
-      // and NOT a continuation prompt injected by the work-continuation hook.
+      // /run-workflow command detection and workflow instance management
+      if (hooks.workflowStart) {
+        const parts = _output.parts as Array<{ type: string; text?: string }> | undefined
+        const message = (_output as Record<string, unknown>).message as
+          | Record<string, unknown>
+          | undefined
+
+        const promptText =
+          parts
+            ?.filter((p) => p.type === "text" && p.text)
+            .map((p) => p.text)
+            .join("\n")
+            .trim() ?? ""
+
+        // Only handle if this looks like a /run-workflow command (has the template marker)
+        if (promptText.includes("workflow engine will inject context")) {
+          const result = hooks.workflowStart(promptText, sessionID)
+
+          if (result.switchAgent && message) {
+            message.agent = getAgentDisplayName(result.switchAgent)
+          }
+
+          if (result.contextInjection && parts) {
+            const idx = parts.findIndex((p) => p.type === "text" && p.text)
+            if (idx >= 0 && parts[idx].text) {
+              parts[idx].text += `\n\n---\n${result.contextInjection}`
+            } else {
+              parts.push({ type: "text", text: result.contextInjection })
+            }
+          }
+        }
+      }
+
+      // Track user message text per session for workflow completion detection (user_confirm)
+      {
+        const parts = _output.parts as Array<{ type: string; text?: string }> | undefined
+        const userText =
+          parts
+            ?.filter((p) => p.type === "text" && p.text)
+            .map((p) => p.text)
+            .join("\n")
+            .trim() ?? ""
+        if (userText && sessionID) {
+          lastUserMessageText.set(sessionID, userText)
+        }
+      }
+
+      // Workflow control keywords: detect natural language commands during active workflows
+      if (hooks.workflowCommand) {
+        const parts = _output.parts as Array<{ type: string; text?: string }> | undefined
+        const message = (_output as Record<string, unknown>).message as
+          | Record<string, unknown>
+          | undefined
+
+        const userText =
+          parts
+            ?.filter((p) => p.type === "text" && p.text)
+            .map((p) => p.text)
+            .join("\n")
+            .trim() ?? ""
+
+        if (userText) {
+          const cmdResult = hooks.workflowCommand(userText)
+          if (cmdResult.handled) {
+            if (cmdResult.contextInjection && parts) {
+              const idx = parts.findIndex((p) => p.type === "text" && p.text)
+              if (idx >= 0 && parts[idx].text) {
+                parts[idx].text += `\n\n---\n${cmdResult.contextInjection}`
+              } else {
+                parts.push({ type: "text", text: cmdResult.contextInjection })
+              }
+            }
+            if (cmdResult.switchAgent && message) {
+              message.agent = getAgentDisplayName(cmdResult.switchAgent)
+            }
+          }
+        }
+      }
+
+      // Auto-pause work when a user message arrives that is NOT a /start-work command,
+      // NOT a continuation prompt injected by the work-continuation hook,
+      // and NOT a workflow continuation prompt.
       // This breaks the infinite continuation loop that occurs when a user sends a
       // regular message while a plan is active — without this, session.idle fires
       // after every response and re-injects the "Continue working" prompt endlessly.
@@ -130,8 +221,9 @@ export function createPluginInterface(args: {
 
         const isStartWork = promptText.includes("<session-context>")
         const isContinuation = promptText.includes(CONTINUATION_MARKER)
+        const isWorkflowContinuation = promptText.includes(WORKFLOW_CONTINUATION_MARKER)
 
-        if (!isStartWork && !isContinuation) {
+        if (!isStartWork && !isContinuation && !isWorkflowContinuation) {
           const state = readWorkState(directory)
           if (state && !state.paused) {
             pauseWork(directory)
@@ -295,6 +387,65 @@ export function createPluginInterface(args: {
         if (evt.properties?.command === "session.interrupt") {
           pauseWork(directory)
           log("[work-continuation] User interrupt detected — work paused")
+
+          // Also pause any active workflow
+          if (directory) {
+            const activeWorkflow = getActiveWorkflowInstance(directory)
+            if (activeWorkflow && activeWorkflow.status === "running") {
+              pauseWorkflow(directory, "User interrupt")
+              log("[workflow] User interrupt detected — workflow paused")
+            }
+          }
+        }
+      }
+
+      // Track assistant message text from message.part.updated events.
+      // message.updated does NOT carry message content — only metadata (tokens, cost).
+      // We need the text for workflow completion detection (review_verdict, agent_signal).
+      if (event.type === "message.part.updated") {
+        const evt = event as {
+          type: string
+          properties: { part: { type: string; sessionID: string; messageID: string; text?: string } }
+        }
+        const part = evt.properties?.part
+        if (part?.type === "text" && part.sessionID && part.text) {
+          lastAssistantMessageText.set(part.sessionID, part.text)
+        }
+      }
+
+      // Workflow continuation: check active workflow instance on session.idle.
+      // This MUST run BEFORE work-continuation to prevent double-prompting.
+      // If a workflow instance is active, it owns the idle loop.
+      if (hooks.workflowContinuation && event.type === "session.idle") {
+        const evt = event as { type: string; properties: { sessionID: string } }
+        const sessionId = evt.properties?.sessionID ?? ""
+        if (sessionId && directory) {
+          const activeWorkflow = getActiveWorkflowInstance(directory)
+          if (activeWorkflow && activeWorkflow.status === "running") {
+            const lastMsg = lastAssistantMessageText.get(sessionId) ?? undefined
+            const lastUserMsg = lastUserMessageText.get(sessionId) ?? undefined
+            const result = hooks.workflowContinuation(sessionId, lastMsg, lastUserMsg)
+            if (result.continuationPrompt && client) {
+              try {
+                await client.session.promptAsync({
+                  path: { id: sessionId },
+                  body: {
+                    parts: [{ type: "text", text: result.continuationPrompt }],
+                    ...(result.switchAgent
+                      ? { agent: getAgentDisplayName(result.switchAgent) }
+                      : {}),
+                  },
+                })
+                log("[workflow] Injected workflow continuation prompt", {
+                  sessionId,
+                  agent: result.switchAgent,
+                })
+              } catch (err) {
+                log("[workflow] Failed to inject workflow continuation", { sessionId, error: String(err) })
+              }
+              return // Workflow owns the idle loop — skip work-continuation
+            }
+          }
         }
       }
 

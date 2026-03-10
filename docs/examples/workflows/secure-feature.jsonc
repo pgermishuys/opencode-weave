@@ -1,0 +1,83 @@
+{
+  // Full feature workflow: plan -> implement -> build -> review
+  // Usage: /run-workflow secure-feature "Add OAuth2 support"
+  "name": "secure-feature",
+  "description": "Plan, implement, build, and review a feature with security audit",
+  "version": 1,
+  "steps": [
+    {
+      "id": "plan",
+      "name": "Create implementation plan",
+      "type": "autonomous",
+      "agent": "pattern",
+      "prompt": "Create a detailed implementation plan for: {{instance.goal}}. Save the plan as `.weave/plans/{{instance.slug}}.md` with checkboxed tasks. Consider edge cases, error handling, and security implications.",
+      "completion": {
+        "method": "plan_created",
+        "plan_name": "{{instance.slug}}"
+      },
+      "artifacts": {
+        "outputs": [
+          { "name": "plan_path", "description": "Path to the generated plan file" }
+        ]
+      }
+    },
+    {
+      "id": "review-plan",
+      "name": "Review the plan",
+      "type": "interactive",
+      "agent": "shuttle",
+      "prompt": "Here is the implementation plan at `{{artifacts.plan_path}}` for: {{instance.goal}}. Please review it and suggest any changes. When you are satisfied, confirm to proceed.",
+      "completion": {
+        "method": "user_confirm"
+      }
+    },
+    {
+      "id": "implement",
+      "name": "Execute the plan",
+      "type": "autonomous",
+      "agent": "shuttle",
+      "prompt": "Execute the implementation plan at `{{artifacts.plan_path}}` for: {{instance.goal}}. Work through each task in the plan, checking them off as you complete them. Write tests for all new functionality.",
+      "completion": {
+        "method": "plan_complete",
+        "plan_name": "{{instance.slug}}"
+      },
+      "artifacts": {
+        "inputs": [
+          { "name": "plan_path", "description": "Path to the plan to execute" }
+        ]
+      }
+    },
+    {
+      "id": "build-verify",
+      "name": "Verify build passes",
+      "type": "autonomous",
+      "agent": "shuttle",
+      "prompt": "Run the full build and test suite to verify everything passes after implementing: {{instance.goal}}. Fix any compilation errors, test failures, or lint warnings. Do NOT proceed until all checks are green.",
+      "completion": {
+        "method": "agent_signal"
+      }
+    },
+    {
+      "id": "code-review",
+      "name": "Code quality review",
+      "type": "gate",
+      "agent": "weft",
+      "prompt": "Review all changes made for: {{instance.goal}}. Check for code quality, test coverage, error handling, and adherence to project conventions. Respond with [APPROVE] if the changes are acceptable or [REJECT] with specific issues to fix.",
+      "completion": {
+        "method": "review_verdict"
+      },
+      "on_reject": "pause"
+    },
+    {
+      "id": "security-review",
+      "name": "Security audit",
+      "type": "gate",
+      "agent": "warp",
+      "prompt": "Perform a security audit of all changes made for: {{instance.goal}}. Look for injection vulnerabilities, auth bypasses, data exposure, unsafe deserialization, and other OWASP Top 10 issues. Respond with [APPROVE] if secure or [REJECT] with findings.",
+      "completion": {
+        "method": "review_verdict"
+      },
+      "on_reject": "pause"
+    }
+  ]
+}

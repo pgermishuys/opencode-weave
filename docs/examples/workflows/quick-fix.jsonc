@@ -1,0 +1,30 @@
+{
+  // Quick fix workflow: fix and review
+  // Usage: /run-workflow quick-fix "Fix the login button not responding on mobile"
+  "name": "quick-fix",
+  "description": "Fix a bug and get it reviewed",
+  "version": 1,
+  "steps": [
+    {
+      "id": "fix",
+      "name": "Implement the fix",
+      "type": "autonomous",
+      "agent": "shuttle",
+      "prompt": "Fix the following issue: {{instance.goal}}. Identify the root cause, implement the fix, and write a test to prevent regression. Signal completion when done.",
+      "completion": {
+        "method": "agent_signal"
+      }
+    },
+    {
+      "id": "review",
+      "name": "Code review",
+      "type": "gate",
+      "agent": "weft",
+      "prompt": "Review the fix for: {{instance.goal}}. Verify the root cause was correctly identified, the fix is minimal and correct, and test coverage is adequate. Respond with [APPROVE] or [REJECT] with feedback.",
+      "completion": {
+        "method": "review_verdict"
+      },
+      "on_reject": "pause"
+    }
+  ]
+}

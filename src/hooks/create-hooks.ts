@@ -9,6 +9,8 @@ import { checkPatternWrite } from "./pattern-md-only"
 import { handleStartWork } from "./start-work-hook"
 import { checkContinuation } from "./work-continuation"
 import { buildVerificationReminder } from "./verification-reminder"
+import { handleRunWorkflow, checkWorkflowContinuation } from "../features/workflow"
+import { handleWorkflowCommand } from "../features/workflow"
 
 export type CreatedHooks = ReturnType<typeof createHooks>
 
@@ -56,6 +58,20 @@ export function createHooks(args: {
 
     workContinuation: isHookEnabled("work-continuation")
       ? (sessionId: string) => checkContinuation({ sessionId, directory })
+      : null,
+
+    workflowStart: isHookEnabled("workflow")
+      ? (promptText: string, sessionId: string) =>
+          handleRunWorkflow({ promptText, sessionId, directory })
+      : null,
+
+    workflowContinuation: isHookEnabled("workflow")
+      ? (sessionId: string, lastAssistantMessage?: string, lastUserMessage?: string) =>
+          checkWorkflowContinuation({ sessionId, directory, lastAssistantMessage, lastUserMessage })
+      : null,
+
+    workflowCommand: isHookEnabled("workflow")
+      ? (message: string) => handleWorkflowCommand(message, directory)
       : null,
 
     verificationReminder: isHookEnabled("verification-reminder")
