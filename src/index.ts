@@ -13,9 +13,12 @@ const WeavePlugin: Plugin = async (ctx) => {
   const disabledHooks = new Set(pluginConfig.disabled_hooks ?? [])
   const isHookEnabled = (name: string) => !disabledHooks.has(name)
   const analyticsEnabled = pluginConfig.analytics?.enabled === true
+  const fingerprintEnabled = analyticsEnabled && pluginConfig.analytics?.use_fingerprint === true
 
-  // Generate fingerprint early so it can be injected into agent prompts
-  const fingerprint = analyticsEnabled ? getOrCreateFingerprint(ctx.directory) : null
+  // Generate fingerprint early so it can be injected into agent prompts.
+  // Only materialised when both analytics and use_fingerprint are opted in,
+  // so no fingerprint context is sent to the model provider by default.
+  const fingerprint = fingerprintEnabled ? getOrCreateFingerprint(ctx.directory) : null
 
   const configDir = join(ctx.directory, ".opencode")
   const toolsResult = await createTools({ ctx, pluginConfig })

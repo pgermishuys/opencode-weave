@@ -92,6 +92,37 @@ describe("WeaveConfigSchema", () => {
     expect(result.success).toBe(false)
   })
 
+  it("parses analytics config with enabled only", () => {
+    const result = WeaveConfigSchema.safeParse({
+      analytics: { enabled: true },
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.analytics?.enabled).toBe(true)
+      expect(result.data.analytics?.use_fingerprint).toBeUndefined()
+    }
+  })
+
+  it("parses analytics config with use_fingerprint enabled", () => {
+    const result = WeaveConfigSchema.safeParse({
+      analytics: { enabled: true, use_fingerprint: true },
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.analytics?.use_fingerprint).toBe(true)
+    }
+  })
+
+  it("parses analytics config with use_fingerprint disabled", () => {
+    const result = WeaveConfigSchema.safeParse({
+      analytics: { enabled: true, use_fingerprint: false },
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.analytics?.use_fingerprint).toBe(false)
+    }
+  })
+
   it("parses experimental config", () => {
     const result = WeaveConfigSchema.safeParse({
       experimental: {

@@ -97,6 +97,12 @@ export const CustomAgentsConfigSchema = z.record(z.string(), CustomAgentConfigSc
 export const AnalyticsConfigSchema = z.object({
   /** Whether analytics is enabled. Defaults to false (opt-in). */
   enabled: z.boolean().optional(),
+  /**
+   * Whether to inject the project fingerprint (platform, stack, etc.) into
+   * agent prompts. Requires analytics.enabled to also be true. Defaults to
+   * false (opt-in) to avoid unexpected token usage.
+   */
+  use_fingerprint: z.boolean().optional(),
 })
 
 export const WorkflowConfigSchema = z.object({
