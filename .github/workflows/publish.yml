@@ -3,6 +3,12 @@ name: Publish to npm
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.7.0-beta.1). Prerelease versions publish to "next" dist-tag.'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -43,18 +49,32 @@ jobs:
           test -f dist/index.d.ts || (echo "dist/index.d.ts not found" && exit 1)
           echo "Build output verified"
 
-      - name: Set package version from release tag
+      - name: Set package version and dist-tag
+        id: version
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
           npm version "$VERSION" --no-git-tag-version --allow-same-version
-          echo "Publishing version $VERSION"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "NPM_TAG=next" >> "$GITHUB_OUTPUT"
+            echo "IS_PRERELEASE=true" >> "$GITHUB_OUTPUT"
+            echo "Publishing version $VERSION to dist-tag: next (prerelease)"
+          else
+            echo "NPM_TAG=latest" >> "$GITHUB_OUTPUT"
+            echo "IS_PRERELEASE=false" >> "$GITHUB_OUTPUT"
+            echo "Publishing version $VERSION to dist-tag: latest (stable)"
+          fi
 
       - name: Publish
-        run: npm publish
+        run: npm publish --tag ${{ steps.version.outputs.NPM_TAG }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Notify weave-website to update version
+        if: steps.version.outputs.IS_PRERELEASE == 'false'
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           curl -X POST \
