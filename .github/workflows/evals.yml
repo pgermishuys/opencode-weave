@@ -41,7 +41,7 @@ jobs:
         run: bun run eval:coverage
 
       - name: Upload eval artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: eval-artifacts
@@ -70,7 +70,7 @@ jobs:
         run: bun run eval --suite phase2-loom-pilot
 
       - name: Upload phase2 pilot artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: phase2-loom-pilot-artifacts
