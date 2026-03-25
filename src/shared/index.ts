@@ -8,4 +8,5 @@ export {
   getAgentConfigKey,
   registerAgentDisplayName,
   updateBuiltinDisplayName,
+  resetDisplayNames,
 } from "./agent-display-names"

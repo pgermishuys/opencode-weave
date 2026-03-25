@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, it, expect, mock, beforeEach, afterEach, afterAll, spyOn } from "bun:test"
 import { join } from "path"
 import type { LoadedSkill } from "./types"
 
@@ -24,7 +24,11 @@ beforeEach(() => {
 
 afterEach(() => {
   mockFetch.mockClear()
-  scanDirectorySpy.mockClear()
+  scanDirectorySpy.mockReset()
+})
+
+afterAll(() => {
+  scanDirectorySpy.mockRestore()
 })
 
 describe("loadSkills", () => {

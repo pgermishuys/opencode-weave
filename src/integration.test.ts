@@ -4,9 +4,9 @@ import WeavePlugin from "./index"
 import { createBuiltinAgents } from "./agents/builtin-agents"
 import { ConfigHandler } from "./managers/config-handler"
 import { WeaveConfigSchema } from "./config/schema"
-import { getAgentDisplayName, getAgentConfigKey, AGENT_DISPLAY_NAMES } from "./shared/agent-display-names"
+import { getAgentDisplayName, getAgentConfigKey, resetDisplayNames } from "./shared/agent-display-names"
 import { createManagers } from "./create-managers"
-import { AGENT_NAME_VARIANTS } from "./agents/agent-builder"
+import { resetNameVariants } from "./agents/agent-builder"
 
 const makeMockCtx = (directory: string): PluginInput =>
   ({
@@ -123,19 +123,9 @@ describe("createManagers — builtin display_name override", () => {
     serverUrl: "http://localhost:3000",
   } as unknown as PluginInput
 
-  // Capture originals so afterEach can restore
-  const originalLoomDisplayName = AGENT_DISPLAY_NAMES["loom"]!
-  const originalWeftDisplayName = AGENT_DISPLAY_NAMES["weft"]!
-  const originalLoomVariants = [...AGENT_NAME_VARIANTS["loom"]!]
-  const originalWeftVariants = [...AGENT_NAME_VARIANTS["weft"]!]
-
   afterEach(() => {
-    // MANDATORY: Restore builtin display names mutated by createManagers during tests
-    AGENT_DISPLAY_NAMES["loom"] = originalLoomDisplayName
-    AGENT_DISPLAY_NAMES["weft"] = originalWeftDisplayName
-    // Restore name variants to prevent state leak across tests
-    AGENT_NAME_VARIANTS["loom"] = [...originalLoomVariants]
-    AGENT_NAME_VARIANTS["weft"] = [...originalWeftVariants]
+    resetDisplayNames()
+    resetNameVariants()
   })
 
   it("custom display_name appears as agent key in config handler output", async () => {
@@ -200,7 +190,7 @@ describe("createManagers — builtin display_name override", () => {
 
     // Disabled agent should not appear in output regardless of display_name
     expect(Object.keys(result.agents)).not.toContain("My Reviewer")
-    expect(Object.keys(result.agents)).not.toContain(originalWeftDisplayName)
+    expect(Object.keys(result.agents)).not.toContain("weft")
   })
 
   it("unicode display name works end-to-end", async () => {
