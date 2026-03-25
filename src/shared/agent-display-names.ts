@@ -36,6 +36,24 @@ const INITIAL_BUILTIN_DISPLAY_NAMES: ReadonlyMap<string, string> = new Map(
   Object.entries(AGENT_DISPLAY_NAMES),
 )
 
+/**
+ * Reset the mutable display name map to its initial state.
+ * Used by tests to prevent cross-test state pollution.
+ */
+export function resetDisplayNames(): void {
+  // Remove any keys that were added after module load (custom agents)
+  for (const key of Object.keys(AGENT_DISPLAY_NAMES)) {
+    if (!INITIAL_BUILTIN_DISPLAY_NAMES.has(key)) {
+      delete AGENT_DISPLAY_NAMES[key]
+    }
+  }
+  // Restore builtin entries to their original values
+  for (const [key, value] of INITIAL_BUILTIN_DISPLAY_NAMES) {
+    AGENT_DISPLAY_NAMES[key] = value
+  }
+  reverseDisplayNames = null
+}
+
 /** Lazily-computed reverse lookup (display name → config key). Invalidated on registration. */
 let reverseDisplayNames: Record<string, string> | null = null
 

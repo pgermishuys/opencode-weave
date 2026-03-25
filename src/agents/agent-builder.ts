@@ -37,6 +37,26 @@ export const AGENT_NAME_VARIANTS: Record<string, string[]> = {
   tapestry: ["tapestry", "Tapestry"],
 }
 
+/** Frozen snapshot of initial builtin name variants at module load time. */
+const INITIAL_NAME_VARIANTS: ReadonlyMap<string, readonly string[]> = new Map(
+  Object.entries(AGENT_NAME_VARIANTS).map(([k, v]) => [k, [...v]]),
+)
+
+/**
+ * Reset the mutable name variants map to its initial state.
+ * Used by tests to prevent cross-test state pollution.
+ */
+export function resetNameVariants(): void {
+  for (const key of Object.keys(AGENT_NAME_VARIANTS)) {
+    if (!INITIAL_NAME_VARIANTS.has(key)) {
+      delete AGENT_NAME_VARIANTS[key]
+    }
+  }
+  for (const [key, value] of INITIAL_NAME_VARIANTS) {
+    AGENT_NAME_VARIANTS[key] = [...value]
+  }
+}
+
 /**
  * Register name variants for a custom agent so that
  * `stripDisabledAgentReferences` can strip its references from prompts.

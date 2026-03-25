@@ -5,6 +5,7 @@ import {
   getAgentConfigKey,
   registerAgentDisplayName,
   updateBuiltinDisplayName,
+  resetDisplayNames,
 } from "./agent-display-names"
 
 describe("getAgentDisplayName", () => {
@@ -65,9 +66,7 @@ describe("AGENT_DISPLAY_NAMES", () => {
 
 describe("registerAgentDisplayName", () => {
   afterEach(() => {
-    // Clean up registered custom agents
-    delete AGENT_DISPLAY_NAMES["custom-test-agent"]
-    delete AGENT_DISPLAY_NAMES["another-custom"]
+    resetDisplayNames()
   })
 
   it("registers a new display name", () => {
@@ -122,15 +121,8 @@ describe("registerAgentDisplayName", () => {
 })
 
 describe("updateBuiltinDisplayName", () => {
-  // Capture original values BEFORE any tests run so afterEach can restore them.
-  const originalLoomDisplayName = AGENT_DISPLAY_NAMES["loom"]!
-  const originalThreadDisplayName = AGENT_DISPLAY_NAMES["thread"]!
-
   afterEach(() => {
-    // MANDATORY: Restore builtin display names to prevent pollution of
-    // other test suites (e.g., getAgentDisplayName tests at line 11).
-    AGENT_DISPLAY_NAMES["loom"] = originalLoomDisplayName
-    AGENT_DISPLAY_NAMES["thread"] = originalThreadDisplayName
+    resetDisplayNames()
   })
 
   it("updates display name for a known builtin", () => {
