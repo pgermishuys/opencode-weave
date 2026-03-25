@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-03-25
+
+### Added
+
+- Custom display names for builtin agents — configure `display_name` in agent overrides to rename agents in the UI ([4634f65](https://github.com/pgermishuys/opencode-weave/commit/4634f65))
+- Phase 1 agent eval harness with expanded coverage and baselines ([3c1862d](https://github.com/pgermishuys/opencode-weave/commit/3c1862d), [c83b406](https://github.com/pgermishuys/opencode-weave/commit/c83b406))
+
+### Fixed
+
+- Eliminate cross-test state pollution in `scanDirectory` spy and display name maps ([0c56483](https://github.com/pgermishuys/opencode-weave/commit/0c56483))
+
 ## [0.7.0] - 2026-03-14
 
 ### Added
