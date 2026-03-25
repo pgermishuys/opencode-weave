@@ -4,6 +4,7 @@ import {
   getAgentDisplayName,
   getAgentConfigKey,
   registerAgentDisplayName,
+  updateBuiltinDisplayName,
 } from "./agent-display-names"
 
 describe("getAgentDisplayName", () => {
@@ -117,5 +118,69 @@ describe("registerAgentDisplayName", () => {
     expect(() =>
       registerAgentDisplayName("custom-test-agent", "My Custom Reviewer"),
     ).not.toThrow()
+  })
+})
+
+describe("updateBuiltinDisplayName", () => {
+  // Capture original values BEFORE any tests run so afterEach can restore them.
+  const originalLoomDisplayName = AGENT_DISPLAY_NAMES["loom"]!
+  const originalThreadDisplayName = AGENT_DISPLAY_NAMES["thread"]!
+
+  afterEach(() => {
+    // MANDATORY: Restore builtin display names to prevent pollution of
+    // other test suites (e.g., getAgentDisplayName tests at line 11).
+    AGENT_DISPLAY_NAMES["loom"] = originalLoomDisplayName
+    AGENT_DISPLAY_NAMES["thread"] = originalThreadDisplayName
+  })
+
+  it("updates display name for a known builtin", () => {
+    updateBuiltinDisplayName("loom", "My Loom")
+    expect(getAgentDisplayName("loom")).toBe("My Loom")
+  })
+
+  it("reverse lookup returns config key after update", () => {
+    updateBuiltinDisplayName("loom", "My Loom")
+    expect(getAgentConfigKey("My Loom")).toBe("loom")
+  })
+
+  it("old display name no longer resolves after update (cache invalidated)", () => {
+    updateBuiltinDisplayName("loom", "My Loom")
+    // The old name should not reverse-resolve to "loom" anymore
+    expect(getAgentConfigKey("Loom (Main Orchestrator)")).not.toBe("loom")
+  })
+
+  it("multiple updates to same key use last value", () => {
+    updateBuiltinDisplayName("loom", "First Name")
+    updateBuiltinDisplayName("loom", "Second Name")
+    expect(getAgentDisplayName("loom")).toBe("Second Name")
+  })
+
+  it("throws for non-builtin keys", () => {
+    expect(() => updateBuiltinDisplayName("my-custom-agent", "Custom")).toThrow(
+      /not a built-in agent/,
+    )
+  })
+
+  it("accepts unicode / CJK display names", () => {
+    updateBuiltinDisplayName("thread", "糸")
+    expect(getAgentDisplayName("thread")).toBe("糸")
+  })
+
+  it("after override, old builtin display name is still reserved for registerAgentDisplayName", () => {
+    // Override loom to "My Loom"
+    updateBuiltinDisplayName("loom", "My Loom")
+    // The original name "Loom (Main Orchestrator)" must still be reserved
+    // (INITIAL_BUILTIN_DISPLAY_NAMES prevents it from being claimed)
+    expect(() =>
+      registerAgentDisplayName("custom-test-agent", "Loom (Main Orchestrator)"),
+    ).toThrow(/reserved for built-in agent/)
+  })
+
+  it("after override, the new display name is also reserved for registerAgentDisplayName", () => {
+    updateBuiltinDisplayName("loom", "My Loom")
+    // The current (overridden) name should also be blocked
+    expect(() =>
+      registerAgentDisplayName("custom-test-agent", "My Loom"),
+    ).toThrow(/reserved for built-in agent/)
   })
 })

@@ -9,6 +9,9 @@ import { BackgroundManager } from "./managers/background-manager"
 import { SkillMcpManager } from "./managers/skill-mcp-manager"
 import { createBuiltinAgents, registerCustomAgentMetadata } from "./agents/builtin-agents"
 import { buildCustomAgent, buildCustomAgentMetadata } from "./agents/custom-agent-factory"
+import { updateBuiltinDisplayName } from "./shared/agent-display-names"
+import { addBuiltinNameVariant } from "./agents/agent-builder"
+import { log } from "./shared/log"
 
 export interface WeaveManagers {
   configHandler: ConfigHandler
@@ -49,6 +52,35 @@ export function createManagers(options: {
     fingerprint,
     customAgentMetadata,
   })
+
+  // Step 2.5: Apply builtin display name overrides from config.
+  // Must happen after createBuiltinAgents() (so agents map is populated)
+  // and before ConfigHandler.handle() (so getAgentDisplayName returns the new name).
+  if (pluginConfig.agents) {
+    for (const [name, override] of Object.entries(pluginConfig.agents)) {
+      const displayName = override.display_name?.trim()
+      if (displayName) {
+        try {
+          updateBuiltinDisplayName(name, displayName)
+          addBuiltinNameVariant(name, displayName)
+          // MANDATORY: Guard against disabled agents where agents[name] is undefined.
+          // createBuiltinAgents() skips disabled agents, so agents[name] may not exist.
+          // Spreading undefined produces a broken config — this guard is required.
+          if (agents[name]) {
+            agents[name] = { ...agents[name], description: displayName }
+          }
+        } catch (err) {
+          // Only swallow "not a built-in agent" errors (non-builtin key in agents section).
+          // Re-throw unexpected errors so programming bugs surface.
+          if (err instanceof Error && err.message.includes("not a built-in agent")) {
+            log(`Skipping display_name override for non-builtin agent "${name}"`)
+          } else {
+            throw err
+          }
+        }
+      }
+    }
+  }
 
   // Step 3: Build custom agent configs and register metadata
   if (pluginConfig.custom_agents) {

@@ -1,7 +1,7 @@
 import { describe, it, expect, mock } from "bun:test"
 import type { AgentConfig } from "@opencode-ai/sdk"
 import type { AgentFactory } from "./types"
-import { buildAgent, stripDisabledAgentReferences, registerAgentNameVariants } from "./agent-builder"
+import { buildAgent, stripDisabledAgentReferences, registerAgentNameVariants, addBuiltinNameVariant } from "./agent-builder"
 import type { CategoriesConfig } from "../config/schema"
 
 function makeFactory(baseConfig: Partial<AgentConfig> = {}): AgentFactory {
@@ -173,10 +173,10 @@ describe("stripDisabledAgentReferences", () => {
   it("uses word boundaries to avoid false positives", () => {
     const prompt = "threading is a pattern for concurrency\nUse thread for searches"
     const result = stripDisabledAgentReferences(prompt, new Set(["thread"]))
-    // "threading" contains "thread" but shouldn't match due to word boundary
-    // Actually "threading" starts with "thread" at a word boundary, so it will match
-    // The regex uses \b which treats word boundaries at the start
-    // Let's just verify the explicit thread line is removed
+    // "threading" contains "thread" but the negative lookahead (?!\w) prevents
+    // matching because "thread" is immediately followed by "i" (a word character).
+    // Only standalone "thread" (not part of a larger word) is matched and stripped.
+    expect(result).toContain("threading is a pattern for concurrency")
     expect(result).not.toContain("Use thread for searches")
   })
 
@@ -218,5 +218,43 @@ describe("registerAgentNameVariants", () => {
     const prompt = "Use Thread for exploration"
     const result = stripDisabledAgentReferences(prompt, new Set(["thread"]))
     expect(result).not.toContain("Thread")
+  })
+})
+
+describe("addBuiltinNameVariant", () => {
+  it("adds a new variant to an existing builtin", () => {
+    addBuiltinNameVariant("thread", "糸")
+    const prompt = "Use 糸 for codebase exploration\nKeep this"
+    const result = stripDisabledAgentReferences(prompt, new Set(["thread"]))
+    expect(result).not.toContain("糸")
+    expect(result).toContain("Keep this")
+  })
+
+  it("does not add duplicate variants", () => {
+    addBuiltinNameVariant("spindle", "MySpindle")
+    addBuiltinNameVariant("spindle", "MySpindle")
+    // A duplicate would cause a doubled regex alternation — just verify stripping still works
+    const prompt = "Use MySpindle for research\nKeep this"
+    const result = stripDisabledAgentReferences(prompt, new Set(["spindle"]))
+    expect(result).not.toContain("MySpindle")
+    expect(result).toContain("Keep this")
+  })
+
+  it("is a no-op for an unknown config key (no existing entry to append to)", () => {
+    // Should not throw and should not affect stripping of unknown agents
+    expect(() => addBuiltinNameVariant("nonexistent-agent", "SomeVariant")).not.toThrow()
+    const prompt = "Use SomeVariant for tasks"
+    // stripping by nonexistent-agent key has no registered variants so prompt is unchanged
+    const result = stripDisabledAgentReferences(prompt, new Set(["nonexistent-agent"]))
+    expect(result).toBe(prompt)
+  })
+
+  it("custom display name is stripped when builtin agent is disabled", () => {
+    addBuiltinNameVariant("pattern", "設計")
+    const prompt = "- Use 設計 for planning\n- Use thread for exploration\nKeep this"
+    const result = stripDisabledAgentReferences(prompt, new Set(["pattern"]))
+    expect(result).not.toContain("設計")
+    expect(result).toContain("thread")
+    expect(result).toContain("Keep this")
   })
 })

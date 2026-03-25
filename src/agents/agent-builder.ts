@@ -22,8 +22,11 @@ type AgentConfigExtended = AgentConfig & {
  * Map from agent config key (lowercase) to display name variants that
  * might appear in prompt text. Used by stripDisabledAgentReferences to
  * remove lines that mention disabled agents.
+ *
+ * Exported for test cleanup — tests that call addBuiltinNameVariant
+ * must restore original arrays in afterEach to avoid state pollution.
  */
-const AGENT_NAME_VARIANTS: Record<string, string[]> = {
+export const AGENT_NAME_VARIANTS: Record<string, string[]> = {
   thread: ["thread", "Thread"],
   spindle: ["spindle", "Spindle"],
   weft: ["weft", "Weft"],
@@ -46,6 +49,20 @@ export function registerAgentNameVariants(name: string, variants?: string[]): vo
 }
 
 /**
+ * Add additional name variants for a builtin agent.
+ * Used when a user sets a custom display_name — the custom name
+ * must be included in variants so stripDisabledAgentReferences
+ * can match it when the agent is disabled.
+ * No-op if the config key has no existing variant entry or the variant is already present.
+ */
+export function addBuiltinNameVariant(configKey: string, variant: string): void {
+  const existing = AGENT_NAME_VARIANTS[configKey]
+  if (existing && !existing.includes(variant)) {
+    existing.push(variant)
+  }
+}
+
+/**
  * Remove lines from a prompt that reference disabled agents.
  * Only strips lines where an agent name appears as a standalone concept
  * (e.g. "Use thread (codebase explorer)"), not incidental word matches.
@@ -64,10 +81,11 @@ export function stripDisabledAgentReferences(prompt: string, disabled: Set<strin
   }
   if (disabledVariants.length === 0) return prompt
 
-  // Build a regex that matches any line containing a disabled agent name
-  // with word boundaries to avoid matching substrings (e.g. "pattern" in "patterns")
+  // Build a regex that matches any line containing a disabled agent name.
+  // Uses (?<!\w) and (?!\w) instead of \b to support Unicode/CJK display names
+  // while still avoiding false positives like "pattern" matching "patterns".
   const pattern = new RegExp(
-    `\\b(${disabledVariants.map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`,
+    `(?<!\\w)(${disabledVariants.map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?!\\w)`,
   )
 
   const lines = prompt.split("\n")

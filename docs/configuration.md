@@ -35,6 +35,7 @@ flowchart LR
       "variant": "custom-variant-name",     // Prompt variant
       "skills": ["skill-1", "skill-2"],     // Inject skills
       "prompt_append": "Extra instructions", // Append to prompt
+      "display_name": "My Agent Name",      // Custom name shown in UI
       "tools": {                            // Per-tool toggles
         "bash": true,
         "write": false
@@ -119,6 +120,27 @@ Valid agent names for the `agents` config key:
 | `shuttle` | shuttle | Category specialist |
 
 > **Note**: Loom and Tapestry get title-cased display names with role descriptions. Subagents keep lowercase names.
+
+### Custom Display Names
+
+You can override the display name shown in the OpenCode UI for any builtin agent using the `display_name` field. This is useful for users who prefer agent names in their native language or a project-specific alias.
+
+```jsonc
+{
+  "agents": {
+    // Rename agents to Japanese
+    "loom": { "display_name": "織機 (メインオーケストレーター)" },
+    "thread": { "display_name": "糸 (コードベースエクスプローラー)" },
+    "pattern": { "display_name": "設計 (戦略プランナー)" },
+    "weft": { "display_name": "レビュー担当" }
+  }
+}
+```
+
+**Notes**:
+- The `display_name` only affects the UI label — all internal systems (workflows, `disabled_agents`, prompt references) continue to use the original config key (e.g., `"loom"`).
+- Setting `display_name` on a disabled agent is safe and has no effect on the UI.
+- Narration hints in Loom's system prompt use hardcoded names and will not reflect custom display names (known limitation).
 
 ## Config Pipeline (6 Phases)
 

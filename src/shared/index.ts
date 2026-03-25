@@ -7,4 +7,5 @@ export {
   getAgentDisplayName,
   getAgentConfigKey,
   registerAgentDisplayName,
+  updateBuiltinDisplayName,
 } from "./agent-display-names"

@@ -1,10 +1,12 @@
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect, afterEach } from "bun:test"
 import type { PluginInput } from "@opencode-ai/plugin"
 import WeavePlugin from "./index"
 import { createBuiltinAgents } from "./agents/builtin-agents"
 import { ConfigHandler } from "./managers/config-handler"
 import { WeaveConfigSchema } from "./config/schema"
-import { getAgentDisplayName } from "./shared/agent-display-names"
+import { getAgentDisplayName, getAgentConfigKey, AGENT_DISPLAY_NAMES } from "./shared/agent-display-names"
+import { createManagers } from "./create-managers"
+import { AGENT_NAME_VARIANTS } from "./agents/agent-builder"
 
 const makeMockCtx = (directory: string): PluginInput =>
   ({
@@ -110,5 +112,105 @@ describe("WeavePlugin integration", () => {
     expect(hooks.checkContextWindow).toBeNull()
     // Other hooks should still be enabled
     expect(hooks.writeGuard).not.toBeNull()
+  })
+})
+
+describe("createManagers — builtin display_name override", () => {
+  const mockCtx = {
+    directory: process.cwd(),
+    client: {},
+    project: { root: process.cwd() },
+    serverUrl: "http://localhost:3000",
+  } as unknown as PluginInput
+
+  // Capture originals so afterEach can restore
+  const originalLoomDisplayName = AGENT_DISPLAY_NAMES["loom"]!
+  const originalWeftDisplayName = AGENT_DISPLAY_NAMES["weft"]!
+  const originalLoomVariants = [...AGENT_NAME_VARIANTS["loom"]!]
+  const originalWeftVariants = [...AGENT_NAME_VARIANTS["weft"]!]
+
+  afterEach(() => {
+    // MANDATORY: Restore builtin display names mutated by createManagers during tests
+    AGENT_DISPLAY_NAMES["loom"] = originalLoomDisplayName
+    AGENT_DISPLAY_NAMES["weft"] = originalWeftDisplayName
+    // Restore name variants to prevent state leak across tests
+    AGENT_NAME_VARIANTS["loom"] = [...originalLoomVariants]
+    AGENT_NAME_VARIANTS["weft"] = [...originalWeftVariants]
+  })
+
+  it("custom display_name appears as agent key in config handler output", async () => {
+    const config = WeaveConfigSchema.parse({
+      agents: { loom: { display_name: "My Loom" } },
+    })
+    const { agents, configHandler } = createManagers({ ctx: mockCtx, pluginConfig: config })
+    const result = await configHandler.handle({ pluginConfig: config, agents })
+
+    expect(Object.keys(result.agents)).toContain("My Loom")
+    expect(Object.keys(result.agents)).not.toContain("Loom (Main Orchestrator)")
+  })
+
+  it("agents without display_name keep their default display names", async () => {
+    const config = WeaveConfigSchema.parse({
+      agents: { loom: { display_name: "My Loom" } },
+    })
+    const { agents, configHandler } = createManagers({ ctx: mockCtx, pluginConfig: config })
+    const result = await configHandler.handle({ pluginConfig: config, agents })
+
+    // Other agents are unchanged
+    expect(Object.keys(result.agents)).toContain(getAgentDisplayName("tapestry"))
+    expect(Object.keys(result.agents)).toContain(getAgentDisplayName("thread"))
+    expect(Object.keys(result.agents)).toContain(getAgentDisplayName("pattern"))
+  })
+
+  it("getAgentConfigKey resolves custom display name back to config key", async () => {
+    const config = WeaveConfigSchema.parse({
+      agents: { loom: { display_name: "My Loom" } },
+    })
+    createManagers({ ctx: mockCtx, pluginConfig: config })
+    expect(getAgentConfigKey("My Loom")).toBe("loom")
+  })
+
+  it("defaultAgent is updated to custom display name", async () => {
+    const config = WeaveConfigSchema.parse({
+      agents: { loom: { display_name: "My Loom" } },
+    })
+    const { agents, configHandler } = createManagers({ ctx: mockCtx, pluginConfig: config })
+    const result = await configHandler.handle({ pluginConfig: config, agents })
+
+    expect(result.defaultAgent).toBe("My Loom")
+  })
+
+  it("agent description is updated to match custom display name", () => {
+    const config = WeaveConfigSchema.parse({
+      agents: { weft: { display_name: "My Reviewer" } },
+    })
+    const { agents } = createManagers({ ctx: mockCtx, pluginConfig: config })
+
+    expect(agents["weft"]?.description).toBe("My Reviewer")
+  })
+
+  it("setting display_name on a disabled builtin agent does NOT crash", async () => {
+    const config = WeaveConfigSchema.parse({
+      disabled_agents: ["weft"],
+      agents: { weft: { display_name: "My Reviewer" } },
+    })
+    // Should not throw
+    const { agents, configHandler } = createManagers({ ctx: mockCtx, pluginConfig: config })
+    const result = await configHandler.handle({ pluginConfig: config, agents })
+
+    // Disabled agent should not appear in output regardless of display_name
+    expect(Object.keys(result.agents)).not.toContain("My Reviewer")
+    expect(Object.keys(result.agents)).not.toContain(originalWeftDisplayName)
+  })
+
+  it("unicode display name works end-to-end", async () => {
+    const config = WeaveConfigSchema.parse({
+      agents: { loom: { display_name: "織機 (メインオーケストレーター)" } },
+    })
+    const { agents, configHandler } = createManagers({ ctx: mockCtx, pluginConfig: config })
+    const result = await configHandler.handle({ pluginConfig: config, agents })
+
+    expect(Object.keys(result.agents)).toContain("織機 (メインオーケストレーター)")
+    expect(result.defaultAgent).toBe("織機 (メインオーケストレーター)")
   })
 })

@@ -23,6 +23,19 @@ export const AGENT_DISPLAY_NAMES: Record<string, string> = {
 /** Built-in agent config keys — these cannot be overwritten by custom agents */
 const BUILTIN_CONFIG_KEYS = new Set(Object.keys(AGENT_DISPLAY_NAMES))
 
+/**
+ * Frozen snapshot of initial builtin display names at module load time.
+ * Used by registerAgentDisplayName() to prevent custom agents from
+ * claiming builtin display names even after they have been overridden.
+ *
+ * Example: if the user renames "loom" from "Loom (Main Orchestrator)" to "My Loom",
+ * a custom agent must NOT be allowed to claim "Loom (Main Orchestrator)" as its
+ * display name — it is still a reserved builtin name.
+ */
+const INITIAL_BUILTIN_DISPLAY_NAMES: ReadonlyMap<string, string> = new Map(
+  Object.entries(AGENT_DISPLAY_NAMES),
+)
+
 /** Lazily-computed reverse lookup (display name → config key). Invalidated on registration. */
 let reverseDisplayNames: Record<string, string> | null = null
 
@@ -51,6 +64,16 @@ export function registerAgentDisplayName(configKey: string, displayName: string)
   }
 
   // Prevent custom agents from claiming a builtin agent's display name
+  // Check against INITIAL_BUILTIN_DISPLAY_NAMES (frozen snapshot) so that
+  // even after a builtin display name is overridden, its original name stays reserved.
+  for (const [builtinKey, initialDisplayName] of INITIAL_BUILTIN_DISPLAY_NAMES) {
+    if (initialDisplayName.toLowerCase() === displayName.toLowerCase()) {
+      throw new Error(
+        `Display name "${displayName}" is reserved for built-in agent "${builtinKey}"`,
+      )
+    }
+  }
+  // Also check current (potentially overridden) display names in the mutable map
   const reverse = getReverseDisplayNames()
   const existingKey = reverse[displayName.toLowerCase()]
   if (existingKey !== undefined && BUILTIN_CONFIG_KEYS.has(existingKey)) {
@@ -59,6 +82,24 @@ export function registerAgentDisplayName(configKey: string, displayName: string)
     )
   }
 
+  AGENT_DISPLAY_NAMES[configKey] = displayName
+  reverseDisplayNames = null // invalidate cache
+}
+
+/**
+ * Override the display name for a built-in agent.
+ * Unlike registerAgentDisplayName (which guards against builtin config keys),
+ * this function is specifically for user-configured builtin display names.
+ *
+ * Only accepts known builtin config keys. Throws for unknown keys.
+ * Invalidates the reverse lookup cache so getAgentConfigKey reflects the new name.
+ */
+export function updateBuiltinDisplayName(configKey: string, displayName: string): void {
+  if (!BUILTIN_CONFIG_KEYS.has(configKey)) {
+    throw new Error(
+      `Cannot update builtin display name for "${configKey}": not a built-in agent`,
+    )
+  }
   AGENT_DISPLAY_NAMES[configKey] = displayName
   reverseDisplayNames = null // invalidate cache
 }

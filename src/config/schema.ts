@@ -14,6 +14,8 @@ export const AgentOverrideConfigSchema = z.object({
   disable: z.boolean().optional(),
   mode: z.enum(["subagent", "primary", "all"]).optional(),
   maxTokens: z.number().optional(),
+  /** Custom display name shown in UI (overrides the default builtin name) */
+  display_name: z.string().optional(),
 })
 
 export const AgentOverridesSchema = z.record(z.string(), AgentOverrideConfigSchema)
