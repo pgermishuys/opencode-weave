@@ -1,25 +1,26 @@
-import type { AgentConfig } from "@opencode-ai/sdk"
-import type { WeaveConfig } from "../config/schema"
-import { getAgentDisplayName } from "../shared/agent-display-names"
-import { BUILTIN_COMMANDS } from "../features/builtin-commands"
+import type { AgentConfig } from '@opencode-ai/sdk';
+import type { WeaveConfig } from '../config/schema';
+import { BUILTIN_COMMANDS } from '../features/builtin-commands';
+import { getMcpServers } from '../mcp';
+import { getAgentDisplayName } from '../shared/agent-display-names';
 
 /** Input to the config pipeline */
 export interface ConfigPipelineInput {
-  pluginConfig: WeaveConfig
+  pluginConfig: WeaveConfig;
   /** Available agents from createBuiltinAgents (or empty for testing) */
-  agents?: Record<string, AgentConfig>
+  agents?: Record<string, AgentConfig>;
   /** Available tool names */
-  availableTools?: string[]
+  availableTools?: string[];
 }
 
 /** Output from config pipeline */
 export interface ConfigPipelineOutput {
-  agents: Record<string, AgentConfig>
+  agents: Record<string, AgentConfig>;
   /** Default agent display name (set on config.default_agent) */
-  defaultAgent?: string
-  tools: string[]
-  mcps: Record<string, unknown>
-  commands: Record<string, unknown>
+  defaultAgent?: string;
+  tools: string[];
+  mcps: Record<string, unknown>;
+  commands: Record<string, unknown>;
 }
 
 /**
@@ -29,36 +30,36 @@ export interface ConfigPipelineOutput {
  * Phase 3 filters disabled tools.
  */
 export class ConfigHandler {
-  private readonly pluginConfig: WeaveConfig
+  private readonly pluginConfig: WeaveConfig;
 
   constructor(options: { pluginConfig: WeaveConfig }) {
-    this.pluginConfig = options.pluginConfig
+    this.pluginConfig = options.pluginConfig;
   }
 
   /** Run the 6-phase pipeline and return accumulated config output */
   async handle(input: ConfigPipelineInput): Promise<ConfigPipelineOutput> {
-    const { pluginConfig, agents = {}, availableTools = [] } = input
+    const { pluginConfig, agents = {}, availableTools = [] } = input;
 
     // Phase 1: applyProviderConfig — no-op for v1
-    this.applyProviderConfig()
+    this.applyProviderConfig();
 
     // Phase 2: applyAgentConfig — merge overrides, exclude disabled, remap keys
-    const resolvedAgents = this.applyAgentConfig(agents, pluginConfig)
+    const resolvedAgents = this.applyAgentConfig(agents, pluginConfig);
 
     // Phase 3: applyToolConfig — filter disabled tools
-    const resolvedTools = this.applyToolConfig(availableTools, pluginConfig)
+    const resolvedTools = this.applyToolConfig(availableTools, pluginConfig);
 
-    // Phase 4: applyMcpConfig — empty for v1
-    const resolvedMcps = this.applyMcpConfig()
+    // Phase 4: applyMcpConfig — filter disabled MCPs
+    const resolvedMcps = this.applyMcpConfig(pluginConfig);
 
     // Phase 5: applyCommandConfig — empty for v1
-    const resolvedCommands = this.applyCommandConfig()
+    const resolvedCommands = this.applyCommandConfig();
 
     // Phase 6: applySkillConfig — no-op for v1
-    this.applySkillConfig()
+    this.applySkillConfig();
 
     // Determine default agent display name (loom is default primary agent)
-    const defaultAgent = this.resolveDefaultAgent(resolvedAgents)
+    const defaultAgent = this.resolveDefaultAgent(resolvedAgents);
 
     return {
       agents: resolvedAgents,
@@ -66,7 +67,7 @@ export class ConfigHandler {
       tools: resolvedTools,
       mcps: resolvedMcps,
       commands: resolvedCommands,
-    }
+    };
   }
 
   /** Phase 1: Provider detection happens elsewhere — pass through */
@@ -83,59 +84,77 @@ export class ConfigHandler {
     agents: Record<string, AgentConfig>,
     pluginConfig: WeaveConfig,
   ): Record<string, AgentConfig> {
-    const disabledSet = new Set(pluginConfig.disabled_agents ?? [])
-    const overrides = pluginConfig.agents ?? {}
+    const disabledSet = new Set(pluginConfig.disabled_agents ?? []);
+    const overrides = pluginConfig.agents ?? {};
 
-    const result: Record<string, AgentConfig> = {}
+    const result: Record<string, AgentConfig> = {};
 
     for (const [name, agentConfig] of Object.entries(agents)) {
       if (disabledSet.has(name)) {
-        continue
+        continue;
       }
 
-      const override = overrides[name]
-      const merged = override ? { ...agentConfig, ...override } : { ...agentConfig }
+      const override = overrides[name];
+      const merged = override
+        ? { ...agentConfig, ...override }
+        : { ...agentConfig };
 
       // Remap key to display name for OpenCode UI
-      const displayName = getAgentDisplayName(name)
-      result[displayName] = merged
+      const displayName = getAgentDisplayName(name);
+      result[displayName] = merged;
     }
 
-    return result
+    return result;
   }
 
   /**
    * Resolve the default agent display name.
    * Returns the display name of "loom" if present in resolved agents, otherwise first primary agent.
    */
-  private resolveDefaultAgent(agents: Record<string, AgentConfig>): string | undefined {
-    const loomDisplayName = getAgentDisplayName("loom")
-    if (agents[loomDisplayName]) return loomDisplayName
+  private resolveDefaultAgent(
+    agents: Record<string, AgentConfig>,
+  ): string | undefined {
+    const loomDisplayName = getAgentDisplayName('loom');
+    if (agents[loomDisplayName]) return loomDisplayName;
     // Fallback: first agent in the map
-    const firstKey = Object.keys(agents)[0]
-    return firstKey
+    const firstKey = Object.keys(agents)[0];
+    return firstKey;
   }
 
   /** Phase 3: Filter tools by disabled_tools */
-  private applyToolConfig(availableTools: string[], pluginConfig: WeaveConfig): string[] {
-    const disabledSet = new Set(pluginConfig.disabled_tools ?? [])
-    return availableTools.filter((tool) => !disabledSet.has(tool))
+  private applyToolConfig(
+    availableTools: string[],
+    pluginConfig: WeaveConfig,
+  ): string[] {
+    const disabledSet = new Set(pluginConfig.disabled_tools ?? []);
+    return availableTools.filter((tool) => !disabledSet.has(tool));
   }
 
-  /** Phase 4: MCP loading is done elsewhere — return empty for v1 */
-  private applyMcpConfig(): Record<string, unknown> {
-    return {}
+  /** Phase 4: MCP loading - get servers from config and filter disabled */
+  private applyMcpConfig(pluginConfig: WeaveConfig): Record<string, unknown> {
+    const disabledSet = new Set(pluginConfig.disabled_mcps ?? []);
+    const servers = getMcpServers(pluginConfig.mcp);
+    const result: Record<string, unknown> = {};
+    for (const [name, config] of servers) {
+      if (!disabledSet.has(name)) {
+        result[name] = config;
+      }
+    }
+    return result;
   }
 
   /** Phase 5: Return builtin commands with agent fields remapped to display names */
   private applyCommandConfig(): Record<string, unknown> {
-    const commands = structuredClone(BUILTIN_COMMANDS) as unknown as Record<string, Record<string, unknown>>
+    const commands = structuredClone(BUILTIN_COMMANDS) as unknown as Record<
+      string,
+      Record<string, unknown>
+    >;
     for (const cmd of Object.values(commands)) {
-      if (cmd?.agent && typeof cmd.agent === "string") {
-        cmd.agent = getAgentDisplayName(cmd.agent)
+      if (cmd?.agent && typeof cmd.agent === 'string') {
+        cmd.agent = getAgentDisplayName(cmd.agent);
       }
     }
-    return commands
+    return commands;
   }
 
   /** Phase 6: Skill injection happens in agent builder — no-op for v1 */

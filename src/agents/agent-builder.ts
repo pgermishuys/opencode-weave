@@ -1,22 +1,29 @@
-import type { AgentConfig } from "@opencode-ai/sdk"
-import type { AgentSource } from "./types"
-import type { CategoriesConfig } from "../config/schema"
-import { isFactory } from "./types"
+import type { AgentConfig } from '@opencode-ai/sdk';
+import type { CategoriesConfig } from '../config/schema';
+import { getAgentMcps } from '../mcp/agent-defaults';
+import type { AgentSource } from './types';
+import { isFactory } from './types';
 
-export type ResolveSkillsFn = (skillNames: string[], disabledSkills?: Set<string>) => string
+export type ResolveSkillsFn = (
+  skillNames: string[],
+  disabledSkills?: Set<string>,
+) => string;
 
 export type BuildAgentOptions = {
-  categories?: CategoriesConfig
-  disabledSkills?: Set<string>
-  resolveSkills?: ResolveSkillsFn
-  disabledAgents?: Set<string>
-}
+  categories?: CategoriesConfig;
+  disabledSkills?: Set<string>;
+  resolveSkills?: ResolveSkillsFn;
+  disabledAgents?: Set<string>;
+  agentName?: string;
+  mcpConfig?: string[];
+  enabledMcps?: Set<string>;
+};
 
 type AgentConfigExtended = AgentConfig & {
-  category?: string
-  skills?: string[]
-  variant?: string
-}
+  category?: string;
+  skills?: string[];
+  variant?: string;
+};
 
 /**
  * Map from agent config key (lowercase) to display name variants that
@@ -27,20 +34,20 @@ type AgentConfigExtended = AgentConfig & {
  * must restore original arrays in afterEach to avoid state pollution.
  */
 export const AGENT_NAME_VARIANTS: Record<string, string[]> = {
-  thread: ["thread", "Thread"],
-  spindle: ["spindle", "Spindle"],
-  weft: ["weft", "Weft"],
-  warp: ["warp", "Warp"],
-  pattern: ["pattern", "Pattern"],
-  shuttle: ["shuttle", "Shuttle"],
-  loom: ["loom", "Loom"],
-  tapestry: ["tapestry", "Tapestry"],
-}
+  thread: ['thread', 'Thread'],
+  spindle: ['spindle', 'Spindle'],
+  weft: ['weft', 'Weft'],
+  warp: ['warp', 'Warp'],
+  pattern: ['pattern', 'Pattern'],
+  shuttle: ['shuttle', 'Shuttle'],
+  loom: ['loom', 'Loom'],
+  tapestry: ['tapestry', 'Tapestry'],
+};
 
 /** Frozen snapshot of initial builtin name variants at module load time. */
 const INITIAL_NAME_VARIANTS: ReadonlyMap<string, readonly string[]> = new Map(
   Object.entries(AGENT_NAME_VARIANTS).map(([k, v]) => [k, [...v]]),
-)
+);
 
 /**
  * Reset the mutable name variants map to its initial state.
@@ -49,11 +56,11 @@ const INITIAL_NAME_VARIANTS: ReadonlyMap<string, readonly string[]> = new Map(
 export function resetNameVariants(): void {
   for (const key of Object.keys(AGENT_NAME_VARIANTS)) {
     if (!INITIAL_NAME_VARIANTS.has(key)) {
-      delete AGENT_NAME_VARIANTS[key]
+      delete AGENT_NAME_VARIANTS[key];
     }
   }
   for (const [key, value] of INITIAL_NAME_VARIANTS) {
-    AGENT_NAME_VARIANTS[key] = [...value]
+    AGENT_NAME_VARIANTS[key] = [...value];
   }
 }
 
@@ -62,10 +69,13 @@ export function resetNameVariants(): void {
  * `stripDisabledAgentReferences` can strip its references from prompts.
  * Does not override existing (builtin) entries.
  */
-export function registerAgentNameVariants(name: string, variants?: string[]): void {
-  if (AGENT_NAME_VARIANTS[name]) return // don't override builtins
-  const titleCase = name.charAt(0).toUpperCase() + name.slice(1)
-  AGENT_NAME_VARIANTS[name] = variants ?? [name, titleCase]
+export function registerAgentNameVariants(
+  name: string,
+  variants?: string[],
+): void {
+  if (AGENT_NAME_VARIANTS[name]) return; // don't override builtins
+  const titleCase = name.charAt(0).toUpperCase() + name.slice(1);
+  AGENT_NAME_VARIANTS[name] = variants ?? [name, titleCase];
 }
 
 /**
@@ -75,10 +85,13 @@ export function registerAgentNameVariants(name: string, variants?: string[]): vo
  * can match it when the agent is disabled.
  * No-op if the config key has no existing variant entry or the variant is already present.
  */
-export function addBuiltinNameVariant(configKey: string, variant: string): void {
-  const existing = AGENT_NAME_VARIANTS[configKey]
+export function addBuiltinNameVariant(
+  configKey: string,
+  variant: string,
+): void {
+  const existing = AGENT_NAME_VARIANTS[configKey];
   if (existing && !existing.includes(variant)) {
-    existing.push(variant)
+    existing.push(variant);
   }
 }
 
@@ -88,60 +101,99 @@ export function addBuiltinNameVariant(configKey: string, variant: string): void 
  * (e.g. "Use thread (codebase explorer)"), not incidental word matches.
  * Uses word-boundary matching to avoid false positives.
  */
-export function stripDisabledAgentReferences(prompt: string, disabled: Set<string>): string {
-  if (disabled.size === 0) return prompt
+export function stripDisabledAgentReferences(
+  prompt: string,
+  disabled: Set<string>,
+): string {
+  if (disabled.size === 0) return prompt;
 
   // Build a set of all name variants to look for
-  const disabledVariants: string[] = []
+  const disabledVariants: string[] = [];
   for (const name of disabled) {
-    const variants = AGENT_NAME_VARIANTS[name]
+    const variants = AGENT_NAME_VARIANTS[name];
     if (variants) {
-      disabledVariants.push(...variants)
+      disabledVariants.push(...variants);
     }
   }
-  if (disabledVariants.length === 0) return prompt
+  if (disabledVariants.length === 0) return prompt;
 
   // Build a regex that matches any line containing a disabled agent name.
   // Uses (?<!\w) and (?!\w) instead of \b to support Unicode/CJK display names
   // while still avoiding false positives like "pattern" matching "patterns".
   const pattern = new RegExp(
-    `(?<!\\w)(${disabledVariants.map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?!\\w)`,
-  )
+    `(?<!\\w)(${disabledVariants.map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(?!\\w)`,
+  );
 
-  const lines = prompt.split("\n")
-  const filtered = lines.filter((line) => !pattern.test(line))
-  return filtered.join("\n")
+  const lines = prompt.split('\n');
+  const filtered = lines.filter((line) => !pattern.test(line));
+  return filtered.join('\n');
 }
 
-export function buildAgent(source: AgentSource, model: string, options?: BuildAgentOptions): AgentConfig {
-  const base: AgentConfigExtended = isFactory(source) ? source(model) : { ...source }
+export function buildAgent(
+  source: AgentSource,
+  model: string,
+  options?: BuildAgentOptions,
+): AgentConfig {
+  const base: AgentConfigExtended = isFactory(source)
+    ? source(model)
+    : { ...source };
 
   if (base.category && options?.categories) {
-    const categoryConfig = options.categories[base.category]
+    const categoryConfig = options.categories[base.category];
     if (categoryConfig) {
       if (!base.model) {
-        base.model = categoryConfig.model
+        base.model = categoryConfig.model;
       }
-      if (base.temperature === undefined && categoryConfig.temperature !== undefined) {
-        base.temperature = categoryConfig.temperature
+      if (
+        base.temperature === undefined &&
+        categoryConfig.temperature !== undefined
+      ) {
+        base.temperature = categoryConfig.temperature;
       }
       if (base.variant === undefined && categoryConfig.variant !== undefined) {
-        base.variant = categoryConfig.variant
+        base.variant = categoryConfig.variant;
       }
     }
   }
 
   if (base.skills?.length && options?.resolveSkills) {
-    const skillContent = options.resolveSkills(base.skills, options.disabledSkills)
+    const skillContent = options.resolveSkills(
+      base.skills,
+      options.disabledSkills,
+    );
     if (skillContent) {
-      base.prompt = skillContent + (base.prompt ? "\n\n" + base.prompt : "")
+      base.prompt = skillContent + (base.prompt ? '\n\n' + base.prompt : '');
+    }
+  }
+
+  // Add MCP information to prompt if MCPs are configured for this agent
+  if (
+    options?.agentName &&
+    options?.enabledMcps &&
+    options.enabledMcps.size > 0
+  ) {
+    const agentMcps = getAgentMcps(options.agentName, options.mcpConfig);
+    const availableMcps = agentMcps.filter((mcp) =>
+      options.enabledMcps?.has(mcp),
+    );
+
+    if (availableMcps.length > 0) {
+      const mcpSection = `\n\n## Available MCP Servers\n\nYou have access to the following MCP (Model Context Protocol) servers:\n${availableMcps.map((mcp) => `- ${mcp}`).join('\n')}\n\nUse these servers when appropriate for your tasks.`;
+      base.prompt = (base.prompt ?? '') + mcpSection;
     }
   }
 
   // Strip references to disabled agents from the prompt
-  if (options?.disabledAgents && options.disabledAgents.size > 0 && base.prompt) {
-    base.prompt = stripDisabledAgentReferences(base.prompt, options.disabledAgents)
+  if (
+    options?.disabledAgents &&
+    options.disabledAgents.size > 0 &&
+    base.prompt
+  ) {
+    base.prompt = stripDisabledAgentReferences(
+      base.prompt,
+      options.disabledAgents,
+    );
   }
 
-  return base
+  return base;
 }

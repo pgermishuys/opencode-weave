@@ -1,33 +1,42 @@
-import type { AgentConfig } from "@opencode-ai/sdk"
-import { createLoomAgent, createLoomAgentWithOptions } from "./loom"
-import { createTapestryAgent, createTapestryAgentWithOptions } from "./tapestry"
-import { createShuttleAgent } from "./shuttle"
-import { createPatternAgent } from "./pattern"
-import { createThreadAgent } from "./thread"
-import { createSpindleAgent } from "./spindle"
-import { createWeftAgent } from "./weft"
-import { createWarpAgent } from "./warp"
-import { resolveAgentModel } from "./model-resolution"
-import { buildAgent } from "./agent-builder"
-import type { AgentFactory, AgentPromptMetadata, WeaveAgentName } from "./types"
-import type { CategoriesConfig, AgentOverrideConfig } from "../config/schema"
-import type { ResolveSkillsFn } from "./agent-builder"
-import type { ProjectFingerprint } from "../features/analytics/types"
-import type { AvailableAgent } from "./dynamic-prompt-builder"
+import type { AgentConfig } from '@opencode-ai/sdk';
+import type { AgentOverrideConfig, CategoriesConfig } from '../config/schema';
+import type { ProjectFingerprint } from '../features/analytics/types';
+import type { ResolveSkillsFn } from './agent-builder';
+import { buildAgent } from './agent-builder';
+import type { AvailableAgent } from './dynamic-prompt-builder';
+import { createLoomAgent, createLoomAgentWithOptions } from './loom';
+import { resolveAgentModel } from './model-resolution';
+import { createPatternAgent } from './pattern';
+import { createShuttleAgent } from './shuttle';
+import { createSpindleAgent } from './spindle';
+import {
+  createTapestryAgent,
+  createTapestryAgentWithOptions,
+} from './tapestry';
+import { createThreadAgent } from './thread';
+import type {
+  AgentFactory,
+  AgentPromptMetadata,
+  WeaveAgentName,
+} from './types';
+import { createWarpAgent } from './warp';
+import { createWeftAgent } from './weft';
 
 export interface CreateBuiltinAgentsOptions {
-  disabledAgents?: string[]
-  agentOverrides?: Record<string, AgentOverrideConfig>
-  categories?: CategoriesConfig
-  uiSelectedModel?: string
-  systemDefaultModel?: string
-  availableModels?: Set<string>
-  disabledSkills?: Set<string>
-  resolveSkills?: ResolveSkillsFn
+  disabledAgents?: string[];
+  agentOverrides?: Record<string, AgentOverrideConfig>;
+  categories?: CategoriesConfig;
+  uiSelectedModel?: string;
+  systemDefaultModel?: string;
+  availableModels?: Set<string>;
+  disabledSkills?: Set<string>;
+  resolveSkills?: ResolveSkillsFn;
   /** Project fingerprint for injecting project context into agent prompts */
-  fingerprint?: ProjectFingerprint | null
+  fingerprint?: ProjectFingerprint | null;
   /** Custom agent metadata for Loom's dynamic delegation prompt */
-  customAgentMetadata?: AvailableAgent[]
+  customAgentMetadata?: AvailableAgent[];
+  /** Set of enabled MCP servers */
+  enabledMcps?: Set<string>;
 }
 
 const AGENT_FACTORIES: Record<WeaveAgentName, AgentFactory> = {
@@ -39,126 +48,174 @@ const AGENT_FACTORIES: Record<WeaveAgentName, AgentFactory> = {
   spindle: createSpindleAgent,
   weft: createWeftAgent,
   warp: createWarpAgent,
-}
+};
 
 export const AGENT_METADATA: Record<WeaveAgentName, AgentPromptMetadata> = {
   loom: {
-    category: "specialist",
-    cost: "EXPENSIVE",
+    category: 'specialist',
+    cost: 'EXPENSIVE',
     triggers: [
-      { domain: "Orchestration", trigger: "Complex multi-step tasks needing full orchestration" },
-      { domain: "Architecture", trigger: "System design and high-level planning" },
+      {
+        domain: 'Orchestration',
+        trigger: 'Complex multi-step tasks needing full orchestration',
+      },
+      {
+        domain: 'Architecture',
+        trigger: 'System design and high-level planning',
+      },
     ],
-    keyTrigger: "**'ultrawork'** → Maximum effort, parallel agents, deep execution",
+    keyTrigger:
+      "**'ultrawork'** → Maximum effort, parallel agents, deep execution",
   },
   tapestry: {
-    category: "specialist",
-    cost: "EXPENSIVE",
+    category: 'specialist',
+    cost: 'EXPENSIVE',
     triggers: [
-      { domain: "Execution", trigger: "Implementation tasks requiring sequential orchestration" },
-      { domain: "Integration", trigger: "Wiring multiple systems or modules together" },
+      {
+        domain: 'Execution',
+        trigger: 'Implementation tasks requiring sequential orchestration',
+      },
+      {
+        domain: 'Integration',
+        trigger: 'Wiring multiple systems or modules together',
+      },
     ],
   },
   shuttle: {
-    category: "specialist",
-    cost: "CHEAP",
+    category: 'specialist',
+    cost: 'CHEAP',
     triggers: [
-      { domain: "Category Work", trigger: "Domain-specific tasks dispatched via category system" },
+      {
+        domain: 'Category Work',
+        trigger: 'Domain-specific tasks dispatched via category system',
+      },
     ],
   },
   pattern: {
-    category: "advisor",
-    cost: "EXPENSIVE",
+    category: 'advisor',
+    cost: 'EXPENSIVE',
     triggers: [
-      { domain: "Planning", trigger: "Detailed task breakdown and step-by-step planning" },
-      { domain: "Strategy", trigger: "Approach selection for complex technical problems" },
+      {
+        domain: 'Planning',
+        trigger: 'Detailed task breakdown and step-by-step planning',
+      },
+      {
+        domain: 'Strategy',
+        trigger: 'Approach selection for complex technical problems',
+      },
     ],
   },
   thread: {
-    category: "exploration",
-    cost: "FREE",
+    category: 'exploration',
+    cost: 'FREE',
     triggers: [
-      { domain: "Codebase Search", trigger: "Finding patterns, usages, definitions across files" },
-      { domain: "Context Gathering", trigger: "Understanding how existing code works" },
+      {
+        domain: 'Codebase Search',
+        trigger: 'Finding patterns, usages, definitions across files',
+      },
+      {
+        domain: 'Context Gathering',
+        trigger: 'Understanding how existing code works',
+      },
     ],
     useWhen: [
-      "Pattern/usage is unknown — need to discover it",
-      "Multi-file search required",
-      "Need to understand code structure before editing",
+      'Pattern/usage is unknown — need to discover it',
+      'Multi-file search required',
+      'Need to understand code structure before editing',
     ],
     avoidWhen: [
-      "File path is already known",
-      "Single file, single location",
-      "Simple grep would suffice",
+      'File path is already known',
+      'Single file, single location',
+      'Simple grep would suffice',
     ],
   },
   spindle: {
-    category: "exploration",
-    cost: "FREE",
+    category: 'exploration',
+    cost: 'FREE',
     triggers: [
-      { domain: "External Research", trigger: "Documentation lookup, library usage, OSS examples" },
-      { domain: "Reference Search", trigger: "Official API docs, best practices, external resources" },
+      {
+        domain: 'External Research',
+        trigger: 'Documentation lookup, library usage, OSS examples',
+      },
+      {
+        domain: 'Reference Search',
+        trigger: 'Official API docs, best practices, external resources',
+      },
     ],
     useWhen: [
-      "official docs",
-      "external library",
-      "how does X work in library Y",
-      "best practice for",
+      'official docs',
+      'external library',
+      'how does X work in library Y',
+      'best practice for',
     ],
   },
   weft: {
-    category: "advisor",
-    cost: "EXPENSIVE",
+    category: 'advisor',
+    cost: 'EXPENSIVE',
     triggers: [
-      { domain: "Code Review", trigger: "After completing significant implementation work" },
-      { domain: "Plan Review", trigger: "Validate plans before execution" },
+      {
+        domain: 'Code Review',
+        trigger: 'After completing significant implementation work',
+      },
+      { domain: 'Plan Review', trigger: 'Validate plans before execution' },
     ],
     useWhen: [
-      "After completing a multi-file implementation",
-      "Before executing a complex plan",
-      "When unsure if work meets acceptance criteria",
-      "After 2+ revision attempts on the same task",
+      'After completing a multi-file implementation',
+      'Before executing a complex plan',
+      'When unsure if work meets acceptance criteria',
+      'After 2+ revision attempts on the same task',
     ],
     avoidWhen: [
-      "Simple single-file changes",
-      "Trivial fixes (typos, formatting)",
-      "When user explicitly wants to skip review",
+      'Simple single-file changes',
+      'Trivial fixes (typos, formatting)',
+      'When user explicitly wants to skip review',
     ],
   },
   warp: {
-    category: "advisor",
-    cost: "EXPENSIVE",
+    category: 'advisor',
+    cost: 'EXPENSIVE',
     triggers: [
-      { domain: "Security Review", trigger: "After changes touching auth, crypto, tokens, or input handling" },
-      { domain: "Spec Compliance", trigger: "When implementing OAuth, OIDC, WebAuthn, JWT, or similar protocols" },
+      {
+        domain: 'Security Review',
+        trigger:
+          'After changes touching auth, crypto, tokens, or input handling',
+      },
+      {
+        domain: 'Spec Compliance',
+        trigger:
+          'When implementing OAuth, OIDC, WebAuthn, JWT, or similar protocols',
+      },
     ],
     useWhen: [
-      "After implementing authentication or authorization logic",
-      "When adding/modifying token handling, JWT, or session management",
-      "After changes to cryptographic operations or key management",
-      "When implementing OAuth2, OIDC, WebAuthn, or similar specs",
-      "After modifying CORS, CSP, or security headers",
+      'After implementing authentication or authorization logic',
+      'When adding/modifying token handling, JWT, or session management',
+      'After changes to cryptographic operations or key management',
+      'When implementing OAuth2, OIDC, WebAuthn, or similar specs',
+      'After modifying CORS, CSP, or security headers',
     ],
     avoidWhen: [
-      "Pure documentation or README changes",
-      "CSS/styling-only changes with no security implications",
+      'Pure documentation or README changes',
+      'CSS/styling-only changes with no security implications',
       "Test-only changes that don't modify security test assertions",
     ],
   },
-}
+};
 
 /**
  * Separate map for custom agent metadata — avoids unsafe mutation of the
  * strongly-typed AGENT_METADATA record.
  */
-const CUSTOM_AGENT_METADATA: Record<string, AgentPromptMetadata> = {}
+const CUSTOM_AGENT_METADATA: Record<string, AgentPromptMetadata> = {};
 
 /**
  * Register metadata for a custom agent. Used by create-managers.ts
  * to integrate custom agents into Loom's dynamic prompt builder.
  */
-export function registerCustomAgentMetadata(name: string, metadata: AgentPromptMetadata): void {
-  CUSTOM_AGENT_METADATA[name] = metadata
+export function registerCustomAgentMetadata(
+  name: string,
+  metadata: AgentPromptMetadata,
+): void {
+  CUSTOM_AGENT_METADATA[name] = metadata;
 }
 
 /**
@@ -166,10 +223,12 @@ export function registerCustomAgentMetadata(name: string, metadata: AgentPromptM
  * Returns a new merged record on each call.
  */
 export function getAllAgentMetadata(): Record<string, AgentPromptMetadata> {
-  return { ...AGENT_METADATA, ...CUSTOM_AGENT_METADATA }
+  return { ...AGENT_METADATA, ...CUSTOM_AGENT_METADATA };
 }
 
-export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): Record<string, AgentConfig> {
+export function createBuiltinAgents(
+  options: CreateBuiltinAgentsOptions = {},
+): Record<string, AgentConfig> {
   const {
     disabledAgents = [],
     agentOverrides = {},
@@ -181,17 +240,21 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     resolveSkills,
     fingerprint,
     customAgentMetadata,
-  } = options
+    enabledMcps,
+  } = options;
 
-  const disabledSet = new Set(disabledAgents)
+  const disabledSet = new Set(disabledAgents);
 
-  const result: Record<string, AgentConfig> = {}
+  const result: Record<string, AgentConfig> = {};
 
-  for (const [name, factory] of Object.entries(AGENT_FACTORIES) as [WeaveAgentName, AgentFactory][]) {
-    if (disabledSet.has(name)) continue
+  for (const [name, factory] of Object.entries(AGENT_FACTORIES) as [
+    WeaveAgentName,
+    AgentFactory,
+  ][]) {
+    if (disabledSet.has(name)) continue;
 
-    const override = agentOverrides[name]
-    const overrideModel = override?.model
+    const override = agentOverrides[name];
+    const overrideModel = override?.model;
 
     const resolvedModel = resolveAgentModel(name, {
       availableModels,
@@ -199,41 +262,51 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
       uiSelectedModel,
       systemDefaultModel,
       overrideModel,
-    })
+    });
 
     // Use prompt-composer-aware constructors for loom and tapestry
     // so their prompts conditionally omit references to disabled agents
-    let built: AgentConfig
-    if (name === "loom") {
-      built = createLoomAgentWithOptions(resolvedModel, disabledSet, fingerprint, customAgentMetadata)
-    } else if (name === "tapestry") {
-      built = createTapestryAgentWithOptions(resolvedModel, disabledSet)
+    let built: AgentConfig;
+    if (name === 'loom') {
+      built = createLoomAgentWithOptions(
+        resolvedModel,
+        disabledSet,
+        fingerprint,
+        customAgentMetadata,
+      );
+    } else if (name === 'tapestry') {
+      built = createTapestryAgentWithOptions(resolvedModel, disabledSet);
     } else {
       built = buildAgent(factory, resolvedModel, {
         categories,
         disabledSkills,
         resolveSkills,
         disabledAgents: disabledSet,
-      })
+        agentName: name,
+        mcpConfig: override?.mcp,
+        enabledMcps,
+      });
     }
 
     if (override) {
       if (override.skills?.length && resolveSkills) {
-        const skillContent = resolveSkills(override.skills, disabledSkills)
+        const skillContent = resolveSkills(override.skills, disabledSkills);
         if (skillContent) {
-          built.prompt = skillContent + (built.prompt ? "\n\n" + built.prompt : "")
+          built.prompt =
+            skillContent + (built.prompt ? '\n\n' + built.prompt : '');
         }
       }
       if (override.prompt_append) {
-        built.prompt = (built.prompt ? built.prompt + "\n\n" : "") + override.prompt_append
+        built.prompt =
+          (built.prompt ? built.prompt + '\n\n' : '') + override.prompt_append;
       }
       if (override.temperature !== undefined) {
-        built.temperature = override.temperature
+        built.temperature = override.temperature;
       }
     }
 
-    result[name] = built
+    result[name] = built;
   }
 
-  return result
+  return result;
 }
