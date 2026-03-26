@@ -35,6 +35,7 @@ Weave is a lean OpenCode plugin with multi-agent orchestration. It provides a co
   - [MCP (Model Context Protocol)](#mcp-model-context-protocol)
   - [Background Agents](#background-agents)
   - [Tool Permissions](#tool-permissions)
+- [Provider Configurations](./docs/provider-configurations.md)
 - [Development](#development)
 - [Acknowledgments](#acknowledgments)
 - [License](#license)
@@ -44,6 +45,7 @@ Weave is a lean OpenCode plugin with multi-agent orchestration. It provides a co
 - **8 specialized agents** with weaving-themed names designed for specific roles in the development lifecycle.
 - **Category-based task dispatch** to route work to domain-optimized models and configurations.
 - **Skill system** for injecting domain-specific expertise that modifies agent behavior via prompt orchestration.
+- **MCP (Model Context Protocol)** — Built-in MCP servers (websearch, context7, grep_app) for extended capabilities.
 - **Background agent management** for parallel asynchronous sub-agent execution with concurrency control.
 - **Context window monitoring** to track token usage and suggest recovery strategies when limits are approached.
 - **Tool permissions** enforced per-agent to ensure safety and prevent unauthorized file modifications.
@@ -52,6 +54,12 @@ Weave is a lean OpenCode plugin with multi-agent orchestration. It provides a co
 ## Documentation
 
 Visit [tryweave.io](https://tryweave.io) for more information, or head straight to the [documentation](https://tryweave.io/docs/) for detailed guides on setup, configuration, and usage.
+
+Detailed guides:
+- [Configuration Reference](./docs/configuration.md) — Full config schema
+- [Provider Configurations](./docs/provider-configurations.md) — Model setup per provider
+- [Agent Interactions](./docs/agent-interactions.md) — How agents work together
+- [Architecture](./docs/architecture.md) — Technical overview
 
 ## Agents
 
@@ -232,7 +240,8 @@ The configuration uses JSONC format, allowing for comments and trailing commas.
       "temperature": 0.1 
     },
     "thread": { 
-      "model": "openai/gpt-4o-mini" 
+      "model": "openai/gpt-4o-mini",
+      "mcp": ["websearch", "grep_app"]
     }
   },
   // Category-based dispatch overrides
@@ -241,11 +250,20 @@ The configuration uses JSONC format, allowing for comments and trailing commas.
       "model": "google/gemini-2-pro" 
     }
   },
+  // MCP configuration
+  "mcp": {
+    "enabled": {
+      "websearch": true,
+      "context7": true,
+      "grep_app": true
+    }
+  },
   // Selective feature toggling
   "disabled_hooks": [],
   "disabled_agents": [],
   "disabled_tools": [],
   "disabled_skills": [],
+  "disabled_mcps": [],
   // Background agent concurrency limits
   "background": {
     "defaultConcurrency": 5
@@ -255,8 +273,10 @@ The configuration uses JSONC format, allowing for comments and trailing commas.
 
 ### Configuration Fields
 
-- `agents` — Override model, temperature, prompt_append, tools, and skills per agent.
+- `agents` — Override model, temperature, prompt_append, tools, skills, and mcp per agent.
 - `categories` — Custom model and tool configurations for category-based dispatch.
+- `mcp` — Configure built-in and custom MCP servers.
+- `disabled_mcps` — Disable specific MCP servers globally.
 - `disabled_hooks` / `disabled_agents` / `disabled_tools` / `disabled_skills` — Selective feature disabling.
 - `background` — Concurrency limits and timeouts for parallel background agents.
 - `tmux` — Terminal multiplexer layout settings for TUI integration.
@@ -283,9 +303,11 @@ Weave supports MCP servers for extended capabilities. Built-in MCPs are:
 
 | MCP Server | Purpose | Default Agents |
 |------------|---------|----------------|
-| `websearch` | Web search via Exa AI | weft, loom, tapestry |
-| `context7` | Library documentation lookup | spindle |
-| `grep_app` | Enhanced code search | thread, spindle, warp |
+| `websearch` | Web search via Exa AI | loom, tapestry, weft, warp |
+| `context7` | Library documentation lookup | loom, tapestry, spindle |
+| `grep_app` | Enhanced code search | loom, tapestry, thread, spindle, warp, shuttle |
+
+> **Note**: Orchestrator agents (loom, tapestry) get all MCPs by default for maximum capability.
 
 #### Configuration
 
@@ -311,7 +333,7 @@ Weave supports MCP servers for extended capabilities. Built-in MCPs are:
     }
   },
   
-  // Disable specific MCPs globally
+  // Disable MCPs globally
   "disabled_mcps": ["websearch"],
   
   // Override MCPs per agent
@@ -322,6 +344,8 @@ Weave supports MCP servers for extended capabilities. Built-in MCPs are:
   }
 }
 ```
+
+See [Provider Configurations](./docs/provider-configurations.md) for model recommendations per agent.
 
 ### Skills
 
