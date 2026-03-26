@@ -1,13 +1,13 @@
 {
   "name": "@a4hgehad/weave-mcp",
-  "version": "0.8.7",
-  "description": "Weave — lean OpenCode plugin with multi-agent orchestration",
-  "author": "Weave",
+  "version": "0.8.0",
+  "description": "Weave-MCP — lean OpenCode plugin with multi-agent orchestration and MCP support",
+  "author": "3r3bu5",
   "license": "MIT",
-  "homepage": "https://github.com/pgermishuys/weave#readme",
+  "homepage": "https://github.com/3r3bu5/opencode-weave#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pgermishuys/weave.git"
+    "url": "https://github.com/3r3bu5/opencode-weave.git"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
