@@ -168,6 +168,188 @@ describe("createPluginInterface", () => {
     expect(config.command).toEqual(fakeCommands)
   })
 
+  describe("config hook merge behavior", () => {
+    it("merges Weave agents with existing user agents", async () => {
+      const weaveAgents = {
+        "Loom (Main Orchestrator)": { model: "claude-opus-4", prompt: "orchestrate" },
+      }
+      const handler = {
+        handle: async () => ({
+          agents: weaveAgents,
+          tools: [],
+          mcps: {},
+          commands: {},
+          defaultAgent: "Loom (Main Orchestrator)",
+        }),
+      } as unknown as ConfigHandler
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: handler,
+        agents: {},
+      })
+
+      const config: Record<string, unknown> = {
+        agent: {
+          "my-custom-agent": { model: "gpt-4o", prompt: "custom system prompt" },
+        },
+      }
+      await iface.config(config as Parameters<typeof iface.config>[0])
+
+      const agents = config.agent as Record<string, unknown>
+      expect(agents["my-custom-agent"]).toBeDefined()
+      expect(agents["Loom (Main Orchestrator)"]).toBeDefined()
+    })
+
+    it("lets Weave agents win on name collisions", async () => {
+      const weaveAgents = {
+        "shared-name": { model: "claude-opus-4", prompt: "weave version" },
+      }
+      const handler = {
+        handle: async () => ({
+          agents: weaveAgents,
+          tools: [],
+          mcps: {},
+          commands: {},
+        }),
+      } as unknown as ConfigHandler
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: handler,
+        agents: {},
+      })
+
+      const config: Record<string, unknown> = {
+        agent: {
+          "shared-name": { model: "gpt-4o", prompt: "user version" },
+        },
+      }
+      await iface.config(config as Parameters<typeof iface.config>[0])
+
+      const agents = config.agent as Record<string, { model: string; prompt: string }>
+      expect(agents["shared-name"].model).toBe("claude-opus-4")
+      expect(agents["shared-name"].prompt).toBe("weave version")
+    })
+
+    it("merges Weave commands with existing user commands", async () => {
+      const weaveCommands = {
+        "start-work": { name: "start-work", description: "Start work", agent: "tapestry", template: "t" },
+      }
+      const handler = {
+        handle: async () => ({
+          agents: {},
+          tools: [],
+          mcps: {},
+          commands: weaveCommands,
+        }),
+      } as unknown as ConfigHandler
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: handler,
+        agents: {},
+      })
+
+      const config: Record<string, unknown> = {
+        command: {
+          "my-command": { name: "my-command", description: "User command" },
+        },
+      }
+      await iface.config(config as Parameters<typeof iface.config>[0])
+
+      const commands = config.command as Record<string, unknown>
+      expect(commands["my-command"]).toBeDefined()
+      expect(commands["start-work"]).toBeDefined()
+    })
+
+    it("does not override user's default_agent if already set", async () => {
+      const handler = {
+        handle: async () => ({
+          agents: {},
+          tools: [],
+          mcps: {},
+          commands: {},
+          defaultAgent: "Loom (Main Orchestrator)",
+        }),
+      } as unknown as ConfigHandler
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: handler,
+        agents: {},
+      })
+
+      const config: Record<string, unknown> = {
+        default_agent: "my-custom-agent",
+      }
+      await iface.config(config as Parameters<typeof iface.config>[0])
+
+      expect(config.default_agent).toBe("my-custom-agent")
+    })
+
+    it("handles undefined config.agent gracefully", async () => {
+      const weaveAgents = {
+        "Loom (Main Orchestrator)": { model: "claude-opus-4", prompt: "orchestrate" },
+      }
+      const handler = {
+        handle: async () => ({
+          agents: weaveAgents,
+          tools: [],
+          mcps: {},
+          commands: {},
+        }),
+      } as unknown as ConfigHandler
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: handler,
+        agents: {},
+      })
+
+      const config: Record<string, unknown> = {}
+      await iface.config(config as Parameters<typeof iface.config>[0])
+
+      const agents = config.agent as Record<string, unknown>
+      expect(agents["Loom (Main Orchestrator)"]).toBeDefined()
+    })
+
+    it("sets default_agent when user has not configured one", async () => {
+      const handler = {
+        handle: async () => ({
+          agents: {},
+          tools: [],
+          mcps: {},
+          commands: {},
+          defaultAgent: "Loom (Main Orchestrator)",
+        }),
+      } as unknown as ConfigHandler
+
+      const iface = createPluginInterface({
+        pluginConfig: baseConfig,
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: handler,
+        agents: {},
+      })
+
+      const config: Record<string, unknown> = {}
+      await iface.config(config as Parameters<typeof iface.config>[0])
+
+      expect(config.default_agent).toBe("Loom (Main Orchestrator)")
+    })
+  })
+
   it("chat.message calls firstMessageVariant.markApplied when shouldApplyVariant is true", async () => {
     let markAppliedCalled = false
     let shouldApplyReturn = true

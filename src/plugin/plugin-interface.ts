@@ -63,15 +63,30 @@ export function createPluginInterface(args: {
         agents,
         availableTools: [],
       })
-      // Mutate the config object to register agents with OpenCode
-      // Keys are display names (e.g., "Loom (Main Orchestrator)")
-      config.agent = result.agents
+      // Merge Weave agents with any existing agents (e.g., user-defined .md/.json agents).
+      // Spread existing first so user agents are preserved; Weave agents win on collision.
+      const existingAgents = (config.agent ?? {}) as Record<string, unknown>
+      if (Object.keys(existingAgents).length > 0) {
+        log("[config] Merging Weave agents over existing agents", {
+          existingCount: Object.keys(existingAgents).length,
+          weaveCount: Object.keys(result.agents).length,
+          existingKeys: Object.keys(existingAgents),
+        })
+        const collisions = Object.keys(result.agents).filter(key => key in existingAgents)
+        if (collisions.length > 0) {
+          log("[config] Weave agents overriding user-defined agents with same name", {
+            overriddenKeys: collisions,
+          })
+        }
+      }
+      config.agent = { ...existingAgents, ...result.agents }
 
-      // Register slash commands so OpenCode exposes them (e.g., /start-work)
-      config.command = result.commands
+      // Merge Weave commands with any existing commands (preserves user-defined commands).
+      const existingCommands = (config.command ?? {}) as Record<string, unknown>
+      config.command = { ...existingCommands, ...result.commands }
 
-      // Set the default agent so OpenCode selects it on startup
-      if (result.defaultAgent) {
+      // Set the default agent only if the user hasn't already configured one.
+      if (result.defaultAgent && !config.default_agent) {
         config.default_agent = result.defaultAgent
       }
     },

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2026-03-26
+
+### Fixed
+
+- Fix plugin destroying user-defined custom agents — config hook now merges agents and commands instead of replacing them, preserving user-defined agents from `.md`/`.json` files and other plugins
+- Respect user's `default_agent` preference — Weave only sets the default agent if the user hasn't already configured one
+
 ## [0.7.2] - 2026-03-26
 
 ### Added
