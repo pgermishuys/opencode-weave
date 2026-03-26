@@ -32,6 +32,7 @@ Weave is a lean OpenCode plugin with multi-agent orchestration. It provides a co
 - [Features](#features)
   - [Hooks](#hooks)
   - [Skills](#skills)
+  - [MCP (Model Context Protocol)](#mcp-model-context-protocol)
   - [Background Agents](#background-agents)
   - [Tool Permissions](#tool-permissions)
 - [Development](#development)
@@ -148,7 +149,7 @@ For simple requests — single-file fixes, quick questions, small edits — Loom
 
 ## Installation
 
-This package is published on [npm](https://www.npmjs.com/package/@opencode_weave/weave).
+This package is published on [npm](https://www.npmjs.com/package/@a4hgehad/weave-mcp).
 
 ### Prerequisites
 
@@ -160,7 +161,7 @@ Add the plugin to your `opencode.json` file:
 
 ```json
 {
-  "plugin": ["@opencode_weave/weave"]
+  "plugin": ["@a4hgehad/weave-mcp"]
 }
 ```
 
@@ -172,7 +173,7 @@ OpenCode automatically installs npm plugins at startup — no manual `bun add` o
 
 | Issue | Solution |
 |-------|----------|
-| `404 Not Found` | Ensure the package name is correct: `@opencode_weave/weave`. |
+| `404 Not Found` | Ensure the package name is correct: `@a4hgehad/weave-mcp`. |
 | Package not found after publish | npm can take a few minutes to propagate. Wait and retry. |
 
 ## Uninstalling
@@ -181,7 +182,7 @@ To fully remove the Weave plugin from your project:
 
 ### Step 1: Remove from opencode.json
 
-Delete the `@opencode_weave/weave` entry from the `plugin` array in your `opencode.json`:
+Delete the `@a4hgehad/weave-mcp` entry from the `plugin` array in your `opencode.json`:
 
 ```json
 {
@@ -275,6 +276,52 @@ Weave includes 5 built-in hooks that monitor and modify agent behavior:
 - `keyword-detector` — Detects keywords in messages to trigger behavioral changes or agent switches.
 
 All hooks are enabled by default and can be disabled via the `disabled_hooks` configuration.
+
+### MCP (Model Context Protocol)
+
+Weave supports MCP servers for extended capabilities. Built-in MCPs are:
+
+| MCP Server | Purpose | Default Agents |
+|------------|---------|----------------|
+| `websearch` | Web search via Exa AI | weft, loom, tapestry |
+| `context7` | Library documentation lookup | spindle |
+| `grep_app` | Enhanced code search | thread, spindle, warp |
+
+#### Configuration
+
+```jsonc
+{
+  // Enable/disable built-in MCPs
+  "mcp": {
+    "enabled": {
+      "websearch": true,
+      "context7": true,
+      "grep_app": true
+    }
+  },
+  
+  // Custom MCP servers
+  "mcp": {
+    "servers": {
+      "my-server": {
+        "type": "stdio",
+        "command": "npx",
+        "args": ["-y", "my-mcp-server"]
+      }
+    }
+  },
+  
+  // Disable specific MCPs globally
+  "disabled_mcps": ["websearch"],
+  
+  // Override MCPs per agent
+  "agents": {
+    "thread": {
+      "mcp": ["websearch", "grep_app"]
+    }
+  }
+}
+```
 
 ### Skills
 

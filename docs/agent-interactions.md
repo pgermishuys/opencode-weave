@@ -288,14 +288,15 @@ stateDiagram-v2
 ## Agent Capability Matrix
 
 ```
-                 Read  Write  Edit  Task  WebFetch  Glob  Grep  Bash
-Loom              ✓     ✓      ✓     ✓      ✓       ✓     ✓     ✓
-Tapestry          ✓     ✓      ✓     ✗      ✓       ✓     ✓     ✓
-Pattern           ✓    .md*   .md*   ✗      ✓       ✓     ✓     ✓
-Thread            ✓     ✗      ✗     ✗      ✓       ✓     ✓     ✓
-Spindle           ✓     ✗      ✗     ✗      ✓       ✓     ✓     ✓
-Weft              ✓     ✗      ✗     ✗      ✓       ✓     ✓     ✓
-Shuttle           ✓     ✓      ✓     ✓      ✓       ✓     ✓     ✓
+                 Read  Write  Edit  Task  WebFetch  Glob  Grep  Bash  MCP
+Loom              ✓     ✓      ✓     ✓      ✓       ✓     ✓     ✓     ✓ (all)
+Tapestry          ✓     ✓      ✓     ✗      ✓       ✓     ✓     ✓     ✓ (all)
+Pattern           ✓    .md*   .md*   ✗      ✓       ✓     ✓     ✓     ✗
+Thread            ✓     ✗      ✗     ✗      ✓       ✓     ✓     ✓     grep_app
+Spindle           ✓     ✗      ✗     ✗      ✓       ✓     ✓     ✓     context7, grep_app
+Weft              ✓     ✗      ✗     ✗      ✓       ✓     ✓     ✓     websearch
+Warp              ✓     ✗      ✗     ✗      ✓       ✓     ✓     ✓     websearch, grep_app
+Shuttle           ✓     ✓      ✓     ✓      ✓       ✓     ✓     ✓     grep_app
 
 ✓ = allowed    ✗ = disabled    * = restricted to .weave/*.md only
 ```

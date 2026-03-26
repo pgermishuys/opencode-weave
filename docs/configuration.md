@@ -36,6 +36,7 @@ flowchart LR
       "skills": ["skill-1", "skill-2"],     // Inject skills
       "prompt_append": "Extra instructions", // Append to prompt
       "display_name": "My Agent Name",      // Custom name shown in UI
+      "mcp": ["websearch", "grep_app"],     // MCP servers for this agent
       "tools": {                            // Per-tool toggles
         "bash": true,
         "write": false
@@ -93,6 +94,33 @@ flowchart LR
   "skills": {
     "paths": ["./.custom-skills"],
     "recursive": true
+  },
+
+  // MCP Configuration
+  "mcp": {
+    "enabled": {
+      "websearch": true,      // Enable websearch MCP
+      "context7": true,       // Enable context7 MCP
+      "grep_app": true        // Enable grep_app MCP
+    },
+    "servers": {              // Custom MCP servers
+      "custom-server": {
+        "type": "stdio",     // or "http"
+        "command": "npx",
+        "args": ["-y", "my-mcp-server"],
+        "env": {}            // Optional environment variables
+      }
+    }
+  },
+
+  // Disable specific MCPs
+  "disabled_mcps": ["websearch"],
+
+  // Per-agent MCP overrides
+  "agents": {
+    "thread": {
+      "mcp": ["websearch", "grep_app"]  // Custom MCPs for this agent
+    }
   },
 
   // Experimental features
@@ -167,7 +195,8 @@ sequenceDiagram
     CH->>CH: Filter disabled_tools from available set
 
     Note over CH: Phase 4: MCP Config
-    CH->>CH: (empty in v1)
+    CH->>CH: Load enabled MCPs from mcp config
+    CH->>CH: Apply disabled_mcps filter
 
     Note over CH: Phase 5: Command Config
     CH->>CH: Clone BUILTIN_COMMANDS
