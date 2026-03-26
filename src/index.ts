@@ -37,6 +37,7 @@ const WeavePlugin: Plugin = async (ctx) => {
     client: ctx.client,
     directory: ctx.directory,
     tracker: analytics?.tracker,
+    taskSystemEnabled: pluginConfig.experimental?.task_system !== false,
   })
 }
 

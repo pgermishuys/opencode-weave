@@ -21,6 +21,9 @@ const KNOWN_TOOL_NAMES = new Set([
   "webfetch",
   "todowrite",
   "skill",
+  "task_create",
+  "task_update",
+  "task_list",
 ])
 
 /** Agent name must be lowercase alphanumeric with hyphens/underscores */

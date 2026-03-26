@@ -34,8 +34,9 @@ export function createPluginInterface(args: {
   client?: PluginContext["client"]
   directory?: string
   tracker?: SessionTracker
+  taskSystemEnabled?: boolean
 }): PluginInterface {
-  const { pluginConfig, hooks, tools, configHandler, agents, client, directory = "", tracker } = args
+  const { pluginConfig, hooks, tools, configHandler, agents, client, directory = "", tracker, taskSystemEnabled = false } = args
 
   /**
    * Track assistant message text from message.part.updated events.
@@ -180,7 +181,7 @@ export function createPluginInterface(args: {
           lastUserMessageText.set(sessionID, userText)
           // Re-arm todo finalization for real user messages, but not for
           // system-injected finalize prompts (prevents immediate re-arm).
-          if (!userText.includes(FINALIZE_TODOS_MARKER)) {
+          if (!taskSystemEnabled && !userText.includes(FINALIZE_TODOS_MARKER)) {
             todoFinalizedSessions.delete(sessionID)
           }
         }
@@ -236,7 +237,7 @@ export function createPluginInterface(args: {
         const isStartWork = promptText.includes("<session-context>")
         const isContinuation = promptText.includes(CONTINUATION_MARKER)
         const isWorkflowContinuation = promptText.includes(WORKFLOW_CONTINUATION_MARKER)
-        const isTodoFinalize = promptText.includes(FINALIZE_TODOS_MARKER)
+        const isTodoFinalize = !taskSystemEnabled && promptText.includes(FINALIZE_TODOS_MARKER)
         const isActiveWorkflow = (() => {
           const wf = getActiveWorkflowInstance(directory)
           return wf != null && wf.status === "running"
@@ -498,7 +499,8 @@ export function createPluginInterface(args: {
 
       // Todo finalization safety net: when session goes truly idle (no continuation fired),
       // check for lingering in_progress todos and inject a one-shot prompt to mark them complete.
-      if (event.type === "session.idle" && client && !continuationFired) {
+      // Disabled when the task system is active — atomic task operations handle state directly.
+      if (event.type === "session.idle" && client && !continuationFired && !taskSystemEnabled) {
         const evt = event as { type: string; properties: { sessionID: string } }
         const sessionId = evt.properties?.sessionID ?? ""
         if (sessionId && !todoFinalizedSessions.has(sessionId)) {

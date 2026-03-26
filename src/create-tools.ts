@@ -5,6 +5,8 @@ import type { ToolsRecord } from "./plugin/types"
 import type { LoadedSkill } from "./features/skill-loader/types"
 import type { ResolveSkillsFn } from "./agents/agent-builder"
 import { loadSkills, createSkillResolver } from "./features/skill-loader"
+import { createTaskCreateTool, createTaskUpdateTool, createTaskListTool } from "./features/task-system"
+import { log } from "./shared/log"
 
 export interface ToolsResult {
   tools: ToolsRecord
@@ -30,6 +32,15 @@ export async function createTools(options: {
   // Tools come from OpenCode's tool system — Weave registers an empty record
   // and relies on the config pipeline (ConfigHandler) to apply tool permissions
   const tools: ToolsRecord = {}
+
+  // Conditionally register task system tools when experimental.task_system is enabled
+  if (pluginConfig.experimental?.task_system !== false) {
+    const toolOptions = { directory: ctx.directory }
+    tools.task_create = createTaskCreateTool(toolOptions)
+    tools.task_update = createTaskUpdateTool(toolOptions)
+    tools.task_list = createTaskListTool(toolOptions)
+    log("[task-system] Registered task tools (task_create, task_update, task_list)")
+  }
 
   return {
     tools,

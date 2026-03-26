@@ -54,6 +54,8 @@ export const ExperimentalConfigSchema = z.object({
   plugin_load_timeout_ms: z.number().min(1000).optional(),
   context_window_warning_threshold: z.number().min(0).max(1).optional(),
   context_window_critical_threshold: z.number().min(0).max(1).optional(),
+  /** Enable the atomic task system (task_create, task_update, task_list tools). Disables the finalize callback. */
+  task_system: z.boolean().default(true),
 })
 
 export const DelegationTriggerSchema = z.object({
