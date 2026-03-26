@@ -138,7 +138,7 @@ describe("handleStartWork", () => {
       expect(state!.start_sha).toBeUndefined()
     })
 
-    it("blocks execution when plan is missing ## TODOs section", () => {
+    it("proceeds with warnings when plan is missing ## TODOs section but has checkboxes elsewhere", () => {
       createPlanFile(
         "bad-plan",
         "## TL;DR\n> **Summary**: Incomplete.\n> **Estimated Effort**: Quick\n\n## Verification\n- [ ] Done\n"
@@ -150,12 +150,14 @@ describe("handleStartWork", () => {
         directory: testDir,
       })
 
-      expect(result.contextInjection).toContain("Plan Validation Failed")
+      // Missing ## TODOs is a warning, not an error — plan proceeds
+      expect(result.contextInjection).toContain("Starting Plan: bad-plan")
+      expect(result.contextInjection).toContain("Validation Warnings")
       expect(result.contextInjection).toContain("TODOs")
       expect(result.switchAgent).toBe("tapestry")
 
-      // Work state must NOT be created
-      expect(readWorkState(testDir)).toBeNull()
+      // Work state IS created since validation passes
+      expect(readWorkState(testDir)).not.toBeNull()
     })
 
     it("proceeds with warnings included in context", () => {
@@ -256,7 +258,7 @@ describe("handleStartWork", () => {
       expect(result.contextInjection).toContain("Plan Already Complete")
     })
 
-    it("blocks execution for explicitly named plan with validation errors", () => {
+    it("proceeds with warnings for explicitly named plan missing ## TODOs", () => {
       createPlanFile(
         "broken",
         "## TL;DR\n> **Summary**: Broken.\n> **Estimated Effort**: Quick\n\n## Verification\n- [ ] Done\n"
@@ -268,9 +270,12 @@ describe("handleStartWork", () => {
         directory: testDir,
       })
 
-      expect(result.contextInjection).toContain("Plan Validation Failed")
+      // Missing ## TODOs is a warning, not an error — plan proceeds
+      expect(result.contextInjection).toContain("Starting Plan: broken")
+      expect(result.contextInjection).toContain("Validation Warnings")
       expect(result.contextInjection).toContain("TODOs")
-      expect(readWorkState(testDir)).toBeNull()
+      // Work state IS created
+      expect(readWorkState(testDir)).not.toBeNull()
     })
   })
 
@@ -299,16 +304,8 @@ describe("handleStartWork", () => {
       expect(updated!.session_ids).toContain("sess_new")
     })
 
-    it("clears state and blocks when resumed plan has validation errors", () => {
-      // Create a malformed plan (no ## TODOs)
-      const _planPath = createPlanFile(
-        "corrupt-plan",
-        "## TL;DR\n> **Summary**: Broken.\n> **Estimated Effort**: Quick\n\n## Verification\n- [ ] Done\n"
-      )
-      // Inject a fake in-progress checkbox so getPlanProgress sees it as incomplete
-      // The plan file has no checkboxes in ## TODOs so isComplete = true from getPlanProgress
-      // To test the resume+validation path, we need a plan that looks incomplete
-      // but is malformed. Use a plan with ## TODOs missing but raw checkbox present.
+    it("resumes plan with warnings when plan is missing ## TODOs but has checkboxes", () => {
+      // Create a plan missing ## TODOs but with raw checkboxes
       const planPath2 = createPlanFile(
         "corrupt-plan2",
         "- [ ] Raw task\n## TL;DR\n> **Summary**: Broken.\n> **Estimated Effort**: Quick\n\n## Verification\n- [ ] Done\n"
@@ -322,10 +319,12 @@ describe("handleStartWork", () => {
         directory: testDir,
       })
 
-      expect(result.contextInjection).toContain("Plan Validation Failed")
+      // Missing ## TODOs is a warning, not an error — plan resumes
+      expect(result.contextInjection).toContain("Resuming Plan: corrupt-plan2")
+      expect(result.contextInjection).toContain("Validation Warnings")
       expect(result.switchAgent).toBe("tapestry")
-      // Work state should be cleared
-      expect(readWorkState(testDir)).toBeNull()
+      // Work state should still exist
+      expect(readWorkState(testDir)).not.toBeNull()
     })
 
     it("discovers new plans when existing plan is complete", () => {
