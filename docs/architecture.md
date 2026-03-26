@@ -195,11 +195,31 @@ Weave supports MCP servers for extended capabilities. Built-in MCPs are automati
 
 ### Built-in MCPs
 
-| MCP Server | Purpose | Default Agents |
-|------------|---------|----------------|
-| `websearch` | Web search via Exa AI | loom, tapestry, weft, warp |
-| `context7` | Library documentation lookup | spindle |
-| `grep_app` | Enhanced code search | thread, spindle, warp, shuttle |
+| MCP Server | Purpose | Type | Default Agents |
+|------------|---------|------|----------------|
+| `websearch` | Web search via Exa AI | Remote | loom, tapestry, weft, warp |
+| `context7` | Library documentation lookup | Remote | spindle, loom, tapestry |
+| `grep_app` | Enhanced code search | Remote | thread, spindle, warp, shuttle, loom, tapestry |
+
+### Websearch with EXA
+
+The `websearch` MCP uses **EXA's remote MCP server** for web search capabilities:
+
+```
+URL: https://mcp.exa.ai/mcp?tools=web_search_exa
+Auth: API key via EXA_API_KEY environment variable
+OAuth: Disabled (uses API key authentication)
+```
+
+**Configuration**:
+- Works out-of-the-box with rate-limited access (no API key required)
+- For production use with higher rate limits, set the `EXA_API_KEY` environment variable
+- The plugin automatically detects and uses the API key when available
+
+```bash
+# Set EXA API key for authenticated websearch
+export EXA_API_KEY="your-exa-api-key"
+```
 
 ### MCP Resolution
 
@@ -230,9 +250,10 @@ Final: Result passed to OpenCode via config.mcps
   "mcp": {
     "servers": {
       "my-server": {
-        "type": "stdio",
-        "command": "npx",
-        "args": ["-y", "my-mcp-server"]
+        "type": "local",
+        "command": ["npx", "-y", "my-mcp-server"],
+        "environment": {},
+        "timeout": 60000
       }
     }
   },
@@ -248,6 +269,10 @@ Final: Result passed to OpenCode via config.mcps
   }
 }
 ```
+
+> **MCP Server Types**:
+> - `local` — Runs a local MCP server via command (stdio)
+> - `remote` — Connects to a remote MCP server via HTTP
 
 ### Agent MCP Defaults
 

@@ -301,13 +301,24 @@ All hooks are enabled by default and can be disabled via the `disabled_hooks` co
 
 Weave supports MCP servers for extended capabilities. Built-in MCPs are:
 
-| MCP Server | Purpose | Default Agents |
-|------------|---------|----------------|
-| `websearch` | Web search via Exa AI | loom, tapestry, weft, warp |
-| `context7` | Library documentation lookup | loom, tapestry, spindle |
-| `grep_app` | Enhanced code search | loom, tapestry, thread, spindle, warp, shuttle |
+| MCP Server | Purpose | Type | Default Agents |
+|------------|---------|------|----------------|
+| `websearch` | Web search via Exa AI | Remote | loom, tapestry, weft, warp |
+| `context7` | Library documentation lookup | Remote | loom, tapestry, spindle |
+| `grep_app` | Enhanced code search | Remote | loom, tapestry, thread, spindle, warp, shuttle |
 
 > **Note**: Orchestrator agents (loom, tapestry) get all MCPs by default for maximum capability.
+
+#### Websearch Configuration
+
+The `websearch` MCP uses **EXA's remote MCP server** for web search capabilities. It works out-of-the-box with rate-limited access, but for production use we recommend setting up your EXA API key:
+
+```bash
+# Set EXA API key environment variable
+export EXA_API_KEY="your-exa-api-key"
+```
+
+The plugin automatically detects the `EXA_API_KEY` environment variable and includes it in requests for authenticated access with higher rate limits.
 
 #### Configuration
 
@@ -326,9 +337,9 @@ Weave supports MCP servers for extended capabilities. Built-in MCPs are:
   "mcp": {
     "servers": {
       "my-server": {
-        "type": "stdio",
-        "command": "npx",
-        "args": ["-y", "my-mcp-server"]
+        "type": "local",
+        "command": ["npx", "-y", "my-mcp-server"],
+        "timeout": 60000
       }
     }
   },
@@ -344,6 +355,10 @@ Weave supports MCP servers for extended capabilities. Built-in MCPs are:
   }
 }
 ```
+
+> **MCP Server Types**:
+> - `local` — Runs a local MCP server via command (stdio)
+> - `remote` — Connects to a remote MCP server via HTTP
 
 See [Provider Configurations](./docs/provider-configurations.md) for model recommendations per agent.
 

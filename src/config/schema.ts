@@ -139,11 +139,16 @@ export const BuiltInMcpSchema = z.object({
 });
 
 export const CustomMcpServerSchema = z.object({
-  type: z.enum(['stdio', 'http']).optional(),
-  command: z.string().optional(),
-  args: z.array(z.string()).optional(),
+  type: z.enum(['local', 'remote']).optional(),
+  command: z.array(z.string()).optional(),
   url: z.string().optional(),
-  env: z.record(z.string(), z.string()).optional(),
+  environment: z.record(z.string(), z.string()).optional(),
+  enabled: z.boolean().optional(),
+  timeout: z.number().optional(),
+  headers: z.record(z.string(), z.string()).optional(),
+  oauth: z
+    .union([z.record(z.string(), z.unknown()), z.literal(false)])
+    .optional(),
 });
 
 export const McpConfigSchema = z.object({

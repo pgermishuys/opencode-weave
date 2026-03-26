@@ -1,668 +1,817 @@
-import type { PluginInterface, ToolsRecord } from "./types"
-import type { AgentConfig } from "@opencode-ai/sdk"
-import type { WeaveConfig } from "../config/schema"
-import type { ConfigHandler } from "../managers/config-handler"
-import type { CreatedHooks } from "../hooks/create-hooks"
-import type { PluginContext } from "./types"
-import type { SessionTracker } from "../features/analytics"
-import { getAgentDisplayName } from "../shared/agent-display-names"
-import { log, logDelegation } from "../shared/log"
+import type { AgentConfig } from '@opencode-ai/sdk';
+import type { WeaveConfig } from '../config/schema';
+import type { SessionTracker } from '../features/analytics';
+import { pauseWork, readWorkState } from '../features/work-state';
+import { getPlanProgress } from '../features/work-state/storage';
+import { WORKFLOW_CONTINUATION_MARKER } from '../features/workflow/hook';
 import {
-  setContextLimit,
-  updateUsage,
-  getState as getTokenState,
-  clearTokenSession,
-} from "../hooks"
-import { pauseWork, readWorkState } from "../features/work-state"
-import { getPlanProgress } from "../features/work-state/storage"
-import { CONTINUATION_MARKER } from "../hooks/work-continuation"
-import { WORKFLOW_CONTINUATION_MARKER } from "../features/workflow/hook"
+    clearTokenSession,
+    getState as getTokenState,
+    setContextLimit,
+    updateUsage,
+} from '../hooks';
+import type { CreatedHooks } from '../hooks/create-hooks';
+import { CONTINUATION_MARKER } from '../hooks/work-continuation';
+import type { ConfigHandler } from '../managers/config-handler';
+import { getAgentDisplayName } from '../shared/agent-display-names';
+import { log, logDelegation } from '../shared/log';
+import type { PluginContext, PluginInterface, ToolsRecord } from './types';
 
-const FINALIZE_TODOS_MARKER = "<!-- weave:finalize-todos -->"
-import { getActiveWorkflowInstance, pauseWorkflow } from "../features/workflow"
-import { readSessionSummaries, readMetricsReports } from "../features/analytics/storage"
-import { generateTokenReport } from "../features/analytics/token-report"
-import { formatMetricsMarkdown } from "../features/analytics/format-metrics"
-import { generateMetricsReport } from "../features/analytics/generate-metrics-report"
+const FINALIZE_TODOS_MARKER = '<!-- weave:finalize-todos -->';
+
+import { formatMetricsMarkdown } from '../features/analytics/format-metrics';
+import { generateMetricsReport } from '../features/analytics/generate-metrics-report';
+import {
+    readMetricsReports,
+    readSessionSummaries,
+} from '../features/analytics/storage';
+import { generateTokenReport } from '../features/analytics/token-report';
+import { getActiveWorkflowInstance, pauseWorkflow } from '../features/workflow';
 
 export function createPluginInterface(args: {
-  pluginConfig: WeaveConfig
-  hooks: CreatedHooks
-  tools: ToolsRecord
-  configHandler: ConfigHandler
-  agents: Record<string, AgentConfig>
-  client?: PluginContext["client"]
-  directory?: string
-  tracker?: SessionTracker
-  taskSystemEnabled?: boolean
+    pluginConfig: WeaveConfig;
+    hooks: CreatedHooks;
+    tools: ToolsRecord;
+    configHandler: ConfigHandler;
+    agents: Record<string, AgentConfig>;
+    client?: PluginContext['client'];
+    directory?: string;
+    tracker?: SessionTracker;
+    taskSystemEnabled?: boolean;
 }): PluginInterface {
-  const { pluginConfig, hooks, tools, configHandler, agents, client, directory = "", tracker, taskSystemEnabled = false } = args
-
-  /**
-   * Track assistant message text from message.part.updated events.
-   * message.updated events do NOT carry message content — only metadata.
-   * We accumulate the latest text per session for workflow completion detection.
-   */
-  const lastAssistantMessageText = new Map<string, string>()
-  /** Track last user message text per session for user_confirm completion detection. */
-  const lastUserMessageText = new Map<string, string>()
-
-  /**
-   * Track sessions that have already received a "finalize todos" prompt.
-   * Cleared when the session receives a new user message (chat.message)
-   * so subsequent idle cycles can re-trigger if needed.
-   */
-  const todoFinalizedSessions = new Set<string>()
-
-  return {
-    tool: tools,
-
-    config: async (config: Record<string, unknown>) => {
-      const result = await configHandler.handle({
+    const {
         pluginConfig,
+        hooks,
+        tools,
+        configHandler,
         agents,
-        availableTools: [],
-      })
-      // Merge Weave agents with any existing agents (e.g., user-defined .md/.json agents).
-      // Spread existing first so user agents are preserved; Weave agents win on collision.
-      const existingAgents = (config.agent ?? {}) as Record<string, unknown>
-      if (Object.keys(existingAgents).length > 0) {
-        log("[config] Merging Weave agents over existing agents", {
-          existingCount: Object.keys(existingAgents).length,
-          weaveCount: Object.keys(result.agents).length,
-          existingKeys: Object.keys(existingAgents),
-        })
-        const collisions = Object.keys(result.agents).filter(key => key in existingAgents)
-        if (collisions.length > 0) {
-          log("[config] Weave agents overriding user-defined agents with same name", {
-            overriddenKeys: collisions,
-          })
-        }
-      }
-      config.agent = { ...existingAgents, ...result.agents }
+        client,
+        directory = '',
+        tracker,
+        taskSystemEnabled = false,
+    } = args;
 
-      // Merge Weave commands with any existing commands (preserves user-defined commands).
-      const existingCommands = (config.command ?? {}) as Record<string, unknown>
-      config.command = { ...existingCommands, ...result.commands }
+    /**
+     * Track assistant message text from message.part.updated events.
+     * message.updated events do NOT carry message content — only metadata.
+     * We accumulate the latest text per session for workflow completion detection.
+     */
+    const lastAssistantMessageText = new Map<string, string>();
+    /** Track last user message text per session for user_confirm completion detection. */
+    const lastUserMessageText = new Map<string, string>();
 
-      // Set the default agent only if the user hasn't already configured one.
-      if (result.defaultAgent && !config.default_agent) {
-        config.default_agent = result.defaultAgent
-      }
-    },
+    /**
+     * Track sessions that have already received a "finalize todos" prompt.
+     * Cleared when the session receives a new user message (chat.message)
+     * so subsequent idle cycles can re-trigger if needed.
+     */
+    const todoFinalizedSessions = new Set<string>();
 
-    "chat.message": async (input, _output) => {
-      const { sessionID } = input
+    return {
+        tool: tools,
 
-      if (hooks.firstMessageVariant) {
-        if (hooks.firstMessageVariant.shouldApplyVariant(sessionID)) {
-          hooks.firstMessageVariant.markApplied(sessionID)
-        }
-      }
+        config: async (config: Record<string, unknown>) => {
+            const result = await configHandler.handle({
+                pluginConfig,
+                agents,
+                availableTools: [],
+            });
 
-      if (hooks.processMessageForKeywords) {
-        hooks.processMessageForKeywords("", sessionID)
-      }
-
-      // /start-work command detection and plan resolution
-      if (hooks.startWork) {
-        const parts = _output.parts as Array<{ type: string; text?: string }> | undefined
-        const message = (_output as Record<string, unknown>).message as
-          | Record<string, unknown>
-          | undefined
-
-        // Defensively substitute template placeholders that OpenCode should have replaced.
-        // If OpenCode already substituted them these replacements are harmless no-ops.
-        if (parts) {
-          const timestamp = new Date().toISOString()
-          for (const part of parts) {
-            if (part.type === "text" && part.text) {
-              part.text = part.text
-                .replace(/\$SESSION_ID/g, sessionID)
-                .replace(/\$TIMESTAMP/g, timestamp)
-            }
-          }
-        }
-
-        const promptText =
-          parts
-            ?.filter((p) => p.type === "text" && p.text)
-            .map((p) => p.text)
-            .join("\n")
-            .trim() ?? ""
-
-        const result = hooks.startWork(promptText, sessionID)
-
-        // Switch agent by mutating output.message.agent (OpenCode reads this to route the message)
-        if (result.switchAgent && message) {
-          message.agent = getAgentDisplayName(result.switchAgent)
-        }
-
-        if (result.contextInjection && parts) {
-          // Mutate the existing text part in-place (do NOT replace the parts array reference)
-          const idx = parts.findIndex((p) => p.type === "text" && p.text)
-          if (idx >= 0 && parts[idx].text) {
-            parts[idx].text += `\n\n---\n${result.contextInjection}`
-          } else {
-            // No existing text part — create one so the context isn't lost
-            parts.push({ type: "text", text: result.contextInjection })
-          }
-        }
-      }
-
-      // /run-workflow command detection and workflow instance management
-      if (hooks.workflowStart) {
-        const parts = _output.parts as Array<{ type: string; text?: string }> | undefined
-        const message = (_output as Record<string, unknown>).message as
-          | Record<string, unknown>
-          | undefined
-
-        const promptText =
-          parts
-            ?.filter((p) => p.type === "text" && p.text)
-            .map((p) => p.text)
-            .join("\n")
-            .trim() ?? ""
-
-        // Only handle if this looks like a /run-workflow command (has the template marker)
-        if (promptText.includes("workflow engine will inject context")) {
-          const result = hooks.workflowStart(promptText, sessionID)
-
-          if (result.switchAgent && message) {
-            message.agent = getAgentDisplayName(result.switchAgent)
-          }
-
-          if (result.contextInjection && parts) {
-            const idx = parts.findIndex((p) => p.type === "text" && p.text)
-            if (idx >= 0 && parts[idx].text) {
-              parts[idx].text += `\n\n---\n${result.contextInjection}`
-            } else {
-              parts.push({ type: "text", text: result.contextInjection })
-            }
-          }
-        }
-      }
-
-      // Track user message text per session for workflow completion detection (user_confirm)
-      {
-        const parts = _output.parts as Array<{ type: string; text?: string }> | undefined
-        const userText =
-          parts
-            ?.filter((p) => p.type === "text" && p.text)
-            .map((p) => p.text)
-            .join("\n")
-            .trim() ?? ""
-        if (userText && sessionID) {
-          lastUserMessageText.set(sessionID, userText)
-          // Re-arm todo finalization for real user messages, but not for
-          // system-injected finalize prompts (prevents immediate re-arm).
-          if (!taskSystemEnabled && !userText.includes(FINALIZE_TODOS_MARKER)) {
-            todoFinalizedSessions.delete(sessionID)
-          }
-        }
-      }
-
-      // Workflow control keywords: detect natural language commands during active workflows
-      if (hooks.workflowCommand) {
-        const parts = _output.parts as Array<{ type: string; text?: string }> | undefined
-        const message = (_output as Record<string, unknown>).message as
-          | Record<string, unknown>
-          | undefined
-
-        const userText =
-          parts
-            ?.filter((p) => p.type === "text" && p.text)
-            .map((p) => p.text)
-            .join("\n")
-            .trim() ?? ""
-
-        if (userText) {
-          const cmdResult = hooks.workflowCommand(userText)
-          if (cmdResult.handled) {
-            if (cmdResult.contextInjection && parts) {
-              const idx = parts.findIndex((p) => p.type === "text" && p.text)
-              if (idx >= 0 && parts[idx].text) {
-                parts[idx].text += `\n\n---\n${cmdResult.contextInjection}`
-              } else {
-                parts.push({ type: "text", text: cmdResult.contextInjection })
-              }
-            }
-            if (cmdResult.switchAgent && message) {
-              message.agent = getAgentDisplayName(cmdResult.switchAgent)
-            }
-          }
-        }
-      }
-
-      // Auto-pause work when a user message arrives that is NOT a /start-work command,
-      // NOT a continuation prompt injected by the work-continuation hook,
-      // and NOT a workflow continuation prompt.
-      // This breaks the infinite continuation loop that occurs when a user sends a
-      // regular message while a plan is active — without this, session.idle fires
-      // after every response and re-injects the "Continue working" prompt endlessly.
-      if (directory) {
-        const parts = _output.parts as Array<{ type: string; text?: string }> | undefined
-        const promptText =
-          parts
-            ?.filter((p) => p.type === "text" && p.text)
-            .map((p) => p.text)
-            .join("\n")
-            .trim() ?? ""
-
-        const isStartWork = promptText.includes("<session-context>")
-        const isContinuation = promptText.includes(CONTINUATION_MARKER)
-        const isWorkflowContinuation = promptText.includes(WORKFLOW_CONTINUATION_MARKER)
-        const isTodoFinalize = !taskSystemEnabled && promptText.includes(FINALIZE_TODOS_MARKER)
-        const isActiveWorkflow = (() => {
-          const wf = getActiveWorkflowInstance(directory)
-          return wf != null && wf.status === "running"
-        })()
-
-        if (!isStartWork && !isContinuation && !isWorkflowContinuation && !isTodoFinalize && !isActiveWorkflow) {
-          const state = readWorkState(directory)
-          if (state && !state.paused) {
-            pauseWork(directory)
-            log("[work-continuation] Auto-paused: user message received during active plan", { sessionId: sessionID })
-          }
-        }
-      }
-    },
-
-    "chat.params": async (_input, _output) => {
-      const input = _input as {
-        sessionID?: string
-        agent?: string
-        model?: { limit?: { context?: number } }
-      }
-      const sessionId = input.sessionID ?? ""
-      const maxTokens = input.model?.limit?.context ?? 0
-      if (sessionId && maxTokens > 0) {
-        setContextLimit(sessionId, maxTokens)
-        log("[context-window] Captured context limit", { sessionId, maxTokens })
-      }
-
-      // Analytics: capture agent name
-      if (tracker && hooks.analyticsEnabled && sessionId && input.agent) {
-        tracker.setAgentName(sessionId, input.agent)
-      }
-    },
-
-    "chat.headers": async (_input, _output) => {
-      // pass-through for v1
-    },
-
-    event: async (input) => {
-      const { event } = input
-
-      if (hooks.firstMessageVariant) {
-        if (event.type === "session.created") {
-          const evt = event as { type: string; properties: { info: { id: string } } }
-          hooks.firstMessageVariant.markSessionCreated(evt.properties.info.id)
-        }
-        if (event.type === "session.deleted") {
-          const evt = event as { type: string; properties: { info: { id: string } } }
-          hooks.firstMessageVariant.clearSession(evt.properties.info.id)
-        }
-      }
-
-      // Clean up token state when session ends
-      if (event.type === "session.deleted") {
-        const evt = event as { type: string; properties: { info: { id: string } } }
-        clearTokenSession(evt.properties.info.id)
-        todoFinalizedSessions.delete(evt.properties.info.id)
-
-        // Analytics: finalize session summary
-        if (tracker && hooks.analyticsEnabled) {
-          try {
-            tracker.endSession(evt.properties.info.id)
-          } catch (err) {
-            log("[analytics] Failed to end session (non-fatal)", { error: String(err) })
-          }
-
-          // Generate metrics report if a plan just completed
-          if (directory) {
-            try {
-              const state = readWorkState(directory)
-              if (state) {
-                const progress = getPlanProgress(state.active_plan)
-                if (progress.isComplete) {
-                  generateMetricsReport(directory, state)
+            // Merge Weave agents with any existing agents (e.g., user-defined .md/.json agents).
+            // Spread existing first so user agents are preserved; Weave agents win on collision.
+            const existingAgents = (config.agent ?? {}) as Record<string, unknown>;
+            if (Object.keys(existingAgents).length > 0) {
+                log('[config] Merging Weave agents over existing agents', {
+                    existingCount: Object.keys(existingAgents).length,
+                    weaveCount: Object.keys(result.agents).length,
+                    existingKeys: Object.keys(existingAgents),
+                });
+                const collisions = Object.keys(result.agents).filter(
+                    (key) => key in existingAgents,
+                );
+                if (collisions.length > 0) {
+                    log(
+                        '[config] Weave agents overriding user-defined agents with same name',
+                        { overriddenKeys: collisions },
+                    );
                 }
-              }
-            } catch (err) {
-              log("[analytics] Failed to generate metrics report on session end (non-fatal)", { error: String(err) })
             }
-          }
-        }
-      }
+            // Mutate the config object to register agents with OpenCode.
+            // Keys are display names (e.g., "Loom (Main Orchestrator)")
+            config.agent = { ...existingAgents, ...result.agents };
 
-      // Process assistant message token data from message.updated events
-      if (event.type === "message.updated") {
-        const evt = event as {
-          type: string
-          properties: {
-            info: {
-              role?: string
-              sessionID?: string
-              tokens?: {
-                input?: number
-                output?: number
-                reasoning?: number
-                cache?: { read?: number; write?: number }
-              }
+            // Merge Weave commands with any existing commands (preserves user-defined commands).
+            const existingCommands = (config.command ?? {}) as Record<string, unknown>;
+            config.command = { ...existingCommands, ...result.commands };
+
+            // Register MCP servers so OpenCode can connect to them
+            if (result.mcps && Object.keys(result.mcps).length > 0) {
+                const existingMcps = (config.mcp ?? {}) as Record<string, unknown>;
+                config.mcp = { ...existingMcps, ...result.mcps };
+                console.log(
+                    '[weave-mcp] Registered MCPs:',
+                    Object.keys(result.mcps).join(', '),
+                );
             }
-          }
-        }
-        const info = evt.properties?.info
-        if (info?.role === "assistant" && info.sessionID) {
-          // Context window monitoring
-          if (hooks.checkContextWindow) {
-            const inputTokens = info.tokens?.input ?? 0
-            if (inputTokens > 0) {
-              updateUsage(info.sessionID, inputTokens)
-              const tokenState = getTokenState(info.sessionID)
-              if (tokenState && tokenState.maxTokens > 0) {
-                const result = hooks.checkContextWindow({
-                  usedTokens: tokenState.usedTokens,
-                  maxTokens: tokenState.maxTokens,
-                  sessionId: info.sessionID,
-                })
-                if (result.action !== "none") {
-                  log("[context-window] Threshold crossed", {
-                    sessionId: info.sessionID,
-                    action: result.action,
-                    usagePct: result.usagePct,
-                  })
+
+            // Set the default agent only if the user hasn't already configured one.
+            if (result.defaultAgent && !config.default_agent) {
+                config.default_agent = result.defaultAgent;
+            }
+        },
+
+        'chat.message': async (input, _output) => {
+            const { sessionID } = input;
+
+            if (hooks.firstMessageVariant) {
+                if (hooks.firstMessageVariant.shouldApplyVariant(sessionID)) {
+                    hooks.firstMessageVariant.markApplied(sessionID);
                 }
-              }
             }
-          }
 
-          // Analytics: cost and token usage are tracked in the consolidated block below
-        }
-      }
-
-      // Analytics: capture cost and token usage from assistant messages
-      if (event.type === "message.updated" && tracker && hooks.analyticsEnabled) {
-        const evt = event as {
-          type: string
-          properties: {
-            info: {
-              role?: string
-              sessionID?: string
-              cost?: number
-              tokens?: {
-                input?: number
-                output?: number
-                reasoning?: number
-                cache?: { read?: number; write?: number }
-              }
+            if (hooks.processMessageForKeywords) {
+                hooks.processMessageForKeywords('', sessionID);
             }
-          }
-        }
-        const info = evt.properties?.info
-        if (info?.role === "assistant" && info.sessionID) {
-          if (typeof info.cost === "number" && info.cost > 0) {
-            tracker.trackCost(info.sessionID, info.cost)
-          }
-          if (info.tokens) {
-            tracker.trackTokenUsage(info.sessionID, {
-              input: info.tokens.input ?? 0,
-              output: info.tokens.output ?? 0,
-              reasoning: info.tokens.reasoning ?? 0,
-              cacheRead: info.tokens.cache?.read ?? 0,
-              cacheWrite: info.tokens.cache?.write ?? 0,
-            })
-          }
-        }
-      }
 
-      // Detect user-initiated interrupts via TUI command and persist to work state
-      if (event.type === "tui.command.execute") {
-        const evt = event as { type: string; properties: { command: string } }
-        if (evt.properties?.command === "session.interrupt") {
-          pauseWork(directory)
-          log("[work-continuation] User interrupt detected — work paused")
+            // /start-work command detection and plan resolution
+            if (hooks.startWork) {
+                const parts = _output.parts as
+                    | Array<{ type: string; text?: string }>
+                    | undefined;
+                const message = (_output as Record<string, unknown>).message as
+                    | Record<string, unknown>
+                    | undefined;
 
-          // Also pause any active workflow
-          if (directory) {
-            const activeWorkflow = getActiveWorkflowInstance(directory)
-            if (activeWorkflow && activeWorkflow.status === "running") {
-              pauseWorkflow(directory, "User interrupt")
-              log("[workflow] User interrupt detected — workflow paused")
+                // Defensively substitute template placeholders that OpenCode should have replaced.
+                // If OpenCode already substituted them these replacements are harmless no-ops.
+                if (parts) {
+                    const timestamp = new Date().toISOString();
+                    for (const part of parts) {
+                        if (part.type === 'text' && part.text) {
+                            part.text = part.text
+                                .replace(/\$SESSION_ID/g, sessionID)
+                                .replace(/\$TIMESTAMP/g, timestamp);
+                        }
+                    }
+                }
+
+                const promptText =
+                    parts
+                        ?.filter((p) => p.type === 'text' && p.text)
+                        .map((p) => p.text)
+                        .join('\n')
+                        .trim() ?? '';
+
+                const result = hooks.startWork(promptText, sessionID);
+
+                // Switch agent by mutating output.message.agent (OpenCode reads this to route the message)
+                if (result.switchAgent && message) {
+                    message.agent = getAgentDisplayName(result.switchAgent);
+                }
+
+                if (result.contextInjection && parts) {
+                    // Mutate the existing text part in-place (do NOT replace the parts array reference)
+                    const idx = parts.findIndex((p) => p.type === 'text' && p.text);
+                    if (idx >= 0 && parts[idx].text) {
+                        parts[idx].text += `\n\n---\n${result.contextInjection}`;
+                    } else {
+                        // No existing text part — create one so the context isn't lost
+                        parts.push({ type: 'text', text: result.contextInjection });
+                    }
+                }
             }
-          }
-        }
-      }
 
-      // Track assistant message text from message.part.updated events.
-      // message.updated does NOT carry message content — only metadata (tokens, cost).
-      // We need the text for workflow completion detection (review_verdict, agent_signal).
-      if (event.type === "message.part.updated") {
-        const evt = event as {
-          type: string
-          properties: { part: { type: string; sessionID: string; messageID: string; text?: string } }
-        }
-        const part = evt.properties?.part
-        if (part?.type === "text" && part.sessionID && part.text) {
-          lastAssistantMessageText.set(part.sessionID, part.text)
-        }
-      }
+            // /run-workflow command detection and workflow instance management
+            if (hooks.workflowStart) {
+                const parts = _output.parts as
+                    | Array<{ type: string; text?: string }>
+                    | undefined;
+                const message = (_output as Record<string, unknown>).message as
+                    | Record<string, unknown>
+                    | undefined;
 
-      // Workflow continuation: check active workflow instance on session.idle.
-      // This MUST run BEFORE work-continuation to prevent double-prompting.
-      // If a workflow instance is active, it owns the idle loop.
-      let continuationFired = false
-      if (hooks.workflowContinuation && event.type === "session.idle") {
-        const evt = event as { type: string; properties: { sessionID: string } }
-        const sessionId = evt.properties?.sessionID ?? ""
-        if (sessionId && directory) {
-          const activeWorkflow = getActiveWorkflowInstance(directory)
-          if (activeWorkflow && activeWorkflow.status === "running") {
-            const lastMsg = lastAssistantMessageText.get(sessionId) ?? undefined
-            const lastUserMsg = lastUserMessageText.get(sessionId) ?? undefined
-            const result = hooks.workflowContinuation(sessionId, lastMsg, lastUserMsg)
-            if (result.continuationPrompt && client) {
-              try {
-                await client.session.promptAsync({
-                  path: { id: sessionId },
-                  body: {
-                    parts: [{ type: "text", text: result.continuationPrompt }],
-                    ...(result.switchAgent
-                      ? { agent: getAgentDisplayName(result.switchAgent) }
-                      : {}),
-                  },
-                })
-                log("[workflow] Injected workflow continuation prompt", {
-                  sessionId,
-                  agent: result.switchAgent,
-                })
-              } catch (err) {
-                log("[workflow] Failed to inject workflow continuation", { sessionId, error: String(err) })
-              }
-              return // Workflow owns the idle loop — skip work-continuation and todo finalization
+                const promptText =
+                    parts
+                        ?.filter((p) => p.type === 'text' && p.text)
+                        .map((p) => p.text)
+                        .join('\n')
+                        .trim() ?? '';
+
+                // Only handle if this looks like a /run-workflow command (has the template marker)
+                if (promptText.includes('workflow engine will inject context')) {
+                    const result = hooks.workflowStart(promptText, sessionID);
+
+                    if (result.switchAgent && message) {
+                        message.agent = getAgentDisplayName(result.switchAgent);
+                    }
+
+                    if (result.contextInjection && parts) {
+                        const idx = parts.findIndex((p) => p.type === 'text' && p.text);
+                        if (idx >= 0 && parts[idx].text) {
+                            parts[idx].text += `\n\n---\n${result.contextInjection}`;
+                        } else {
+                            parts.push({ type: 'text', text: result.contextInjection });
+                        }
+                    }
+                }
             }
-          }
-        }
-      }
 
-      // Work continuation: nudge idle sessions with active plans
-      if (hooks.workContinuation && event.type === "session.idle") {
-        const evt = event as { type: string; properties: { sessionID: string } }
-        const sessionId = evt.properties?.sessionID ?? ""
-        if (sessionId) {
-          const result = hooks.workContinuation(sessionId)
-          if (result.continuationPrompt && client) {
-            try {
-              await client.session.promptAsync({
-                path: { id: sessionId },
-                body: {
-                  parts: [{ type: "text", text: result.continuationPrompt }],
-                },
-              })
-              log("[work-continuation] Injected continuation prompt", { sessionId })
-              continuationFired = true
-            } catch (err) {
-              log("[work-continuation] Failed to inject continuation", { sessionId, error: String(err) })
+            // Track user message text per session for workflow completion detection (user_confirm)
+            {
+                const parts = _output.parts as
+                    | Array<{ type: string; text?: string }>
+                    | undefined;
+                const userText =
+                    parts
+                        ?.filter((p) => p.type === 'text' && p.text)
+                        .map((p) => p.text)
+                        .join('\n')
+                        .trim() ?? '';
+                if (userText && sessionID) {
+                    lastUserMessageText.set(sessionID, userText);
+                    // Re-arm todo finalization for real user messages, but not for
+                    // system-injected finalize prompts (prevents immediate re-arm).
+                    if (!taskSystemEnabled && !userText.includes(FINALIZE_TODOS_MARKER)) {
+                        todoFinalizedSessions.delete(sessionID);
+                    }
+                }
             }
-          } else if (result.continuationPrompt) {
-            // client not available — log for diagnostics
-            log("[work-continuation] continuationPrompt available but no client", { sessionId })
-          }
-        }
-      }
 
-      // Todo finalization safety net: when session goes truly idle (no continuation fired),
-      // check for lingering in_progress todos and inject a one-shot prompt to mark them complete.
-      // Disabled when the task system is active — atomic task operations handle state directly.
-      if (event.type === "session.idle" && client && !continuationFired && !taskSystemEnabled) {
-        const evt = event as { type: string; properties: { sessionID: string } }
-        const sessionId = evt.properties?.sessionID ?? ""
-        if (sessionId && !todoFinalizedSessions.has(sessionId)) {
-          try {
-            const todosResponse = await client.session.todo({ path: { id: sessionId } })
-            const todos = (todosResponse.data ?? []) as Array<{ content: string; status: string }>
-            const hasInProgress = todos.some((t) => t.status === "in_progress")
-            if (hasInProgress) {
-              todoFinalizedSessions.add(sessionId)
-              const inProgressItems = todos
-                .filter((t) => t.status === "in_progress")
-                .map((t) => `  - "${t.content}"`)
-                .join("\n")
-              await client.session.promptAsync({
-                path: { id: sessionId },
-                body: {
-                  parts: [
-                    {
-                      type: "text",
-                      text: `${FINALIZE_TODOS_MARKER}
+            // Workflow control keywords: detect natural language commands during active workflows
+            if (hooks.workflowCommand) {
+                const parts = _output.parts as
+                    | Array<{ type: string; text?: string }>
+                    | undefined;
+                const message = (_output as Record<string, unknown>).message as
+                    | Record<string, unknown>
+                    | undefined;
+
+                const userText =
+                    parts
+                        ?.filter((p) => p.type === 'text' && p.text)
+                        .map((p) => p.text)
+                        .join('\n')
+                        .trim() ?? '';
+
+                if (userText) {
+                    const cmdResult = hooks.workflowCommand(userText);
+                    if (cmdResult.handled) {
+                        if (cmdResult.contextInjection && parts) {
+                            const idx = parts.findIndex((p) => p.type === 'text' && p.text);
+                            if (idx >= 0 && parts[idx].text) {
+                                parts[idx].text += `\n\n---\n${cmdResult.contextInjection}`;
+                            } else {
+                                parts.push({ type: 'text', text: cmdResult.contextInjection });
+                            }
+                        }
+                        if (cmdResult.switchAgent && message) {
+                            message.agent = getAgentDisplayName(cmdResult.switchAgent);
+                        }
+                    }
+                }
+            }
+
+            // Auto-pause work when a user message arrives that is NOT a /start-work command,
+            // NOT a continuation prompt injected by the work-continuation hook,
+            // and NOT a workflow continuation prompt.
+            // This breaks the infinite continuation loop that occurs when a user sends a
+            // regular message while a plan is active — without this, session.idle fires
+            // after every response and re-injects the "Continue working" prompt endlessly.
+            if (directory) {
+                const parts = _output.parts as
+                    | Array<{ type: string; text?: string }>
+                    | undefined;
+                const promptText =
+                    parts
+                        ?.filter((p) => p.type === 'text' && p.text)
+                        .map((p) => p.text)
+                        .join('\n')
+                        .trim() ?? '';
+
+                const isStartWork = promptText.includes('<session-context>');
+                const isContinuation = promptText.includes(CONTINUATION_MARKER);
+                const isWorkflowContinuation = promptText.includes(
+                    WORKFLOW_CONTINUATION_MARKER,
+                );
+                const isTodoFinalize =
+                    !taskSystemEnabled && promptText.includes(FINALIZE_TODOS_MARKER);
+                const isActiveWorkflow = (() => {
+                    const wf = getActiveWorkflowInstance(directory);
+                    return wf != null && wf.status === 'running';
+                })();
+
+                if (
+                    !isStartWork &&
+                    !isContinuation &&
+                    !isWorkflowContinuation &&
+                    !isTodoFinalize &&
+                    !isActiveWorkflow
+                ) {
+                    const state = readWorkState(directory);
+                    if (state && !state.paused) {
+                        pauseWork(directory);
+                        log(
+                            '[work-continuation] Auto-paused: user message received during active plan',
+                            { sessionId: sessionID },
+                        );
+                    }
+                }
+            }
+        },
+
+        'chat.params': async (_input, _output) => {
+            const input = _input as {
+                sessionID?: string;
+                agent?: string;
+                model?: { limit?: { context?: number } };
+            };
+            const sessionId = input.sessionID ?? '';
+            const maxTokens = input.model?.limit?.context ?? 0;
+            if (sessionId && maxTokens > 0) {
+                setContextLimit(sessionId, maxTokens);
+                log('[context-window] Captured context limit', {
+                    sessionId,
+                    maxTokens,
+                });
+            }
+
+            // Analytics: capture agent name
+            if (tracker && hooks.analyticsEnabled && sessionId && input.agent) {
+                tracker.setAgentName(sessionId, input.agent);
+            }
+        },
+
+        'chat.headers': async (_input, _output) => {
+            // pass-through for v1
+        },
+
+        event: async (input) => {
+            const { event } = input;
+
+            if (hooks.firstMessageVariant) {
+                if (event.type === 'session.created') {
+                    const evt = event as {
+                        type: string;
+                        properties: { info: { id: string } };
+                    };
+                    hooks.firstMessageVariant.markSessionCreated(evt.properties.info.id);
+                }
+                if (event.type === 'session.deleted') {
+                    const evt = event as {
+                        type: string;
+                        properties: { info: { id: string } };
+                    };
+                    hooks.firstMessageVariant.clearSession(evt.properties.info.id);
+                }
+            }
+
+            // Clean up token state when session ends
+            if (event.type === 'session.deleted') {
+                const evt = event as {
+                    type: string;
+                    properties: { info: { id: string } };
+                };
+                clearTokenSession(evt.properties.info.id);
+                todoFinalizedSessions.delete(evt.properties.info.id);
+
+                // Analytics: finalize session summary
+                if (tracker && hooks.analyticsEnabled) {
+                    try {
+                        tracker.endSession(evt.properties.info.id);
+                    } catch (err) {
+                        log('[analytics] Failed to end session (non-fatal)', {
+                            error: String(err),
+                        });
+                    }
+
+                    // Generate metrics report if a plan just completed
+                    if (directory) {
+                        try {
+                            const state = readWorkState(directory);
+                            if (state) {
+                                const progress = getPlanProgress(state.active_plan);
+                                if (progress.isComplete) {
+                                    generateMetricsReport(directory, state);
+                                }
+                            }
+                        } catch (err) {
+                            log(
+                                '[analytics] Failed to generate metrics report on session end (non-fatal)',
+                                { error: String(err) },
+                            );
+                        }
+                    }
+                }
+            }
+
+            // Process assistant message token data from message.updated events
+            if (event.type === 'message.updated') {
+                const evt = event as {
+                    type: string;
+                    properties: {
+                        info: {
+                            role?: string;
+                            sessionID?: string;
+                            tokens?: {
+                                input?: number;
+                                output?: number;
+                                reasoning?: number;
+                                cache?: { read?: number; write?: number };
+                            };
+                        };
+                    };
+                };
+                const info = evt.properties?.info;
+                if (info?.role === 'assistant' && info.sessionID) {
+                    // Context window monitoring
+                    if (hooks.checkContextWindow) {
+                        const inputTokens = info.tokens?.input ?? 0;
+                        if (inputTokens > 0) {
+                            updateUsage(info.sessionID, inputTokens);
+                            const tokenState = getTokenState(info.sessionID);
+                            if (tokenState && tokenState.maxTokens > 0) {
+                                const result = hooks.checkContextWindow({
+                                    usedTokens: tokenState.usedTokens,
+                                    maxTokens: tokenState.maxTokens,
+                                    sessionId: info.sessionID,
+                                });
+                                if (result.action !== 'none') {
+                                    log('[context-window] Threshold crossed', {
+                                        sessionId: info.sessionID,
+                                        action: result.action,
+                                        usagePct: result.usagePct,
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    // Analytics: cost and token usage are tracked in the consolidated block below
+                }
+            }
+
+            // Analytics: capture cost and token usage from assistant messages
+            if (
+                event.type === 'message.updated' &&
+                tracker &&
+                hooks.analyticsEnabled
+            ) {
+                const evt = event as {
+                    type: string;
+                    properties: {
+                        info: {
+                            role?: string;
+                            sessionID?: string;
+                            cost?: number;
+                            tokens?: {
+                                input?: number;
+                                output?: number;
+                                reasoning?: number;
+                                cache?: { read?: number; write?: number };
+                            };
+                        };
+                    };
+                };
+                const info = evt.properties?.info;
+                if (info?.role === 'assistant' && info.sessionID) {
+                    if (typeof info.cost === 'number' && info.cost > 0) {
+                        tracker.trackCost(info.sessionID, info.cost);
+                    }
+                    if (info.tokens) {
+                        tracker.trackTokenUsage(info.sessionID, {
+                            input: info.tokens.input ?? 0,
+                            output: info.tokens.output ?? 0,
+                            reasoning: info.tokens.reasoning ?? 0,
+                            cacheRead: info.tokens.cache?.read ?? 0,
+                            cacheWrite: info.tokens.cache?.write ?? 0,
+                        });
+                    }
+                }
+            }
+
+            // Detect user-initiated interrupts via TUI command and persist to work state
+            if (event.type === 'tui.command.execute') {
+                const evt = event as { type: string; properties: { command: string } };
+                if (evt.properties?.command === 'session.interrupt') {
+                    pauseWork(directory);
+                    log('[work-continuation] User interrupt detected — work paused');
+
+                    // Also pause any active workflow
+                    if (directory) {
+                        const activeWorkflow = getActiveWorkflowInstance(directory);
+                        if (activeWorkflow && activeWorkflow.status === 'running') {
+                            pauseWorkflow(directory, 'User interrupt');
+                            log('[workflow] User interrupt detected — workflow paused');
+                        }
+                    }
+                }
+            }
+
+            // Track assistant message text from message.part.updated events.
+            // message.updated does NOT carry message content — only metadata (tokens, cost).
+            // We need the text for workflow completion detection (review_verdict, agent_signal).
+            if (event.type === 'message.part.updated') {
+                const evt = event as {
+                    type: string;
+                    properties: {
+                        part: {
+                            type: string;
+                            sessionID: string;
+                            messageID: string;
+                            text?: string;
+                        };
+                    };
+                };
+                const part = evt.properties?.part;
+                if (part?.type === 'text' && part.sessionID && part.text) {
+                    lastAssistantMessageText.set(part.sessionID, part.text);
+                }
+            }
+
+            // Workflow continuation: check active workflow instance on session.idle.
+            // This MUST run BEFORE work-continuation to prevent double-prompting.
+            // If a workflow instance is active, it owns the idle loop.
+            let continuationFired = false;
+            if (hooks.workflowContinuation && event.type === 'session.idle') {
+                const evt = event as {
+                    type: string;
+                    properties: { sessionID: string };
+                };
+                const sessionId = evt.properties?.sessionID ?? '';
+                if (sessionId && directory) {
+                    const activeWorkflow = getActiveWorkflowInstance(directory);
+                    if (activeWorkflow && activeWorkflow.status === 'running') {
+                        const lastMsg =
+                            lastAssistantMessageText.get(sessionId) ?? undefined;
+                        const lastUserMsg = lastUserMessageText.get(sessionId) ?? undefined;
+                        const result = hooks.workflowContinuation(
+                            sessionId,
+                            lastMsg,
+                            lastUserMsg,
+                        );
+                        if (result.continuationPrompt && client) {
+                            try {
+                                await client.session.promptAsync({
+                                    path: { id: sessionId },
+                                    body: {
+                                        parts: [{ type: 'text', text: result.continuationPrompt }],
+                                        ...(result.switchAgent
+                                            ? { agent: getAgentDisplayName(result.switchAgent) }
+                                            : {}),
+                                    },
+                                });
+                                log('[workflow] Injected workflow continuation prompt', {
+                                    sessionId,
+                                    agent: result.switchAgent,
+                                });
+                            } catch (err) {
+                                log('[workflow] Failed to inject workflow continuation', {
+                                    sessionId,
+                                    error: String(err),
+                                });
+                            }
+                            return; // Workflow owns the idle loop — skip work-continuation and todo finalization
+                        }
+                    }
+                }
+            }
+
+            // Work continuation: nudge idle sessions with active plans
+            if (hooks.workContinuation && event.type === 'session.idle') {
+                const evt = event as {
+                    type: string;
+                    properties: { sessionID: string };
+                };
+                const sessionId = evt.properties?.sessionID ?? '';
+                if (sessionId) {
+                    const result = hooks.workContinuation(sessionId);
+                    if (result.continuationPrompt && client) {
+                        try {
+                            await client.session.promptAsync({
+                                path: { id: sessionId },
+                                body: {
+                                    parts: [{ type: 'text', text: result.continuationPrompt }],
+                                },
+                            });
+                            log('[work-continuation] Injected continuation prompt', {
+                                sessionId,
+                            });
+                            continuationFired = true;
+                        } catch (err) {
+                            log('[work-continuation] Failed to inject continuation', {
+                                sessionId,
+                                error: String(err),
+                            });
+                        }
+                    } else if (result.continuationPrompt) {
+                        // client not available — log for diagnostics
+                        log(
+                            '[work-continuation] continuationPrompt available but no client',
+                            { sessionId },
+                        );
+                    }
+                }
+            }
+
+            // Todo finalization safety net: when session goes truly idle (no continuation fired),
+            // check for lingering in_progress todos and inject a one-shot prompt to mark them complete.
+            // Disabled when the task system is active — atomic task operations handle state directly.
+            if (
+                event.type === 'session.idle' &&
+                client &&
+                !continuationFired &&
+                !taskSystemEnabled
+            ) {
+                const evt = event as {
+                    type: string;
+                    properties: { sessionID: string };
+                };
+                const sessionId = evt.properties?.sessionID ?? '';
+                if (sessionId && !todoFinalizedSessions.has(sessionId)) {
+                    try {
+                        const todosResponse = await client.session.todo({
+                            path: { id: sessionId },
+                        });
+                        const todos = (todosResponse.data ?? []) as Array<{
+                            content: string;
+                            status: string;
+                        }>;
+                        const hasInProgress = todos.some((t) => t.status === 'in_progress');
+                        if (hasInProgress) {
+                            todoFinalizedSessions.add(sessionId);
+                            const inProgressItems = todos
+                                .filter((t) => t.status === 'in_progress')
+                                .map((t) => `  - "${t.content}"`)
+                                .join('\n');
+                            await client.session.promptAsync({
+                                path: { id: sessionId },
+                                body: {
+                                    parts: [
+                                        {
+                                            type: 'text',
+                                            text: `${FINALIZE_TODOS_MARKER}
 You have finished your work but left these todos as in_progress:
 ${inProgressItems}
 
 Use todowrite NOW to mark all of them as "completed" (or "cancelled" if abandoned). Do not do any other work — just update the todos and stop.`,
-                    },
-                  ],
-                },
-              })
-              log("[todo-finalize] Injected finalize prompt for in_progress todos", {
-                sessionId,
-                count: todos.filter((t) => t.status === "in_progress").length,
-              })
+                                        },
+                                    ],
+                                },
+                            });
+                            log(
+                                '[todo-finalize] Injected finalize prompt for in_progress todos',
+                                {
+                                    sessionId,
+                                    count: todos.filter((t) => t.status === 'in_progress').length,
+                                },
+                            );
+                        }
+                    } catch (err) {
+                        log('[todo-finalize] Failed to check/finalize todos (non-fatal)', {
+                            sessionId,
+                            error: String(err),
+                        });
+                    }
+                }
             }
-          } catch (err) {
-            log("[todo-finalize] Failed to check/finalize todos (non-fatal)", { sessionId, error: String(err) })
-          }
-        }
-      }
-    },
+        },
 
-    "tool.execute.before": async (input, _output) => {
-      const toolArgs = _output.args as Record<string, unknown> | null | undefined
-      const filePath =
-        (toolArgs?.file_path as string | undefined) ??
-        (toolArgs?.path as string | undefined) ??
-        ""
+        'tool.execute.before': async (input, _output) => {
+            const toolArgs = _output.args as
+                | Record<string, unknown>
+                | null
+                | undefined;
+            const filePath =
+                (toolArgs?.file_path as string | undefined) ??
+                (toolArgs?.path as string | undefined) ??
+                '';
 
-      if (filePath && hooks.shouldInjectRules && hooks.getRulesForFile) {
-        if (hooks.shouldInjectRules(input.tool)) {
-          hooks.getRulesForFile(filePath)
-          // rules content available — would inject into context in full implementation
-        }
-      }
+            if (filePath && hooks.shouldInjectRules && hooks.getRulesForFile) {
+                if (hooks.shouldInjectRules(input.tool)) {
+                    hooks.getRulesForFile(filePath);
+                    // rules content available — would inject into context in full implementation
+                }
+            }
 
-      if (filePath && hooks.writeGuard) {
-        if (input.tool === "read") {
-          hooks.writeGuard.trackRead(filePath)
-        }
-      }
+            if (filePath && hooks.writeGuard) {
+                if (input.tool === 'read') {
+                    hooks.writeGuard.trackRead(filePath);
+                }
+            }
 
-      // Pattern MD-only guard: block Pattern from writing non-.md files outside .weave/
-      if (filePath && hooks.patternMdOnly) {
-        const agentName = (input as Record<string, unknown>).agent as string | undefined
-        if (agentName) {
-          const check = hooks.patternMdOnly(agentName, input.tool, filePath)
-          if (!check.allowed) {
-            throw new Error(check.reason ?? "Pattern agent is restricted to .md files in .weave/")
-          }
-        }
-      }
+            // Pattern MD-only guard: block Pattern from writing non-.md files outside .weave/
+            if (filePath && hooks.patternMdOnly) {
+                const agentName = (input as Record<string, unknown>).agent as
+                    | string
+                    | undefined;
+                if (agentName) {
+                    const check = hooks.patternMdOnly(agentName, input.tool, filePath);
+                    if (!check.allowed) {
+                        throw new Error(
+                            check.reason ??
+                            'Pattern agent is restricted to .md files in .weave/',
+                        );
+                    }
+                }
+            }
 
-      // Log delegation starts when the task tool is invoked
-      if (input.tool === "task" && toolArgs) {
-        const agentArg =
-          (toolArgs.subagent_type as string | undefined) ??
-          (toolArgs.description as string | undefined) ??
-          "unknown"
-        logDelegation({
-          phase: "start",
-          agent: agentArg,
-          sessionId: input.sessionID,
-          toolCallId: input.callID,
-        })
-      }
+            // Log delegation starts when the task tool is invoked
+            if (input.tool === 'task' && toolArgs) {
+                const agentArg =
+                    (toolArgs.subagent_type as string | undefined) ??
+                    (toolArgs.description as string | undefined) ??
+                    'unknown';
+                logDelegation({
+                    phase: 'start',
+                    agent: agentArg,
+                    sessionId: input.sessionID,
+                    toolCallId: input.callID,
+                });
+            }
 
-      // Analytics: track tool execution start
-      if (tracker && hooks.analyticsEnabled) {
-        const agentArg = input.tool === "task" && toolArgs
-          ? ((toolArgs.subagent_type as string | undefined) ??
-             (toolArgs.description as string | undefined) ??
-             "unknown")
-          : undefined
-        tracker.trackToolStart(input.sessionID, input.tool, input.callID, agentArg)
-      }
-    },
+            // Analytics: track tool execution start
+            if (tracker && hooks.analyticsEnabled) {
+                const agentArg =
+                    input.tool === 'task' && toolArgs
+                        ? ((toolArgs.subagent_type as string | undefined) ??
+                            (toolArgs.description as string | undefined) ??
+                            'unknown')
+                        : undefined;
+                tracker.trackToolStart(
+                    input.sessionID,
+                    input.tool,
+                    input.callID,
+                    agentArg,
+                );
+            }
+        },
 
-    "tool.execute.after": async (input, _output) => {
-      // Log delegation completions when the task tool finishes
-      if (input.tool === "task") {
-        const inputArgs = (input as Record<string, unknown>).args as Record<string, unknown> | undefined
-        const agentArg =
-          (inputArgs?.subagent_type as string | undefined) ??
-          (inputArgs?.description as string | undefined) ??
-          "unknown"
-        logDelegation({
-          phase: "complete",
-          agent: agentArg,
-          sessionId: input.sessionID,
-          toolCallId: input.callID,
-        })
-      }
+        'tool.execute.after': async (input, _output) => {
+            // Log delegation completions when the task tool finishes
+            if (input.tool === 'task') {
+                const inputArgs = (input as Record<string, unknown>).args as
+                    | Record<string, unknown>
+                    | undefined;
+                const agentArg =
+                    (inputArgs?.subagent_type as string | undefined) ??
+                    (inputArgs?.description as string | undefined) ??
+                    'unknown';
+                logDelegation({
+                    phase: 'complete',
+                    agent: agentArg,
+                    sessionId: input.sessionID,
+                    toolCallId: input.callID,
+                });
+            }
 
-      // Analytics: track tool execution end
-      if (tracker && hooks.analyticsEnabled) {
-        const inputArgs = (input as Record<string, unknown>).args as Record<string, unknown> | undefined
-        const agentArg = input.tool === "task" && inputArgs
-          ? ((inputArgs.subagent_type as string | undefined) ??
-             (inputArgs.description as string | undefined) ??
-             "unknown")
-          : undefined
-        tracker.trackToolEnd(input.sessionID, input.tool, input.callID, agentArg)
-      }
-    },
+            // Analytics: track tool execution end
+            if (tracker && hooks.analyticsEnabled) {
+                const inputArgs = (input as Record<string, unknown>).args as
+                    | Record<string, unknown>
+                    | undefined;
+                const agentArg =
+                    input.tool === 'task' && inputArgs
+                        ? ((inputArgs.subagent_type as string | undefined) ??
+                            (inputArgs.description as string | undefined) ??
+                            'unknown')
+                        : undefined;
+                tracker.trackToolEnd(
+                    input.sessionID,
+                    input.tool,
+                    input.callID,
+                    agentArg,
+                );
+            }
+        },
 
-    "command.execute.before": async (input, output) => {
-      const { command, arguments: args } = input as { command: string; sessionID: string; arguments: string }
-      const parts = (output as { parts: Array<{ type: string; text: string }> }).parts
+        'command.execute.before': async (input, output) => {
+            const { command, arguments: args } = input as {
+                command: string;
+                sessionID: string;
+                arguments: string;
+            };
+            const parts = (output as { parts: Array<{ type: string; text: string }> })
+                .parts;
 
-      if (command === "token-report") {
-        const summaries = readSessionSummaries(directory)
-        const reportText = generateTokenReport(summaries)
-        parts.push({ type: "text", text: reportText })
-      }
+            if (command === 'token-report') {
+                const summaries = readSessionSummaries(directory);
+                const reportText = generateTokenReport(summaries);
+                parts.push({ type: 'text', text: reportText });
+            }
 
-      if (command === "metrics") {
-        if (!hooks.analyticsEnabled) {
-          parts.push({
-            type: "text",
-            text: "Analytics is not enabled. To enable it, set `\"analytics\": { \"enabled\": true }` in your `weave.json`.",
-          })
-          return
-        }
-        const reports = readMetricsReports(directory)
-        const summaries = readSessionSummaries(directory)
-        const metricsMarkdown = formatMetricsMarkdown(reports, summaries, args)
-        parts.push({ type: "text", text: metricsMarkdown })
-      }
-    },
-  }
+            if (command === 'metrics') {
+                if (!hooks.analyticsEnabled) {
+                    parts.push({
+                        type: 'text',
+                        text: 'Analytics is not enabled. To enable it, set `"analytics": { "enabled": true }` in your `weave.json`.',
+                    });
+                    return;
+                }
+                const reports = readMetricsReports(directory);
+                const summaries = readSessionSummaries(directory);
+                const metricsMarkdown = formatMetricsMarkdown(reports, summaries, args);
+                parts.push({ type: 'text', text: metricsMarkdown });
+            }
+        },
+    };
 }

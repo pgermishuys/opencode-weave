@@ -1,11 +1,14 @@
 // MCP Type Definitions
 
 export interface McpServerConfig {
-  type?: 'stdio' | 'http';
-  command?: string;
-  args?: string[];
+  type?: 'local' | 'remote';
+  command?: string[]; // Full command array (not separate command + args)
   url?: string;
-  env?: Record<string, string>;
+  environment?: Record<string, string>;
+  enabled?: boolean;
+  timeout?: number;
+  headers?: Record<string, string>;
+  oauth?: Record<string, unknown> | false;
 }
 
 export interface McpClient {
@@ -25,19 +28,21 @@ export interface McpTool {
 // Built-in MCP server definitions
 export const BUILTIN_MCP_SERVERS: Record<string, McpServerConfig> = {
   websearch: {
-    type: 'stdio',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-websearch'],
+    type: 'remote',
+    url: 'https://mcp.exa.ai/mcp?tools=web_search_exa',
+    enabled: true,
+    headers: undefined, // Set via EXA_API_KEY environment variable if available
+    oauth: false, // Disable OAuth auto-detection - Exa uses API key header, not OAuth
   },
   context7: {
-    type: 'stdio',
-    command: 'npx',
-    args: ['-y', 'context7-mcp-server'],
+    type: 'remote',
+    url: 'https://mcp.context7.com/mcp',
+    enabled: true,
   },
   grep_app: {
-    type: 'stdio',
-    command: 'npx',
-    args: ['-y', 'grep-app-mcp'],
+    type: 'remote',
+    url: 'https://mcp.grep.app',
+    enabled: true,
   },
 };
 

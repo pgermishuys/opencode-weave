@@ -99,16 +99,16 @@ flowchart LR
   // MCP Configuration
   "mcp": {
     "enabled": {
-      "websearch": true,      // Enable websearch MCP
-      "context7": true,       // Enable context7 MCP
-      "grep_app": true        // Enable grep_app MCP
+      "websearch": true,      // Enable websearch MCP (uses EXA remote server)
+      "context7": true,       // Enable context7 MCP (remote)
+      "grep_app": true        // Enable grep_app MCP (remote)
     },
     "servers": {              // Custom MCP servers
       "custom-server": {
-        "type": "stdio",     // or "http"
-        "command": "npx",
-        "args": ["-y", "my-mcp-server"],
-        "env": {}            // Optional environment variables
+        "type": "local",     // local (stdio) or remote (http)
+        "command": ["npx", "-y", "my-mcp-server"],
+        "environment": {},    // Optional environment variables
+        "timeout": 60000      // Optional timeout in ms
       }
     }
   },

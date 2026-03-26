@@ -135,9 +135,25 @@ export class ConfigHandler {
     const disabledSet = new Set(pluginConfig.disabled_mcps ?? []);
     const servers = getMcpServers(pluginConfig.mcp);
     const result: Record<string, unknown> = {};
+
     for (const [name, config] of servers) {
       if (!disabledSet.has(name)) {
-        result[name] = config;
+        // For websearch, add EXA API key to headers if available
+        if (name === 'websearch' && config) {
+          const serverConfig = { ...config } as Record<string, unknown>;
+          const exaApiKey = process.env.EXA_API_KEY;
+          if (exaApiKey) {
+            serverConfig.headers = {
+              ...((serverConfig.headers as Record<string, string>) || {}),
+              'x-api-key': exaApiKey,
+            };
+          }
+          // Disable OAuth for Exa (uses API key auth)
+          serverConfig.oauth = false;
+          result[name] = serverConfig;
+        } else {
+          result[name] = config;
+        }
       }
     }
     return result;
