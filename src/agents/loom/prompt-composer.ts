@@ -36,6 +36,8 @@ TODO OBSESSION (NON-NEGOTIABLE):
 - Mark completed IMMEDIATELY after each step
 - NEVER batch completions
 
+PLANS: Never execute plan tasks directly — always /start-work → Tapestry.
+
 No todos on multi-step work = INCOMPLETE WORK.
 </Discipline>`
 }
@@ -210,6 +212,8 @@ export function buildPlanWorkflowSection(disabled: Set<string>): string {
 
   return `<PlanWorkflow>
 For complex tasks that benefit from structured planning before execution:
+
+IMPORTANT: NEVER execute plan tasks directly. Always delegate to /start-work → Tapestry.
 
 ${steps.join("\n")}
 

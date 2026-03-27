@@ -50,6 +50,11 @@ describe("composeLoomPrompt", () => {
     expect(prompt).toContain("Tapestry runs Weft and Warp")
   })
 
+  it("contains delegation guardrail preventing direct plan execution", () => {
+    const prompt = composeLoomPrompt()
+    expect(prompt).toContain("NEVER execute plan tasks directly")
+  })
+
   it("does not include ProjectContext with no fingerprint", () => {
     const prompt = composeLoomPrompt()
     expect(prompt).not.toContain("<ProjectContext>")
@@ -134,6 +139,12 @@ describe("buildDelegationSection", () => {
 })
 
 describe("buildPlanWorkflowSection", () => {
+  it("contains delegation guardrail at the top", () => {
+    const section = buildPlanWorkflowSection(new Set())
+    expect(section).toContain("NEVER execute plan tasks directly")
+    expect(section).toContain("/start-work")
+  })
+
   it("includes Pattern, Weft, Warp, and Tapestry by default", () => {
     const section = buildPlanWorkflowSection(new Set())
     expect(section).toContain("Pattern")
@@ -221,6 +232,12 @@ describe("individual section builders", () => {
 
   it("buildDisciplineSection contains TODO OBSESSION", () => {
     expect(buildDisciplineSection()).toContain("TODO OBSESSION")
+  })
+
+  it("buildDisciplineSection contains plan delegation guardrail", () => {
+    const section = buildDisciplineSection()
+    expect(section).toContain("PLANS: Never execute plan tasks directly")
+    expect(section).toContain("/start-work")
   })
 
   it("buildSidebarTodosSection contains format rules", () => {
