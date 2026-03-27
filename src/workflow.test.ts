@@ -713,14 +713,14 @@ describe("Full Lifecycle: Pattern → /start-work → Execute → Idle → Resum
     })
     expect(finalResult.contextInjection).toContain("All Plans Complete")
 
-    // 19. Loom's PlanWorkflow notes Tapestry handles post-execution review
+    // 19. Loom's PlanWorkflow notes Tapestry handles execution
     const loomConfig = createLoomAgent("claude-opus-4")
     const loomPrompt = loomConfig.prompt as string
     const planWorkflow = loomPrompt.slice(
       loomPrompt.indexOf("<PlanWorkflow>"),
       loomPrompt.indexOf("</PlanWorkflow>"),
     )
-    expect(planWorkflow).toContain("Tapestry runs Weft and Warp")
+    expect(planWorkflow).toContain("Tapestry handles execution")
 
     // 20. Tapestry invokes Weft and Warp directly via PostExecutionReview
     const tapestryConfig = createTapestryAgent("claude-sonnet-4")

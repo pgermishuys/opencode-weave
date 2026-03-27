@@ -36,47 +36,47 @@ describe("createLoomAgent", () => {
     expect(planWorkflow).not.toContain("(optional)")
   })
 
-  it("PlanWorkflow specifies review trigger conditions", () => {
+  it("PlanWorkflow specifies when to use plan workflow", () => {
     const config = createLoomAgent("claude-opus-4")
     const prompt = config.prompt as string
     const planWorkflow = prompt.slice(
       prompt.indexOf("<PlanWorkflow>"),
       prompt.indexOf("</PlanWorkflow>"),
     )
-    expect(planWorkflow).toContain("3+ files")
-    expect(planWorkflow).toContain("5+ tasks")
+    expect(planWorkflow).toContain("5+ step tasks")
+    expect(planWorkflow).toContain("multi-file refactors")
   })
 
-  it("PlanWorkflow Step 2 has skip condition", () => {
+  it("PlanWorkflow includes review step with Weft and Warp", () => {
     const config = createLoomAgent("claude-opus-4")
     const prompt = config.prompt as string
     const planWorkflow = prompt.slice(
       prompt.indexOf("<PlanWorkflow>"),
       prompt.indexOf("</PlanWorkflow>"),
     )
-    // Step 2 still allows skip
-    expect(planWorkflow).toContain("SKIP ONLY IF")
+    expect(planWorkflow).toContain("REVIEW")
+    expect(planWorkflow).toContain("Weft")
+    expect(planWorkflow).toContain("Warp")
   })
 
-  it("ReviewWorkflow contains mandatory Warp invocation language", () => {
+  it("ReviewWorkflow contains Warp mandatory language", () => {
     const config = createLoomAgent("claude-opus-4")
     const prompt = config.prompt as string
     const reviewWorkflow = prompt.slice(
       prompt.indexOf("<ReviewWorkflow>"),
       prompt.indexOf("</ReviewWorkflow>"),
     )
-    expect(reviewWorkflow).toContain("MUST run Warp")
-    expect(reviewWorkflow).toContain("NOT optional")
+    expect(reviewWorkflow).toContain("Warp is mandatory")
   })
 
-  it("ReviewWorkflow contains all security trigger keywords", () => {
+  it("ReviewWorkflow contains key security trigger keywords", () => {
     const config = createLoomAgent("claude-opus-4")
     const prompt = config.prompt as string
     const reviewWorkflow = prompt.slice(
       prompt.indexOf("<ReviewWorkflow>"),
       prompt.indexOf("</ReviewWorkflow>"),
     )
-    const triggers = ["crypto", "auth", "certificates", "tokens", "signatures", "input validation"]
+    const triggers = ["crypto", "auth", "tokens", "secrets", "input validation"]
     for (const trigger of triggers) {
       expect(reviewWorkflow).toContain(trigger)
     }
@@ -103,14 +103,14 @@ describe("createLoomAgent", () => {
     expect(delegation).toContain("MUST use Warp")
   })
 
-  it("PlanWorkflow notes Tapestry handles post-execution review", () => {
+  it("PlanWorkflow notes Tapestry handles execution", () => {
     const config = createLoomAgent("claude-opus-4")
     const prompt = config.prompt as string
     const planWorkflow = prompt.slice(
       prompt.indexOf("<PlanWorkflow>"),
       prompt.indexOf("</PlanWorkflow>"),
     )
-    expect(planWorkflow).toContain("Tapestry runs Weft and Warp")
+    expect(planWorkflow).toContain("Tapestry handles execution")
   })
 
   it("PlanWorkflow does not contain Step 5 POST-EXECUTION REVIEW", () => {
@@ -123,16 +123,16 @@ describe("createLoomAgent", () => {
     expect(planWorkflow).not.toContain("5. POST-EXECUTION REVIEW")
   })
 
-  it("ReviewWorkflow distinguishes post-plan and ad-hoc review modes", () => {
+  it("ReviewWorkflow is ad-hoc only (no post-plan section)", () => {
     const config = createLoomAgent("claude-opus-4")
     const prompt = config.prompt as string
     const reviewWorkflow = prompt.slice(
       prompt.indexOf("<ReviewWorkflow>"),
       prompt.indexOf("</ReviewWorkflow>"),
     )
-    expect(reviewWorkflow).toContain("Post-Plan-Execution Review")
-    expect(reviewWorkflow).toContain("Ad-Hoc Review")
-    expect(reviewWorkflow).toContain("Tapestry invokes Weft and Warp")
+    expect(reviewWorkflow).toContain("Ad-hoc review")
+    expect(reviewWorkflow).toContain("Weft")
+    expect(reviewWorkflow).not.toContain("Post-Plan")
   })
 })
 

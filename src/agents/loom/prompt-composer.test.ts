@@ -32,27 +32,20 @@ describe("composeLoomPrompt", () => {
     expect(prompt).toContain("<Style>")
   })
 
-  it("preserves mandatory Warp language with no disabled agents", () => {
+  it("preserves Warp security language with no disabled agents", () => {
     const prompt = composeLoomPrompt()
     expect(prompt).toContain("MUST use Warp")
-    expect(prompt).toContain("NOT optional")
-    expect(prompt).toContain("MUST run Warp")
+    expect(prompt).toContain("Warp is mandatory")
   })
 
   it("preserves review trigger conditions", () => {
     const prompt = composeLoomPrompt()
     expect(prompt).toContain("3+ files")
-    expect(prompt).toContain("5+ tasks")
   })
 
-  it("preserves Tapestry post-execution review note", () => {
+  it("contains plan execution routing in PlanWorkflow", () => {
     const prompt = composeLoomPrompt()
-    expect(prompt).toContain("Tapestry runs Weft and Warp")
-  })
-
-  it("contains delegation guardrail preventing direct plan execution", () => {
-    const prompt = composeLoomPrompt()
-    expect(prompt).toContain("NEVER execute plan tasks directly")
+    expect(prompt).toContain("Plans are executed by Tapestry")
   })
 
   it("does not include ProjectContext with no fingerprint", () => {
@@ -139,9 +132,9 @@ describe("buildDelegationSection", () => {
 })
 
 describe("buildPlanWorkflowSection", () => {
-  it("contains delegation guardrail at the top", () => {
+  it("contains plan routing statement", () => {
     const section = buildPlanWorkflowSection(new Set())
-    expect(section).toContain("NEVER execute plan tasks directly")
+    expect(section).toContain("Plans are executed by Tapestry")
     expect(section).toContain("/start-work")
   })
 
@@ -170,15 +163,14 @@ describe("buildPlanWorkflowSection", () => {
     expect(section).not.toContain("REVIEW")
   })
 
-  it("contains SKIP ONLY IF when weft enabled", () => {
+  it("includes Warp in review step for security-relevant plans", () => {
     const section = buildPlanWorkflowSection(new Set())
-    expect(section).toContain("SKIP ONLY IF")
+    expect(section).toContain("Warp for security-relevant plans")
   })
 
-  it("includes security areas for Warp", () => {
-    const section = buildPlanWorkflowSection(new Set())
-    expect(section).toContain("security-relevant areas")
-    expect(section).toContain("crypto")
+  it("omits Warp from review when warp disabled", () => {
+    const section = buildPlanWorkflowSection(new Set(["warp"]))
+    expect(section).not.toContain("Warp")
   })
 })
 
@@ -188,26 +180,29 @@ describe("buildReviewWorkflowSection", () => {
     expect(section).toBe("")
   })
 
-  it("includes Post-Plan and Ad-Hoc modes by default", () => {
+  it("includes ad-hoc review section by default", () => {
     const section = buildReviewWorkflowSection(new Set())
-    expect(section).toContain("Post-Plan-Execution Review")
-    expect(section).toContain("Ad-Hoc Review")
+    expect(section).toContain("Ad-hoc review")
+    expect(section).toContain("Weft")
   })
 
-  it("includes Tapestry invokes Weft and Warp when tapestry enabled", () => {
+  it("includes Warp mandatory line when warp enabled", () => {
     const section = buildReviewWorkflowSection(new Set())
-    expect(section).toContain("Tapestry invokes Weft and Warp")
+    expect(section).toContain("Warp is mandatory")
   })
 
-  it("omits post-plan section when tapestry disabled", () => {
-    const section = buildReviewWorkflowSection(new Set(["tapestry"]))
-    expect(section).not.toContain("Post-Plan-Execution Review")
+  it("omits tapestry-dependent content gracefully", () => {
+    // Review section no longer depends on tapestry — output is the same either way
+    const withTapestry = buildReviewWorkflowSection(new Set())
+    const withoutTapestry = buildReviewWorkflowSection(new Set(["tapestry"]))
+    expect(withTapestry).toBe(withoutTapestry)
   })
 
-  it("contains mandatory Warp language when warp enabled", () => {
+  it("contains Warp mandatory language when warp enabled", () => {
     const section = buildReviewWorkflowSection(new Set())
-    expect(section).toContain("MUST run Warp")
-    expect(section).toContain("NOT optional")
+    expect(section).toContain("Warp is mandatory")
+    expect(section).toContain("auth")
+    expect(section).toContain("crypto")
   })
 
   it("omits warp section when warp disabled", () => {
@@ -215,9 +210,9 @@ describe("buildReviewWorkflowSection", () => {
     expect(section).not.toContain("MUST run Warp")
   })
 
-  it("contains all security trigger keywords when warp enabled", () => {
+  it("contains key security trigger keywords when warp enabled", () => {
     const section = buildReviewWorkflowSection(new Set())
-    const triggers = ["crypto", "auth", "certificates", "tokens", "signatures", "input validation"]
+    const triggers = ["crypto", "auth", "tokens", "secrets", "input validation"]
     for (const trigger of triggers) {
       expect(section).toContain(trigger)
     }
@@ -227,45 +222,45 @@ describe("buildReviewWorkflowSection", () => {
 describe("individual section builders", () => {
   it("buildRoleSection contains Loom identity", () => {
     expect(buildRoleSection()).toContain("Loom")
-    expect(buildRoleSection()).toContain("orchestrator")
+    expect(buildRoleSection()).toContain("coordinator")
   })
 
-  it("buildDisciplineSection contains TODO OBSESSION", () => {
-    expect(buildDisciplineSection()).toContain("TODO OBSESSION")
+  it("buildDisciplineSection contains work tracking rules", () => {
+    expect(buildDisciplineSection()).toContain("WORK TRACKING")
   })
 
-  it("buildDisciplineSection contains plan delegation guardrail", () => {
+  it("buildDisciplineSection contains plan routing note", () => {
     const section = buildDisciplineSection()
-    expect(section).toContain("PLANS: Never execute plan tasks directly")
     expect(section).toContain("/start-work")
+    expect(section).toContain("Tapestry")
   })
 
   it("buildSidebarTodosSection contains format rules", () => {
     expect(buildSidebarTodosSection()).toContain("35 chars")
   })
 
-  it("buildSidebarTodosSection contains BEFORE FINISHING mandatory block", () => {
+  it("buildSidebarTodosSection contains stale-items rule", () => {
     const section = buildSidebarTodosSection()
-    expect(section).toContain("BEFORE FINISHING (MANDATORY)")
-    expect(section).toContain("NON-NEGOTIABLE")
-    expect(section).toContain("final todowrite")
-    expect(section).not.toContain("sidebar hides")
+    expect(section).toContain("never leave stale in_progress")
+    expect(section).toContain("BEFORE each Task tool call")
   })
 
-  it("buildDelegationNarrationSection contains duration hints", () => {
-    expect(buildDelegationNarrationSection()).toContain("DURATION HINTS")
-  })
-
-  it("buildDelegationNarrationSection omits Pattern hint when disabled", () => {
-    const section = buildDelegationNarrationSection(new Set(["pattern"]))
-    expect(section).not.toContain("Pattern (planning)")
+  it("buildDelegationNarrationSection contains slow-agent note", () => {
+    const section = buildDelegationNarrationSection()
+    expect(section).toContain("can be slow")
+    expect(section).toContain("Pattern")
     expect(section).toContain("Spindle")
-    expect(section).toContain("Thread")
   })
 
-  it("buildDelegationNarrationSection omits all duration hints when all agents disabled", () => {
-    const section = buildDelegationNarrationSection(new Set(["pattern", "spindle", "weft", "warp", "thread"]))
-    expect(section).not.toContain("DURATION HINTS")
+  it("buildDelegationNarrationSection omits Pattern from slow agents when disabled", () => {
+    const section = buildDelegationNarrationSection(new Set(["pattern"]))
+    expect(section).not.toContain("Pattern")
+    expect(section).toContain("Spindle")
+  })
+
+  it("buildDelegationNarrationSection omits slow-agent note when all slow agents disabled", () => {
+    const section = buildDelegationNarrationSection(new Set(["pattern", "spindle", "weft", "warp"]))
+    expect(section).not.toContain("can be slow")
   })
 
   it("buildStyleSection contains Dense > verbose", () => {

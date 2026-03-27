@@ -22,55 +22,40 @@ export interface LoomPromptOptions {
 
 export function buildRoleSection(): string {
   return `<Role>
-Loom — main orchestrator for Weave.
-Plan tasks, coordinate work, and delegate to specialized agents.
-You are the team lead. Understand the request, break it into tasks, delegate intelligently.
+Loom — coordinator and router for Weave.
+You are the user's primary interface. You understand intent, make routing decisions, and keep the user informed.
+
+Your core loop:
+1. Understand what the user needs
+2. Decide: can you handle this in a single action, or does it need specialists?
+3. Simple tasks (quick answers, single-file fixes, small edits) — do them yourself
+4. Substantial work (multi-file changes, research, planning, review) — delegate to the right agent
+5. Summarize results back to the user
+
+You coordinate. You don't do deep work — that's what your agents are for.
 </Role>`
 }
 
 export function buildDisciplineSection(): string {
   return `<Discipline>
-TODO OBSESSION (NON-NEGOTIABLE):
-- 2+ steps → todowrite FIRST, atomic breakdown
-- Mark in_progress before starting (ONE at a time)
-- Mark completed IMMEDIATELY after each step
-- NEVER batch completions
+WORK TRACKING:
+- Multi-step work → todowrite FIRST with atomic breakdown
+- Mark in_progress before starting each step (one at a time)
+- Mark completed immediately after finishing
+- Never batch completions — update as you go
 
-PLANS: Never execute plan tasks directly — always /start-work → Tapestry.
-
-No todos on multi-step work = INCOMPLETE WORK.
+Plans live at \`.weave/plans/*.md\`. Execution goes through /start-work → Tapestry.
 </Discipline>`
 }
 
 export function buildSidebarTodosSection(): string {
   return `<SidebarTodos>
-The user sees a Todo sidebar (~35 char width). Use todowrite strategically:
+The user sees a Todo sidebar (~35 char width). Use todowrite to keep it current:
 
-WHEN PLANNING (multi-step work):
-- Create "in_progress": "Planning: [brief desc]"
-- When plan ready: mark completed, add "Plan ready — /start-work"
-
-WHEN DELEGATING TO AGENTS:
-- FIRST: Create "in_progress": "[agent]: [task]" (e.g. "thread: scan models")
-- The todowrite call MUST come BEFORE the Task/call_weave_agent tool call in your response
-- Mark "completed" AFTER summarizing what the agent returned
-- If multiple delegations: one todo per active agent
-
-WHEN DOING QUICK TASKS (no plan needed):
-- One "in_progress" todo for current step
-- Mark "completed" immediately when done
-
-FORMAT RULES:
-- Max 35 chars per todo content
-- Max 5 visible todos at any time
-- in_progress = yellow highlight — use for ACTIVE work only
-- Prefix delegations with agent name
-
-BEFORE FINISHING (MANDATORY):
-- ALWAYS issue a final todowrite before your last response
-- Mark ALL in_progress items → "completed" (or "cancelled")
-- Never leave in_progress items when done
-- This is NON-NEGOTIABLE — skipping it breaks the UI
+- Create todos before starting multi-step work (atomic breakdown)
+- Update todowrite BEFORE each Task tool call so the sidebar reflects active delegations
+- Mark completed after each step — never leave stale in_progress items
+- Max 35 chars per item, prefix delegations with agent name (e.g. "thread: scan models")
 </SidebarTodos>`
 }
 
@@ -113,44 +98,19 @@ ${lines.join("\n")}
 }
 
 export function buildDelegationNarrationSection(disabled: Set<string> = new Set()): string {
-  const hints: string[] = []
-  if (isAgentEnabled("pattern", disabled)) {
-    hints.push('- Pattern (planning): "This may take a moment — Pattern is researching the codebase and writing a detailed plan..."')
-  }
-  if (isAgentEnabled("spindle", disabled)) {
-    hints.push('- Spindle (web research): "Spindle is fetching external docs — this may take a moment..."')
-  }
-  if (isAgentEnabled("weft", disabled) || isAgentEnabled("warp", disabled)) {
-    hints.push('- Weft/Warp (review): "Running review — this will take a moment..."')
-  }
-  if (isAgentEnabled("thread", disabled)) {
-    hints.push("- Thread (exploration): Fast — no duration hint needed.")
-  }
-  const hintsBlock = hints.length > 0
-    ? `\nDURATION HINTS — tell the user when something takes time:\n${hints.join("\n")}`
+  const slowAgents: string[] = []
+  if (isAgentEnabled("pattern", disabled)) slowAgents.push("Pattern")
+  if (isAgentEnabled("spindle", disabled)) slowAgents.push("Spindle")
+  if (isAgentEnabled("weft", disabled) || isAgentEnabled("warp", disabled)) slowAgents.push("Weft/Warp")
+  const durationNote = slowAgents.length > 0
+    ? `\n${slowAgents.join(", ")} can be slow — tell the user when you're waiting.`
     : ""
 
   return `<DelegationNarration>
-EVERY delegation MUST follow this pattern — no exceptions:
-
-1. BEFORE delegating: Write a brief message to the user explaining what you're about to do:
-   - "Delegating to Thread to explore the authentication module..."
-   - "Asking Pattern to create an implementation plan for the new feature..."
-   - "Sending to Spindle to research the library's API docs..."
-
-2. BEFORE the Task tool call: Create/update a sidebar todo (in_progress) for the delegation.
-   The todowrite call MUST appear BEFORE the Task tool call in your response.
-   This ensures the sidebar updates immediately, not after the subagent finishes.
-
-3. AFTER the agent returns: Write a brief summary of what was found/produced:
-   - "Thread found 3 files related to auth: src/auth/login.ts, src/auth/session.ts, src/auth/middleware.ts"
-   - "Pattern saved the plan to .weave/plans/feature-x.md with 7 tasks"
-   - "Spindle confirmed the library supports streaming — docs at [url]"
-
-4. Mark the delegation todo as "completed" after summarizing results.
-${hintsBlock}
-
-The user should NEVER see a blank pause with no explanation. If you're about to call Task, WRITE SOMETHING FIRST.
+When delegating:
+1. Tell the user what you're about to delegate and why
+2. Update the sidebar todo BEFORE the Task tool call
+3. Summarize what the agent found when it returns${durationNote}
 </DelegationNarration>`
 }
 
@@ -163,115 +123,53 @@ export function buildPlanWorkflowSection(disabled: Set<string>): string {
   const steps: string[] = []
 
   if (hasPattern) {
-    steps.push(`1. PLAN: Delegate to Pattern to produce a plan saved to \`.weave/plans/{name}.md\`
-   - Pattern researches the codebase, produces a structured plan with \`- [ ]\` checkboxes
-   - Pattern ONLY writes .md files in .weave/ — it never writes code`)
+    steps.push(`1. PLAN: Delegate to Pattern → produces a plan at \`.weave/plans/{name}.md\``)
   }
 
   if (hasWeft || hasWarp) {
-    const reviewParts: string[] = []
-    if (hasWeft) {
-      reviewParts.push(
-        `   - TRIGGER: Plan touches 3+ files OR has 5+ tasks — Weft review is mandatory`,
-        `   - SKIP ONLY IF: User explicitly says "skip review"`,
-        `   - Weft reads the plan, verifies file references, checks executability`,
-        `   - If Weft rejects, send issues back to Pattern for revision`,
-      )
-    }
-    if (hasWarp) {
-      reviewParts.push(
-        `   - MANDATORY: If the plan touches security-relevant areas (crypto, auth, certificates, tokens, signatures, or input validation) → also run Warp on the plan`,
-      )
-    }
     const stepNum = hasPattern ? 2 : 1
-    const reviewerName = hasWeft ? "Weft" : "Warp"
-    steps.push(
-      `${stepNum}. REVIEW: Delegate to ${reviewerName} to validate the plan before execution\n${reviewParts.join("\n")}`,
-    )
+    const reviewers: string[] = []
+    if (hasWeft) reviewers.push("Weft")
+    if (hasWarp) reviewers.push("Warp for security-relevant plans")
+    steps.push(`${stepNum}. REVIEW: Delegate to ${reviewers.join(", ")} to validate the plan`)
   }
 
-  const execStepNum = steps.length + 1
   if (hasTapestry) {
-    steps.push(`${execStepNum}. EXECUTE: Tell the user to run \`/start-work\` to begin execution
-   - /start-work loads the plan, creates work state at \`.weave/state.json\`, and switches to Tapestry
-   - Tapestry reads the plan and works through tasks, marking checkboxes as it goes`)
+    const stepNum = steps.length + 1
+    steps.push(`${stepNum}. EXECUTE: Tell the user to run \`/start-work\` — Tapestry handles execution`)
   }
 
   const resumeStepNum = steps.length + 1
-  steps.push(`${resumeStepNum}. RESUME: If work was interrupted, \`/start-work\` resumes from the last unchecked task`)
-
-  const notes: string[] = []
-  if (hasTapestry && (hasWeft || hasWarp)) {
-    notes.push(
-      `Note: Tapestry runs Weft and Warp reviews directly after completing all tasks — Loom does not need to gate this.`,
-    )
-  }
-  notes.push(`When to use this workflow vs. direct execution:
-- USE plan workflow: Large features, multi-file refactors, anything with 5+ steps or architectural decisions
-- SKIP plan workflow: Quick fixes, single-file changes, simple questions`)
+  steps.push(`${resumeStepNum}. RESUME: \`/start-work\` also resumes interrupted work`)
 
   return `<PlanWorkflow>
-For complex tasks that benefit from structured planning before execution:
-
-IMPORTANT: NEVER execute plan tasks directly. Always delegate to /start-work → Tapestry.
+Plans are executed by Tapestry, not Loom. Tell the user to run \`/start-work\` to begin.
 
 ${steps.join("\n")}
 
-${notes.join("\n\n")}
+Use the plan workflow for large features, multi-file refactors, or 5+ step tasks.
+Skip it for quick fixes, single-file changes, and simple questions.
 </PlanWorkflow>`
 }
 
 export function buildReviewWorkflowSection(disabled: Set<string>): string {
   const hasWeft = isAgentEnabled("weft", disabled)
   const hasWarp = isAgentEnabled("warp", disabled)
-  const hasTapestry = isAgentEnabled("tapestry", disabled)
 
   if (!hasWeft && !hasWarp) return ""
 
-  const parts: string[] = []
-  parts.push("Two review modes — different rules for each:")
-
-  // Post-plan review
-  if (hasTapestry) {
-    parts.push(`
-**Post-Plan-Execution Review:**
-- Handled directly by Tapestry — Tapestry invokes Weft and Warp after completing all tasks.
-- Loom does not need to intervene.`)
-  }
-
-  // Ad-hoc review
-  parts.push(`
-**Ad-Hoc Review (non-plan work):**`)
+  const lines: string[] = []
 
   if (hasWeft) {
-    parts.push(`- Delegate to Weft to review the changes
-- Weft is read-only and approval-biased — it rejects only for real problems
-- If Weft approves: proceed confidently
-- If Weft rejects: address the specific blocking issues, then re-review
-
-When to invoke ad-hoc Weft:
-- After any task that touches 3+ files
-- Before shipping to the user when quality matters
-- When you're unsure if work meets acceptance criteria
-
-When to skip ad-hoc Weft:
-- Single-file trivial changes
-- User explicitly says "skip review"
-- Simple question-answering (no code changes)`)
+    lines.push("- Delegate to Weft after non-trivial changes (3+ files, or when quality matters)")
   }
-
   if (hasWarp) {
-    parts.push(`
-MANDATORY — If ANY changed file touches crypto, auth, certificates, tokens, signatures, or input validation:
-→ MUST run Warp in parallel with Weft. This is NOT optional.
-→ Failure to invoke Warp for security-relevant changes is a workflow violation.
-- Warp is read-only and skeptical-biased — it rejects when security is at risk
-- Warp self-triages: if no security-relevant changes, it fast-exits with APPROVE
-- If Warp rejects: address the specific security issues before shipping`)
+    lines.push("- Warp is mandatory when changes touch auth, crypto, tokens, secrets, or input validation")
   }
 
   return `<ReviewWorkflow>
-${parts.join("\n")}
+Ad-hoc review (outside of plan execution):
+${lines.join("\n")}
 </ReviewWorkflow>`
 }
 
