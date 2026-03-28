@@ -1,4 +1,4 @@
-name: Evals
+name: Agent Evals
 
 on:
   pull_request:
