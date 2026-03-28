@@ -167,6 +167,7 @@ export const EvaluatorSpecSchema = z.discriminatedUnion("kind", [
 export const EvalCaseSchema = z.object({
   id: NonEmptyString,
   title: NonEmptyString,
+  description: z.string().optional(),
   phase: EvalPhaseSchema,
   target: EvalTargetSchema,
   executor: ExecutorSpecSchema,
@@ -212,6 +213,7 @@ export const EvalArtifactsSchema = z.object({
 
 export const EvalCaseResultSchema = z.object({
   caseId: z.string(),
+  description: z.string().optional(),
   status: z.enum(["passed", "failed", "error"]),
   score: z.number().nonnegative(),
   normalizedScore: z.number().min(0).max(1),
