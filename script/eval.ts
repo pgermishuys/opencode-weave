@@ -8,9 +8,12 @@ import {
   loadEvalCasesForSuite,
   loadEvalSuiteManifest,
   readDeterministicBaseline,
+  appendEvalRunJsonl,
+  getDefaultJsonlPath,
+  formatJobSummaryMarkdown,
 } from "../src/features/evals"
 import type { LoadedEvalCase } from "../src/features/evals"
-import { existsSync, mkdirSync, writeFileSync } from "fs"
+import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "fs"
 import { dirname, join } from "path"
 
 interface CliOptions {
@@ -20,6 +23,8 @@ interface CliOptions {
   tags?: string[]
   json: boolean
   outputPath?: string
+  jsonl: boolean
+  jsonlPath?: string
   baselinePath?: string
   updateBaseline: boolean
   failOnRegression: boolean
@@ -54,6 +59,7 @@ function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
     suite: "prompt-contracts",
     json: false,
+    jsonl: false,
     updateBaseline: false,
     failOnRegression: false,
   }
@@ -79,6 +85,15 @@ function parseArgs(argv: string[]): CliOptions {
       case "--output":
         options.outputPath = parseMultiValue(argv[++index], "--output")
         break
+      case "--jsonl": {
+        options.jsonl = true
+        const next = argv[index + 1]
+        if (next && !next.startsWith("--")) {
+          options.jsonlPath = next
+          index += 1
+        }
+        break
+      }
       case "--baseline":
         options.baselinePath = parseMultiValue(argv[++index], "--baseline")
         break
@@ -203,6 +218,22 @@ async function main(): Promise<void> {
     if (output.result.summary.totalCases === 0) {
       console.error("No eval cases matched the selected filters after applying valid selectors")
       process.exit(2)
+    }
+
+    if (options.jsonl) {
+      const jsonlDest = appendEvalRunJsonl(
+        process.cwd(),
+        output.result,
+        options.jsonlPath ?? getDefaultJsonlPath(process.cwd(), options.suite),
+      )
+      if (!options.json) {
+        process.stdout.write(`JSONL appended: ${jsonlDest}\n`)
+      }
+    }
+
+    const jobSummaryPath = process.env.GITHUB_STEP_SUMMARY
+    if (jobSummaryPath) {
+      appendFileSync(jobSummaryPath, formatJobSummaryMarkdown(output.result), "utf-8")
     }
 
     if (options.json) {

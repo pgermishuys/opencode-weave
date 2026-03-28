@@ -14,6 +14,7 @@
     "evals/cases/loom/phase2/self-handle-simple-question.jsonc",
     "evals/cases/loom/phase2/self-handle-single-file-fix.jsonc",
     "evals/cases/loom/phase2/ambiguous-exploration-security.jsonc",
-    "evals/cases/loom/phase2/ambiguous-research-planning.jsonc"
+    "evals/cases/loom/phase2/ambiguous-research-planning.jsonc",
+    "evals/cases/loom/phase2/route-to-shuttle-specialist-hard.jsonc"
   ]
 }

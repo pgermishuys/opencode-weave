@@ -1,0 +1,25 @@
+{
+  // Spike backport: route-to-shuttle-specialist-hard
+  // Harder shuttle routing variant — does NOT use the magic phrase "category-specific specialized work"
+  "id": "loom-phase2-route-to-shuttle-specialist-hard",
+  "title": "Loom model response prefers Shuttle for domain work without explicit prompt-mirroring",
+  "phase": "routing",
+  "tags": ["routing", "loom", "routing", "spike-backport"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "github-models",
+    "model": "gpt-4o-mini",
+    "input": "We have a product catalog domain that needs GraphQL schema generation — types, resolvers, and input validation. Please delegate to the right specialist agent for this domain work."
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedContains": ["shuttle"],
+      "forbiddenContains": ["I will implement this directly"]
+    }
+  ]
+}

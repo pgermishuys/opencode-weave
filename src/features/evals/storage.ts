@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from "fs"
+import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "fs"
 import { dirname, join } from "path"
 import type { EvalRunResult } from "./types"
 
@@ -34,6 +34,23 @@ export function writeEvalRunResult(directory: string, result: EvalRunResult, out
     mkdirSync(latestDir, { recursive: true, mode: 0o700 })
   }
   writeFileSync(latestPath, JSON.stringify(result, null, 2) + "\n", { encoding: "utf-8", mode: 0o600 })
+
+  return destination
+}
+
+export function getDefaultJsonlPath(directory: string, suiteId: string): string {
+  return join(directory, "evals", "results", `${suiteId}.jsonl`)
+}
+
+export function appendEvalRunJsonl(directory: string, result: EvalRunResult, jsonlPath?: string): string {
+  const destination = jsonlPath ?? getDefaultJsonlPath(directory, result.suiteId)
+  const destinationDir = dirname(destination)
+
+  if (!existsSync(destinationDir)) {
+    mkdirSync(destinationDir, { recursive: true, mode: 0o700 })
+  }
+
+  appendFileSync(destination, JSON.stringify(result) + "\n", { encoding: "utf-8", mode: 0o600 })
 
   return destination
 }

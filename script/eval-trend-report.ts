@@ -2,15 +2,17 @@
 /**
  * eval-trend-report.ts
  *
- * Reads the eval spike JSONL file and produces trend analysis — score
- * trajectories, flaky case detection, regression alerts — with console
- * output and GitHub Actions Job Summary integration.
+ * Reads eval JSONL files (either main framework `EvalRunResult` or legacy
+ * spike `RunSummary` format) and produces trend analysis — score trajectories,
+ * flaky case detection, regression alerts — with console output and GitHub
+ * Actions Job Summary integration.
  *
  * Usage:
  *   bun run script/eval-trend-report.ts [options]
  *
  * Options:
- *   --file <path>       JSONL file path (default: evals/results/github-models-spike.jsonl)
+ *   --suite <name>      Suite name — resolves to evals/results/{name}.jsonl
+ *   --file <path>       Explicit JSONL file path (overrides --suite)
  *   --last <n>          Only analyze the last N runs (default: all)
  *   --check             Enable regression checking (exit 1 on regression)
  *   --threshold <n>     Minimum acceptable score (default: 0.80)
@@ -23,24 +25,25 @@ import pc from "picocolors"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface CheckResult {
+// Legacy spike format (from the retired eval spike script)
+interface SpikeCheckResult {
   kind: "expected" | "forbidden"
   pattern: string
   passed: boolean
   message: string
 }
 
-interface CaseResult {
+interface SpikeCaseResult {
   caseId: string
   passed: boolean
   score: number
-  checks: CheckResult[]
+  checks: SpikeCheckResult[]
   modelResponse: string
   durationMs: number
   error?: string
 }
 
-interface RunSummary {
+interface SpikeRunSummary {
   timestamp: string
   env: "local" | "ci"
   model: string
@@ -49,7 +52,25 @@ interface RunSummary {
   failedCases: number
   score: number
   durationMs: number
-  results: CaseResult[]
+  results: SpikeCaseResult[]
+}
+
+// Normalized internal type used for all trend analysis
+interface TrendCaseResult {
+  caseId: string
+  passed: boolean
+  score: number
+}
+
+interface TrendRun {
+  timestamp: string
+  model: string
+  totalCases: number
+  passedCases: number
+  failedCases: number
+  score: number
+  durationMs: number
+  caseResults: TrendCaseResult[]
 }
 
 interface CaseHistory {
@@ -70,15 +91,79 @@ interface Regression {
 }
 
 interface TrendData {
-  runs: RunSummary[]
-  latestRun: RunSummary
-  previousRun: RunSummary | null
+  runs: TrendRun[]
+  latestRun: TrendRun
+  previousRun: TrendRun | null
   caseHistory: Map<string, CaseHistory>
 }
 
 // ─── JSONL Parser ─────────────────────────────────────────────────────────────
 
-function parseJsonl(filePath: string): RunSummary[] {
+// Main framework EvalRunResult shape (only the fields we need for trend analysis)
+interface MainFormatRun {
+  runId: string
+  startedAt: string
+  finishedAt: string
+  suiteId: string
+  summary: {
+    totalCases: number
+    passedCases: number
+    failedCases: number
+    errorCases: number
+    normalizedScore: number
+  }
+  caseResults: Array<{
+    caseId: string
+    status: "passed" | "failed" | "error"
+    normalizedScore: number
+  }>
+}
+
+function isMainFormat(parsed: Record<string, unknown>): boolean {
+  return "suiteId" in parsed && "summary" in parsed && "caseResults" in parsed
+}
+
+function isSpikeFormat(parsed: Record<string, unknown>): boolean {
+  return "model" in parsed && "score" in parsed && "timestamp" in parsed
+}
+
+function normalizeMainRun(run: MainFormatRun): TrendRun {
+  const startMs = new Date(run.startedAt).getTime()
+  const endMs = new Date(run.finishedAt).getTime()
+  return {
+    timestamp: run.startedAt,
+    model: "unknown",
+    totalCases: run.summary.totalCases,
+    passedCases: run.summary.passedCases,
+    failedCases: run.summary.failedCases + run.summary.errorCases,
+    score: run.summary.normalizedScore,
+    durationMs: endMs - startMs,
+    caseResults: run.caseResults.map((cr) => ({
+      caseId: cr.caseId,
+      passed: cr.status === "passed",
+      score: cr.normalizedScore,
+    })),
+  }
+}
+
+function normalizeSpikeRun(run: SpikeRunSummary): TrendRun {
+  return {
+    timestamp: run.timestamp,
+    model: run.model,
+    totalCases: run.totalCases,
+    passedCases: run.passedCases,
+    failedCases: run.failedCases,
+    score: run.score,
+    durationMs: run.durationMs,
+    caseResults: (run.results ?? []).map((r) => ({
+      caseId: r.caseId,
+      passed: r.passed,
+      score: r.score,
+    })),
+  }
+}
+
+function parseJsonl(filePath: string): TrendRun[] {
   let content: string
   try {
     content = readFileSync(filePath, "utf8")
@@ -94,12 +179,18 @@ function parseJsonl(filePath: string): RunSummary[] {
     process.exit(0)
   }
 
-  const runs: RunSummary[] = []
+  const runs: TrendRun[] = []
 
   for (let i = 0; i < lines.length; i++) {
     try {
-      const parsed = JSON.parse(lines[i]) as RunSummary
-      runs.push(parsed)
+      const parsed = JSON.parse(lines[i]) as Record<string, unknown>
+      if (isMainFormat(parsed)) {
+        runs.push(normalizeMainRun(parsed as unknown as MainFormatRun))
+      } else if (isSpikeFormat(parsed)) {
+        runs.push(normalizeSpikeRun(parsed as unknown as SpikeRunSummary))
+      } else {
+        console.warn(pc.yellow(`Warning: Skipping unrecognized format on line ${i + 1}`))
+      }
     } catch {
       console.warn(pc.yellow(`Warning: Skipping malformed line ${i + 1}`))
     }
@@ -113,11 +204,11 @@ function parseJsonl(filePath: string): RunSummary[] {
 
 // ─── Trend Analysis Engine ────────────────────────────────────────────────────
 
-function buildCaseHistory(runs: RunSummary[]): Map<string, CaseHistory> {
+function buildCaseHistory(runs: TrendRun[]): Map<string, CaseHistory> {
   const historyMap = new Map<string, CaseHistory>()
 
   for (const run of runs) {
-    for (const result of run.results) {
+    for (const result of run.caseResults) {
       let history = historyMap.get(result.caseId)
       if (!history) {
         history = {
@@ -154,7 +245,7 @@ function buildCaseHistory(runs: RunSummary[]): Map<string, CaseHistory> {
   return historyMap
 }
 
-function analyzeTrend(runs: RunSummary[]): TrendData {
+function analyzeTrend(runs: TrendRun[]): TrendData {
   const caseHistory = buildCaseHistory(runs)
 
   return {
@@ -192,7 +283,7 @@ function detectRegressions(data: TrendData, threshold: number): Regression[] {
   }
 
   // 3. Case regression: passed in last 3 consecutive runs, now fails
-  for (const result of latestRun.results) {
+  for (const result of latestRun.caseResults) {
     if (result.passed) continue
 
     const history = data.caseHistory.get(result.caseId)
@@ -211,7 +302,7 @@ function detectRegressions(data: TrendData, threshold: number): Regression[] {
   }
 
   // 4. New failure: case that has never failed before fails for the first time
-  for (const result of latestRun.results) {
+  for (const result of latestRun.caseResults) {
     if (result.passed) continue
 
     const history = data.caseHistory.get(result.caseId)
@@ -306,6 +397,7 @@ function printConsoleReport(
   data: TrendData,
   regressions: Regression[],
   flakyCases: CaseHistory[],
+  jsonlPath: string,
 ): void {
   const { runs, latestRun, previousRun } = data
   const runCount = runs.length
@@ -313,7 +405,7 @@ function printConsoleReport(
   console.log("")
   console.log(pc.bold(`── Eval Trend Report ${"─".repeat(35)}`))
   console.log(
-    `JSONL: ${pc.dim(DEFAULT_FILE)} (${runCount} run${runCount !== 1 ? "s" : ""})`,
+    `JSONL: ${pc.dim(jsonlPath)} (${runCount} run${runCount !== 1 ? "s" : ""})`,
   )
   console.log(
     `Model: ${pc.cyan(latestRun.model)} | Period: ${formatDate(runs[0].timestamp)} → ${formatDate(latestRun.timestamp)}`,
@@ -413,7 +505,7 @@ function printConsoleReport(
       let runIdx = 0
       for (const run of runs) {
         runIdx++
-        const result = run.results.find((r) => r.caseId === fc.caseId)
+        const result = run.caseResults.find((r: TrendCaseResult) => r.caseId === fc.caseId)
         if (result && !result.passed) {
           failedRunIndices.push(runIdx)
         }
@@ -532,11 +624,11 @@ function writeJobSummary(
 
 // ─── CLI Argument Parsing ─────────────────────────────────────────────────────
 
-const DEFAULT_FILE = "evals/results/github-models-spike.jsonl"
 const DEFAULT_THRESHOLD = 0.8
 
 interface ParsedArgs {
-  file: string
+  file?: string
+  suite?: string
   last?: number
   check: boolean
   threshold: number
@@ -544,9 +636,14 @@ interface ParsedArgs {
   help: boolean
 }
 
+function resolveJsonlPath(args: ParsedArgs): string {
+  if (args.file) return args.file
+  if (args.suite) return `evals/results/${args.suite}.jsonl`
+  return ""
+}
+
 function parseArgs(argv: string[]): ParsedArgs {
   const args: ParsedArgs = {
-    file: DEFAULT_FILE,
     check: false,
     threshold: DEFAULT_THRESHOLD,
     json: false,
@@ -563,6 +660,8 @@ function parseArgs(argv: string[]): ParsedArgs {
       args.json = true
     } else if (arg === "--file" && argv[i + 1]) {
       args.file = argv[++i]
+    } else if (arg === "--suite" && argv[i + 1]) {
+      args.suite = argv[++i]
     } else if (arg === "--last" && argv[i + 1]) {
       const n = parseInt(argv[++i], 10)
       if (!isNaN(n) && n > 0) {
@@ -583,8 +682,11 @@ function printUsage(): void {
   console.log(`
 Usage: bun run script/eval-trend-report.ts [options]
 
+  Either --suite or --file is required.
+
 Options:
-  --file <path>       JSONL file path (default: ${DEFAULT_FILE})
+  --suite <name>      Suite name — resolves to evals/results/{name}.jsonl
+  --file <path>       Explicit JSONL file path (overrides --suite)
   --last <n>          Only analyze the last N runs (default: all)
   --check             Enable regression checking (exit 1 on regression)
   --threshold <n>     Minimum acceptable score (default: ${DEFAULT_THRESHOLD})
@@ -592,10 +694,10 @@ Options:
   --help              Show this help message
 
 Examples:
-  bun run script/eval-trend-report.ts
-  bun run script/eval-trend-report.ts --last 5
-  bun run script/eval-trend-report.ts --check --threshold 0.80
-  bun run script/eval-trend-report.ts --json
+  bun run script/eval-trend-report.ts --suite agent-routing
+  bun run script/eval-trend-report.ts --file evals/results/custom.jsonl
+  bun run script/eval-trend-report.ts --suite agent-routing --check --threshold 0.80
+  bun run script/eval-trend-report.ts --suite agent-routing --last 5 --json
 `)
 }
 
@@ -609,8 +711,15 @@ function main(): void {
     return
   }
 
+  const filePath = resolveJsonlPath(args)
+  if (!filePath) {
+    console.error(pc.red("Error: Either --suite or --file is required."))
+    printUsage()
+    process.exit(2)
+  }
+
   // Parse JSONL
-  let runs = parseJsonl(args.file)
+  let runs = parseJsonl(filePath)
 
   // Apply --last filter
   if (args.last !== undefined && args.last < runs.length) {
@@ -634,7 +743,7 @@ function main(): void {
     }
     console.log(JSON.stringify(jsonOutput, null, 2))
   } else {
-    printConsoleReport(data, regressions, flakyCases)
+    printConsoleReport(data, regressions, flakyCases, filePath)
 
     // GitHub Actions Job Summary
     if (process.env.GITHUB_STEP_SUMMARY) {

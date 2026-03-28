@@ -49,3 +49,38 @@ export function formatEvalSummary(result: EvalRunResult): string {
 
   return lines.join("\n")
 }
+
+export function formatJobSummaryMarkdown(result: EvalRunResult): string {
+  const pct = ((result.summary.passedCases / result.summary.totalCases) * 100).toFixed(1)
+  const durationMs = new Date(result.finishedAt).getTime() - new Date(result.startedAt).getTime()
+  const durationSec = (durationMs / 1000).toFixed(1)
+
+  let md = `## 🧪 Eval: ${result.suiteId}\n\n`
+  md += `**Phase**: \`${result.phase}\` | **Score**: ${result.summary.passedCases}/${result.summary.totalCases} (${pct}%) | **Duration**: ${durationSec}s\n\n`
+
+  md += `| Case | Result | Score |\n`
+  md += `|------|--------|-------|\n`
+  for (const caseResult of result.caseResults) {
+    const icon = caseResult.status === "passed" ? "✅ Pass" : caseResult.status === "error" ? "💥 Error" : "❌ Fail"
+    md += `| ${caseResult.caseId} | ${icon} | ${caseResult.normalizedScore.toFixed(2)} |\n`
+  }
+
+  const failed = result.caseResults.filter((c) => c.status !== "passed")
+  if (failed.length > 0) {
+    md += `\n<details>\n<summary>📋 Failed Case Details</summary>\n\n`
+    for (const caseResult of failed) {
+      const icon = caseResult.status === "error" ? "💥" : "❌"
+      md += `### ${caseResult.caseId} ${icon}\n\n`
+      for (const assertion of caseResult.assertionResults.filter((a) => !a.passed)) {
+        md += `- ${assertion.message}\n`
+      }
+      for (const error of caseResult.errors) {
+        md += `- Error: ${error}\n`
+      }
+      md += `\n`
+    }
+    md += `</details>\n`
+  }
+
+  return md
+}

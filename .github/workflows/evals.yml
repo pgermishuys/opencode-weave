@@ -85,6 +85,8 @@ jobs:
       )
     runs-on: ubuntu-latest
     continue-on-error: true
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v6
@@ -99,12 +101,28 @@ jobs:
       - name: Run phase2 routing (live)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bun run eval --suite agent-routing
+        run: bun run eval --suite agent-routing --jsonl
+
+      - name: Generate trend report
+        if: always()
+        continue-on-error: true
+        run: bun run script/eval-trend-report.ts --suite agent-routing --check --threshold 0.80
+
+      - name: Commit JSONL results
+        if: github.ref == 'refs/heads/main' && always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add evals/results/agent-routing.jsonl
+          git diff --cached --quiet || git commit -m "chore(evals): update agent-routing trend results [skip ci]"
+          git push
 
       - name: Upload phase2 routing artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: phase2-routing-artifacts
-          path: .weave/evals/
+          path: |
+            .weave/evals/
+            evals/results/agent-routing.jsonl
           if-no-files-found: ignore

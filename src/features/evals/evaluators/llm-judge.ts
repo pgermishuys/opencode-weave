@@ -12,8 +12,10 @@ export function runLlmJudgeEvaluator(spec: LlmJudgeEvaluator, artifacts: EvalArt
   const perItem = totalChecks > 0 ? getWeight(spec) / totalChecks : getWeight(spec)
   const results: AssertionResult[] = []
 
+  const outputLower = output.toLowerCase()
+
   for (const pattern of expected) {
-    const passed = output.includes(pattern)
+    const passed = outputLower.includes(pattern.toLowerCase())
     results.push({
       evaluatorKind: spec.kind,
       passed,
@@ -26,7 +28,7 @@ export function runLlmJudgeEvaluator(spec: LlmJudgeEvaluator, artifacts: EvalArt
   }
 
   for (const pattern of forbidden) {
-    const passed = !output.includes(pattern)
+    const passed = !outputLower.includes(pattern.toLowerCase())
     results.push({
       evaluatorKind: spec.kind,
       passed,

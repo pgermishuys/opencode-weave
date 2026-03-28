@@ -1,9 +1,8 @@
 /**
  * GitHub Models API caller for live eval execution.
  *
- * Extracted from script/eval-spike-github-models.ts to share the same
- * fetch-based approach across the standalone spike and the Phase 2 harness.
- * Uses only built-in fetch() — no new dependencies.
+ * Provides a fetch-based approach for calling GitHub Models API
+ * in Phase 2 live eval harness. Uses only built-in fetch() — no new dependencies.
  */
 
 export const GITHUB_MODELS_API_URL = "https://models.inference.ai.azure.com/chat/completions"

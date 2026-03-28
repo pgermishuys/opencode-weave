@@ -39,4 +39,30 @@ describe("runLlmJudgeEvaluator", () => {
     expect(results.length).toBe(1)
     expect(results[0].passed).toBe(true)
   })
+
+  it("matches expected patterns case-insensitively", () => {
+    const results = runLlmJudgeEvaluator(
+      {
+        kind: "llm-judge",
+        expectedContains: ["thread"],
+      },
+      { modelOutput: "I will delegate to Thread for exploration." },
+    )
+
+    expect(results.length).toBe(1)
+    expect(results[0].passed).toBe(true)
+  })
+
+  it("matches forbidden patterns case-insensitively", () => {
+    const results = runLlmJudgeEvaluator(
+      {
+        kind: "llm-judge",
+        forbiddenContains: ["I will implement this directly"],
+      },
+      { modelOutput: "I Will Implement This Directly on my own." },
+    )
+
+    expect(results.length).toBe(1)
+    expect(results[0].passed).toBe(false)
+  })
 })
