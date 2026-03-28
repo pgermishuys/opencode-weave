@@ -27,8 +27,8 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "eval": "bun run script/eval.ts",
-    "eval:smoke": "bun run script/eval.ts --suite pr-smoke",
-    "eval:phase2": "bun run script/eval.ts --suite phase2-routing",
+    "eval:smoke": "bun run script/eval.ts --suite prompt-smoke",
+    "eval:phase2": "bun run script/eval.ts --suite agent-routing",
     "eval:coverage": "bun run script/verify-eval-coverage.ts",
     "eval:spike": "bun run script/eval-spike-github-models.ts",
     "eval:trend": "bun run script/eval-trend-report.ts"

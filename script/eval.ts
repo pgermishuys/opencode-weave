@@ -27,7 +27,7 @@ interface CliOptions {
 
 function printUsage(): void {
   console.error(
-    "Usage: bun run eval [--suite phase1-core] [--case id] [--agent loom] [--tag contract] [--json] [--output path] [--baseline path] [--update-baseline] [--fail-on-regression]",
+    "Usage: bun run eval [--suite prompt-contracts] [--case id] [--agent loom] [--tag contract] [--json] [--output path] [--baseline path] [--update-baseline] [--fail-on-regression]",
   )
 }
 
@@ -52,7 +52,7 @@ function parseMultiValue(value: string | undefined, flag: string): string {
 
 function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
-    suite: "phase1-core",
+    suite: "prompt-contracts",
     json: false,
     updateBaseline: false,
     failOnRegression: false,
