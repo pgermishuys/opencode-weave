@@ -1,10 +1,9 @@
 {
-  // Spike backport: ambiguous-exploration-security
-  // Gray zone: could be Thread (exploration/scanning) or Warp (security analysis) — delegation should happen
-  "id": "loom-phase2-ambiguous-exploration-security",
-  "title": "Loom model response delegates ambiguous exploration+security asks (does not self-handle)",
+  // Gray zone: could be Thread (exploration) or Warp (security) — delegation should happen
+  "id": "ambiguous-exploration-security",
+  "title": "Delegates ambiguous exploration+security asks",
   "phase": "routing",
-  "tags": ["routing", "loom", "routing", "spike-backport", "ambiguous"],
+  "tags": ["routing", "loom", "ambiguous"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"

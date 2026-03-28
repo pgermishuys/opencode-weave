@@ -1,10 +1,9 @@
 {
-  // Spike backport: route-to-shuttle-specialist-hard
-  // Harder shuttle routing variant — does NOT use the magic phrase "category-specific specialized work"
-  "id": "loom-phase2-route-to-shuttle-specialist-hard",
-  "title": "Loom model response prefers Shuttle for domain work without explicit prompt-mirroring",
+  // Harder shuttle routing — does NOT use the magic phrase "category-specific specialized work"
+  "id": "route-to-shuttle-implicit",
+  "title": "Routes to Shuttle without explicit prompt-mirroring cues",
   "phase": "routing",
-  "tags": ["routing", "loom", "routing", "spike-backport"],
+  "tags": ["routing", "loom"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"

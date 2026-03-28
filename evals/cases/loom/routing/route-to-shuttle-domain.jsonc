@@ -1,10 +1,8 @@
 {
-  // Spike backport: route-to-shuttle-specialist
-  // Category-specific specialized work with explicit domain-specialist framing
-  "id": "loom-phase2-route-to-shuttle-specialist",
-  "title": "Loom model response prefers Shuttle for domain-specialist framing asks",
+  "id": "route-to-shuttle-domain",
+  "title": "Routes to Shuttle for domain-specialist framing asks",
   "phase": "routing",
-  "tags": ["routing", "loom", "routing", "spike-backport"],
+  "tags": ["routing", "loom"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"

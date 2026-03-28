@@ -1,10 +1,8 @@
 {
-  // Spike backport: route-to-weft-review
-  // Non-security code review of non-trivial changes (5 files)
-  "id": "loom-phase2-route-to-weft-review",
-  "title": "Loom model response prefers Weft for non-security multi-file review asks",
+  "id": "route-to-weft-review",
+  "title": "Routes to Weft for non-security multi-file review",
   "phase": "routing",
-  "tags": ["routing", "loom", "routing", "spike-backport"],
+  "tags": ["routing", "loom"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"

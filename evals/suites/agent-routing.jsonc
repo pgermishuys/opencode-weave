@@ -4,17 +4,17 @@
   "phase": "routing",
   "tags": ["routing", "loom", "judge"],
   "caseFiles": [
-    "evals/cases/loom/phase2/delegation-intent-exploration.jsonc",
-    "evals/cases/loom/phase2/delegation-intent-planning.jsonc",
-    "evals/cases/loom/phase2/delegation-intent-security.jsonc",
-    "evals/cases/loom/phase2/delegation-intent-shuttle.jsonc",
-    "evals/cases/loom/phase2/route-to-spindle-research.jsonc",
-    "evals/cases/loom/phase2/route-to-weft-review.jsonc",
-    "evals/cases/loom/phase2/route-to-shuttle-specialist.jsonc",
-    "evals/cases/loom/phase2/self-handle-simple-question.jsonc",
-    "evals/cases/loom/phase2/self-handle-single-file-fix.jsonc",
-    "evals/cases/loom/phase2/ambiguous-exploration-security.jsonc",
-    "evals/cases/loom/phase2/ambiguous-research-planning.jsonc",
-    "evals/cases/loom/phase2/route-to-shuttle-specialist-hard.jsonc"
+    "evals/cases/loom/routing/route-to-thread-exploration.jsonc",
+    "evals/cases/loom/routing/route-to-pattern-planning.jsonc",
+    "evals/cases/loom/routing/route-to-warp-security.jsonc",
+    "evals/cases/loom/routing/route-to-shuttle-specialist.jsonc",
+    "evals/cases/loom/routing/route-to-spindle-research.jsonc",
+    "evals/cases/loom/routing/route-to-weft-review.jsonc",
+    "evals/cases/loom/routing/route-to-shuttle-domain.jsonc",
+    "evals/cases/loom/routing/route-to-shuttle-implicit.jsonc",
+    "evals/cases/loom/routing/self-handle-simple-question.jsonc",
+    "evals/cases/loom/routing/self-handle-single-file-fix.jsonc",
+    "evals/cases/loom/routing/ambiguous-exploration-security.jsonc",
+    "evals/cases/loom/routing/ambiguous-research-planning.jsonc"
   ]
 }

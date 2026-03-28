@@ -1,10 +1,9 @@
 {
-  // Spike backport: self-handle-simple-question
-  // A quick factual question Loom can answer directly — no agent delegation should occur
-  "id": "loom-phase2-self-handle-simple-question",
-  "title": "Loom model response handles simple factual questions without delegation",
+  // Quick factual question — no agent delegation should occur
+  "id": "self-handle-simple-question",
+  "title": "Self-handles simple factual questions without delegation",
   "phase": "routing",
-  "tags": ["routing", "loom", "routing", "spike-backport", "self-handle"],
+  "tags": ["routing", "loom", "self-handle"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"

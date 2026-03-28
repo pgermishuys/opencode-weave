@@ -1,8 +1,8 @@
 {
-  "id": "loom-phase2-delegation-intent-security",
-  "title": "Loom model response surfaces Warp for security-sensitive review asks",
+  "id": "route-to-warp-security",
+  "title": "Routes to Warp for security-sensitive review asks",
   "phase": "routing",
-  "tags": ["routing", "loom", "routing", "security"],
+  "tags": ["routing", "loom", "security"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"

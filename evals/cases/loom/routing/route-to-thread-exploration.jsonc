@@ -1,8 +1,8 @@
 {
-  "id": "loom-phase2-delegation-intent-exploration",
-  "title": "Loom model response prefers Thread for exploration asks",
+  "id": "route-to-thread-exploration",
+  "title": "Routes to Thread for codebase exploration asks",
   "phase": "routing",
-  "tags": ["routing", "loom", "routing"],
+  "tags": ["routing", "loom"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"

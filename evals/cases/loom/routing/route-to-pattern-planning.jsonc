@@ -1,8 +1,8 @@
 {
-  "id": "loom-phase2-delegation-intent-planning",
-  "title": "Loom model response prefers Pattern and start-work for complex implementation asks",
+  "id": "route-to-pattern-planning",
+  "title": "Routes to Pattern for complex implementation planning",
   "phase": "routing",
-  "tags": ["routing", "loom", "routing"],
+  "tags": ["routing", "loom"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"

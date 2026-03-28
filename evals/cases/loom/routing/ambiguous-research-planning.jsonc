@@ -1,10 +1,9 @@
 {
-  // Spike backport: ambiguous-research-planning
   // Two-phase task: research (Spindle) then planning (Pattern) — delegation should happen
-  "id": "loom-phase2-ambiguous-research-planning",
-  "title": "Loom model response delegates ambiguous research+planning asks (does not self-handle)",
+  "id": "ambiguous-research-planning",
+  "title": "Delegates ambiguous research+planning asks",
   "phase": "routing",
-  "tags": ["routing", "loom", "routing", "spike-backport", "ambiguous"],
+  "tags": ["routing", "loom", "ambiguous"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"

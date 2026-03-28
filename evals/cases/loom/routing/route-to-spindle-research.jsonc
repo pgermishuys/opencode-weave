@@ -1,10 +1,8 @@
 {
-  // Spike backport: route-to-spindle-research
-  // Pure external research task — Spindle is described as "external docs and research (read-only)"
-  "id": "loom-phase2-route-to-spindle-research",
-  "title": "Loom model response prefers Spindle for external research asks",
+  "id": "route-to-spindle-research",
+  "title": "Routes to Spindle for external research asks",
   "phase": "routing",
-  "tags": ["routing", "loom", "routing", "spike-backport"],
+  "tags": ["routing", "loom"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "loom"
