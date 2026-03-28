@@ -20,6 +20,8 @@ Weave is a lean OpenCode plugin with multi-agent orchestration. It provides a co
 
 For detailed guides on configuration, workflows, agents, features, and more, visit the **[Weave documentation](https://tryweave.io/docs/)**.
 
+For agent routing eval trends and dashboards, see the **[Eval Dashboard](https://pgermishuys.github.io/opencode-weave/evals/)**.
+
 ## Agents
 
 | Agent | Role | Mode | Description |
