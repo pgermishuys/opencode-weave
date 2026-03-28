@@ -1,0 +1,23 @@
+{
+  "id": "trajectory-tapestry-post-execution-review",
+  "title": "Trajectory: Tapestry delegates to Weft and Warp for post-execution review",
+  "phase": "trajectory",
+  "tags": ["trajectory", "trajectory", "tapestry", "weft", "warp", "delegation", "review"],
+  "target": {
+    "kind": "trajectory-agent",
+    "agent": "tapestry",
+    "scenarioRef": "evals/scenarios/tapestry-post-execution-review.jsonc"
+  },
+  "executor": {
+    "kind": "trajectory-run",
+    "scenarioRef": "evals/scenarios/tapestry-post-execution-review.jsonc"
+  },
+  "evaluators": [
+    {
+      "kind": "trajectory-assertion",
+      "expectedSequence": ["tapestry", "weft", "warp", "tapestry"],
+      "requiredAgents": ["weft", "warp"],
+      "minTurns": 5
+    }
+  ]
+}

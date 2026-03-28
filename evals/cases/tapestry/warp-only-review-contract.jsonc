@@ -1,0 +1,21 @@
+{
+  "id": "tapestry-warp-only-review-contract",
+  "title": "Tapestry PostExecutionReview delegates to Warp only when Weft is disabled",
+  "phase": "prompt",
+  "tags": ["prompt", "composer", "tapestry", "variants"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry",
+    "variant": {
+      "disabledAgents": ["weft"]
+    }
+  },
+  "executor": {
+    "kind": "prompt-render"
+  },
+  "evaluators": [
+    { "kind": "xml-sections-present", "sections": ["PostExecutionReview"] },
+    { "kind": "section-contains-all", "section": "PostExecutionReview", "patterns": ["Delegate to Warp", "subagent_type \"warp\"", "Task tool"] },
+    { "kind": "excludes-all", "patterns": ["subagent_type \"weft\""] }
+  ]
+}

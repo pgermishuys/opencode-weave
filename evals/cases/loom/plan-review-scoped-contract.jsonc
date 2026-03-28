@@ -1,0 +1,19 @@
+{
+  "id": "loom-plan-review-scoped-contract",
+  "title": "Loom PlanWorkflow review step includes both Weft and Warp",
+  "description": "Verifies PlanWorkflow section explicitly mentions Weft for quality review and Warp for security-relevant plans in the REVIEW step.",
+  "phase": "prompt",
+  "tags": ["prompt", "composer", "loom", "review"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "prompt-render"
+  },
+  "evaluators": [
+    { "kind": "xml-sections-present", "sections": ["PlanWorkflow"] },
+    { "kind": "section-contains-all", "section": "PlanWorkflow", "patterns": ["Delegate to Pattern", "Delegate to Weft", "Warp for security-relevant plans", "/start-work"] },
+    { "kind": "ordered-contains", "patterns": ["PLAN: Delegate to Pattern", "REVIEW: Delegate to", "EXECUTE:", "RESUME:"] }
+  ]
+}

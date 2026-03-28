@@ -1,0 +1,25 @@
+{
+  "id": "route-to-warp-after-pattern",
+  "title": "Loom routes to Warp for security review after Pattern finishes a security-sensitive plan",
+  "description": "Verifies that when Pattern has just completed a plan involving auth, tokens, or crypto, Loom delegates to Warp for a mandatory security review before execution.",
+  "phase": "routing",
+  "tags": ["routing", "loom", "security", "review", "post-plan"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "github-models",
+    "model": "gpt-4o-mini",
+    "input": "Pattern just finished creating a plan for OAuth2 token management at .weave/plans/oauth-tokens.md. The plan covers JWT token generation, refresh token rotation, API key hashing, and secret storage. What should we do next before executing?"
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "rubricRef": "evals/rubrics/loom-routing-rubric.md",
+      "expectedContains": ["warp", "security"],
+      "forbiddenContains": ["skip security review", "start implementing"]
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "trajectory-loom-planning-with-weft-review",
+  "title": "Trajectory: Loom delegates to Pattern then Weft for non-security plan review",
+  "phase": "trajectory",
+  "tags": ["trajectory", "trajectory", "loom", "pattern", "weft", "delegation", "review"],
+  "target": {
+    "kind": "trajectory-agent",
+    "agent": "loom",
+    "scenarioRef": "evals/scenarios/loom-planning-with-weft-review.jsonc"
+  },
+  "executor": {
+    "kind": "trajectory-run",
+    "scenarioRef": "evals/scenarios/loom-planning-with-weft-review.jsonc"
+  },
+  "evaluators": [
+    {
+      "kind": "trajectory-assertion",
+      "expectedSequence": ["loom", "pattern", "weft", "loom"],
+      "requiredAgents": ["pattern", "weft"],
+      "forbiddenAgents": ["warp"],
+      "minTurns": 5
+    }
+  ]
+}

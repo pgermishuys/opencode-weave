@@ -61,8 +61,8 @@ describe("runEvalSuite", () => {
 
         expect(output.result.suiteId).toBe("agent-trajectory")
         expect(output.result.phase).toBe("trajectory")
-        expect(output.result.summary.totalCases).toBe(5)
-        expect(output.result.summary.passedCases).toBe(5)
+        expect(output.result.summary.totalCases).toBe(7)
+        expect(output.result.summary.passedCases).toBe(7)
         expect(output.result.summary.failedCases).toBe(0)
         expect(output.result.summary.errorCases).toBe(0)
         expect(output.result.summary.normalizedScore).toBe(1)
@@ -144,7 +144,7 @@ describe("runEvalSuite", () => {
         const trajectoryOutput = await runEvalSuite({ directory: dir, suite: "agent-trajectory" })
         const promptOutput = await runEvalSuite({ directory: dir, suite: "prompt-contracts" })
 
-        expect(trajectoryOutput.result.summary.passedCases).toBe(5)
+        expect(trajectoryOutput.result.summary.passedCases).toBe(7)
         expect(promptOutput.result.summary.normalizedScore).toBeGreaterThan(0)
         expect(promptOutput.result.summary.errorCases).toBe(0)
       } finally {

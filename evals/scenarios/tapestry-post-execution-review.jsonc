@@ -1,0 +1,43 @@
+{
+  "id": "tapestry-post-execution-review",
+  "title": "Tapestry delegates to Weft and Warp after completing all plan tasks",
+  "description": "Tapestry finishes executing all plan tasks, then delegates to Weft for quality review and Warp for security audit as part of the mandatory post-execution review gate.",
+  "agents": ["tapestry", "weft", "warp"],
+  "turns": [
+    {
+      "turn": 1,
+      "role": "user",
+      "content": "All plan tasks are now checked off. The changed files are: src/auth/handler.ts, src/auth/middleware.ts, src/models/user.ts, src/routes/auth.ts, tests/auth.test.ts."
+    },
+    {
+      "turn": 2,
+      "role": "assistant",
+      "agent": "tapestry",
+      "content": "All tasks complete. Running mandatory post-execution review with Weft and Warp.",
+      "expectedDelegation": "weft",
+      "mockResponse": "All 5 plan tasks are checked off. Running the mandatory post-execution review gate.\n\nChanged files identified:\n- src/auth/handler.ts\n- src/auth/middleware.ts\n- src/models/user.ts\n- src/routes/auth.ts\n- tests/auth.test.ts\n\n*Delegating to Weft for code quality review...*"
+    },
+    {
+      "turn": 3,
+      "role": "assistant",
+      "agent": "weft",
+      "content": "Weft reviews the changes for code quality.",
+      "mockResponse": "## Code Quality Review\n\n**[APPROVE]**\n\n**Summary**: Changes are well-structured. Auth handler properly separates concerns, middleware follows existing patterns, and test coverage is adequate.\n\n### Notes\n- Clean separation between handler and middleware\n- User model changes are backwards-compatible\n- Tests cover happy path and error cases"
+    },
+    {
+      "turn": 4,
+      "role": "assistant",
+      "agent": "warp",
+      "content": "Warp audits the security aspects of the changes.",
+      "expectedDelegation": "warp",
+      "mockResponse": "## Security Audit\n\n**[APPROVE]**\n\n**Summary**: Auth changes follow security best practices. No vulnerabilities detected.\n\n### Findings\n- Token handling uses constant-time comparison ✓\n- Middleware validates JWT signature before extracting claims ✓\n- No hardcoded secrets or credentials ✓\n- Input validation present on auth routes ✓"
+    },
+    {
+      "turn": 5,
+      "role": "assistant",
+      "agent": "tapestry",
+      "content": "Both reviewers approved. Reporting final results.",
+      "mockResponse": "Post-execution review complete:\n\n- **Weft** (code quality): APPROVED — well-structured changes, adequate test coverage\n- **Warp** (security): APPROVED — auth changes follow best practices, no vulnerabilities\n\nAll tasks executed and reviewed successfully. Plan execution is complete."
+    }
+  ]
+}

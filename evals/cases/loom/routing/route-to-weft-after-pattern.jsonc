@@ -1,0 +1,25 @@
+{
+  "id": "route-to-weft-after-pattern",
+  "title": "Loom routes to Weft for plan review after Pattern finishes a non-security plan",
+  "description": "Verifies that when Pattern has just completed a plan touching multiple files with no security concerns, Loom delegates to Weft for quality review before execution.",
+  "phase": "routing",
+  "tags": ["routing", "loom", "review", "post-plan"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "github-models",
+    "model": "gpt-4o-mini",
+    "input": "Pattern just finished creating a plan for refactoring the logging module at .weave/plans/logging-refactor.md. The plan has 6 tasks and touches 8 files across 3 modules. No security-sensitive changes — just structural refactoring. What should we do before running /start-work?"
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "rubricRef": "evals/rubrics/loom-routing-rubric.md",
+      "expectedContains": ["weft", "review"],
+      "forbiddenContains": ["start implementing", "I'll handle this myself"]
+    }
+  ]
+}

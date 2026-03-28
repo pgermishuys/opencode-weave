@@ -1,0 +1,43 @@
+{
+  "id": "loom-planning-with-weft-review",
+  "title": "Loom delegates to Pattern then Weft for non-security plan review",
+  "description": "User asks for a non-security multi-file feature. Loom delegates to Pattern for planning, then Weft reviews the plan for quality (3+ files threshold). Loom summarizes back to the user.",
+  "agents": ["loom", "pattern", "weft"],
+  "turns": [
+    {
+      "turn": 1,
+      "role": "user",
+      "content": "I need to refactor the logging module to support structured logging, log levels, and output formatters across the codebase."
+    },
+    {
+      "turn": 2,
+      "role": "assistant",
+      "agent": "loom",
+      "content": "This is a multi-file refactor that needs planning first, then quality review.",
+      "expectedDelegation": "pattern",
+      "mockResponse": "This is a substantial refactor that will touch multiple modules. Let me delegate to Pattern first for a structured implementation plan.\n\n*Delegating to Pattern for planning...*"
+    },
+    {
+      "turn": 3,
+      "role": "assistant",
+      "agent": "pattern",
+      "content": "Pattern creates a plan for the logging refactor.",
+      "mockResponse": "# Logging Refactor Plan\n\n## TL;DR\n> Refactor logging to support structured output, configurable log levels, and pluggable formatters.\n\n## Deliverables\n- [ ] Define LogLevel enum and Logger interface\n- [ ] Implement structured log entry format (JSON)\n- [ ] Create formatter plugins (JSON, plain text, colored console)\n- [ ] Migrate existing console.log calls to new Logger\n- [ ] Add log level filtering configuration\n- [ ] Update tests for new logging behavior\n\nPlan saved to `.weave/plans/logging-refactor.md`."
+    },
+    {
+      "turn": 4,
+      "role": "assistant",
+      "agent": "weft",
+      "content": "Weft reviews the plan for quality.",
+      "expectedDelegation": "weft",
+      "mockResponse": "## Plan Review — Logging Refactor\n\n**[APPROVE]**\n\n**Summary**: Plan is well-structured with clear deliverables. The migration path from console.log to structured Logger is sound.\n\n### Notes\n- Good separation of concerns with pluggable formatters\n- Consider adding a task for backwards-compatible log output during migration\n- Test coverage task is appropriately scoped\n\nNo blocking issues found."
+    },
+    {
+      "turn": 5,
+      "role": "assistant",
+      "agent": "loom",
+      "content": "Plan reviewed and approved. Ready for execution.",
+      "mockResponse": "Planning and review are complete:\n\n1. **Pattern** created the plan at `.weave/plans/logging-refactor.md` with 6 tasks\n2. **Weft** review: APPROVED — plan is well-structured, no blocking issues\n\nRun `/start-work` when ready to begin execution."
+    }
+  ]
+}

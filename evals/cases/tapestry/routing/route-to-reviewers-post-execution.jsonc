@@ -1,0 +1,24 @@
+{
+  "id": "route-to-reviewers-post-execution",
+  "title": "Tapestry routes to Weft and Warp after completing all plan tasks",
+  "description": "Verifies that when all plan tasks are checked off, Tapestry delegates to Weft and Warp for the mandatory post-execution review rather than reporting directly.",
+  "phase": "routing",
+  "tags": ["routing", "tapestry", "review", "post-execution"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "github-models",
+    "model": "gpt-4o-mini",
+    "input": "All 5 plan tasks are now checked off (5/5 complete). The changed files from git diff are: src/auth/handler.ts, src/auth/middleware.ts, src/models/user.ts, src/routes/auth.ts, tests/auth.test.ts. What should I do now?"
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedContains": ["weft", "warp", "review"],
+      "forbiddenContains": ["plan execution is complete without review"]
+    }
+  ]
+}

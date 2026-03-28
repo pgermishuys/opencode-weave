@@ -15,6 +15,9 @@
     "evals/cases/loom/routing/self-handle-simple-question.jsonc",
     "evals/cases/loom/routing/self-handle-single-file-fix.jsonc",
     "evals/cases/loom/routing/ambiguous-exploration-security.jsonc",
-    "evals/cases/loom/routing/ambiguous-research-planning.jsonc"
+    "evals/cases/loom/routing/ambiguous-research-planning.jsonc",
+    "evals/cases/loom/routing/route-to-weft-after-pattern.jsonc",
+    "evals/cases/loom/routing/route-to-warp-after-pattern.jsonc",
+    "evals/cases/tapestry/routing/route-to-reviewers-post-execution.jsonc"
   ]
 }

@@ -8,6 +8,8 @@
     "evals/cases/trajectory/loom-delegates-to-thread.jsonc",
     "evals/cases/trajectory/loom-planning-with-review.jsonc",
     "evals/cases/trajectory/loom-self-handle-simple.jsonc",
-    "evals/cases/trajectory/loom-security-review-chain.jsonc"
+    "evals/cases/trajectory/loom-security-review-chain.jsonc",
+    "evals/cases/trajectory/loom-planning-with-weft-review.jsonc",
+    "evals/cases/trajectory/tapestry-post-execution-review.jsonc"
   ]
 }
