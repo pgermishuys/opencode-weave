@@ -2,6 +2,7 @@
   // Two-phase task: research (Spindle) then planning (Pattern) — delegation should happen
   "id": "ambiguous-research-planning",
   "title": "Delegates ambiguous research+planning asks",
+  "description": "Two-phase task: research (Spindle) then planning (Pattern). Verifies that Loom delegates rather than attempting to research OAuth2 PKCE and plan the implementation itself.",
   "phase": "routing",
   "tags": ["routing", "loom", "ambiguous"],
   "target": {

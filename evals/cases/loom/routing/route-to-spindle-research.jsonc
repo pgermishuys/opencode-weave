@@ -1,6 +1,7 @@
 {
   "id": "route-to-spindle-research",
   "title": "Routes to Spindle for external research asks",
+  "description": "Verifies that Loom delegates external documentation research (e.g. Stripe API best practices) to Spindle rather than answering from its own knowledge.",
   "phase": "routing",
   "tags": ["routing", "loom"],
   "target": {

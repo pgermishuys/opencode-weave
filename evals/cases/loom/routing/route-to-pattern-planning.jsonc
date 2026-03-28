@@ -1,6 +1,7 @@
 {
   "id": "route-to-pattern-planning",
   "title": "Routes to Pattern for complex implementation planning",
+  "description": "Verifies that Loom delegates complex multi-file feature work (data models, APIs, tests) to Pattern for structured planning rather than implementing directly.",
   "phase": "routing",
   "tags": ["routing", "loom"],
   "target": {

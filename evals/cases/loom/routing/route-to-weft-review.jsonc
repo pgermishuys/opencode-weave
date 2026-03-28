@@ -1,6 +1,7 @@
 {
   "id": "route-to-weft-review",
   "title": "Routes to Weft for non-security multi-file review",
+  "description": "Verifies that Loom delegates non-security code review requests (e.g. reviewing a multi-file refactor for quality) to Weft rather than reviewing itself.",
   "phase": "routing",
   "tags": ["routing", "loom"],
   "target": {

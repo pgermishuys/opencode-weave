@@ -173,6 +173,7 @@ export interface EvalSuiteManifest {
 export interface EvalCase {
   id: string
   title: string
+  description?: string
   phase: EvalPhase
   target: EvalTarget
   executor: ExecutorSpec
@@ -218,6 +219,7 @@ export interface AssertionResult {
 
 export interface EvalCaseResult {
   caseId: string
+  description?: string
   status: "passed" | "failed" | "error"
   score: number
   normalizedScore: number

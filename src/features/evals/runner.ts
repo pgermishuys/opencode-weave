@@ -118,6 +118,7 @@ async function executeCase(evalCase: LoadedEvalCase, context: ExecutionContext):
 
     return {
       caseId: evalCase.id,
+      description: evalCase.description,
       status: assertionResults.every((result) => result.passed) ? "passed" : "failed",
       score: rawScore,
       normalizedScore,
@@ -130,6 +131,7 @@ async function executeCase(evalCase: LoadedEvalCase, context: ExecutionContext):
   } catch (error) {
     return {
       caseId: evalCase.id,
+      description: evalCase.description,
       status: "error",
       score: 0,
       normalizedScore: 0,

@@ -2,6 +2,7 @@
   // Gray zone: could be Thread (exploration) or Warp (security) — delegation should happen
   "id": "ambiguous-exploration-security",
   "title": "Delegates ambiguous exploration+security asks",
+  "description": "Gray zone: request could go to Thread (exploration) or Warp (security). Verifies that Loom delegates to at least one agent rather than handling the auth security scan itself.",
   "phase": "routing",
   "tags": ["routing", "loom", "ambiguous"],
   "target": {

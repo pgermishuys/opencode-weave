@@ -1,6 +1,7 @@
 {
   "id": "route-to-shuttle-domain",
   "title": "Routes to Shuttle for domain-specialist framing asks",
+  "description": "Verifies that Loom delegates domain-specialist requests (GraphQL types, resolvers, validation) to Shuttle when framed as needing a domain expert.",
   "phase": "routing",
   "tags": ["routing", "loom"],
   "target": {

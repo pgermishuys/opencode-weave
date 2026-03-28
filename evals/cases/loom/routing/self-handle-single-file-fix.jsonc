@@ -2,6 +2,7 @@
   // Single-file, single-line fix — Loom should handle directly without delegation
   "id": "self-handle-single-file-fix",
   "title": "Self-handles single-file fixes without delegation",
+  "description": "Verifies that Loom handles trivial single-file fixes (e.g. fixing a typo on one line) directly without delegating to Pattern, Shuttle, or other agents.",
   "phase": "routing",
   "tags": ["routing", "loom", "self-handle"],
   "target": {

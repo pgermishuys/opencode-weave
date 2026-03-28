@@ -1,6 +1,7 @@
 {
   "id": "route-to-shuttle-specialist",
   "title": "Routes to Shuttle for category-specific specialized work",
+  "description": "Verifies that Loom delegates domain-specialist tasks (e.g. GraphQL schema generation) to Shuttle when the user explicitly mentions category-specific work.",
   "phase": "routing",
   "tags": ["routing", "loom"],
   "target": {

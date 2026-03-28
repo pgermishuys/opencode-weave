@@ -2,6 +2,7 @@
   // Quick factual question — no agent delegation should occur
   "id": "self-handle-simple-question",
   "title": "Self-handles simple factual questions without delegation",
+  "description": "Verifies that Loom answers simple factual questions (e.g. Promise vs Observable) directly without delegating to any agent.",
   "phase": "routing",
   "tags": ["routing", "loom", "self-handle"],
   "target": {

@@ -1,6 +1,7 @@
 {
   "id": "route-to-thread-exploration",
   "title": "Routes to Thread for codebase exploration asks",
+  "description": "Verifies that Loom delegates codebase exploration requests (e.g. finding and summarizing files) to Thread rather than handling them directly.",
   "phase": "routing",
   "tags": ["routing", "loom"],
   "target": {

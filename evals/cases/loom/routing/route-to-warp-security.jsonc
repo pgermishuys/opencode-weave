@@ -1,6 +1,7 @@
 {
   "id": "route-to-warp-security",
   "title": "Routes to Warp for security-sensitive review asks",
+  "description": "Verifies that Loom delegates security-sensitive review requests (auth, token handling) to Warp for a security audit rather than reviewing itself.",
   "phase": "routing",
   "tags": ["routing", "loom", "security"],
   "target": {

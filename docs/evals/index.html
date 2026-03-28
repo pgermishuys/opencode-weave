@@ -130,6 +130,7 @@
         durationMs: endMs - startMs,
         caseResults: (run.caseResults || []).map(cr => ({
           caseId: cr.caseId,
+          description: cr.description || '',
           passed: cr.status === 'passed',
           score: cr.normalizedScore,
         })),
@@ -147,6 +148,7 @@
         durationMs: run.durationMs,
         caseResults: (run.results || []).map(r => ({
           caseId: r.caseId,
+          description: r.description || '',
           passed: r.passed,
           score: r.score,
         })),
@@ -179,9 +181,10 @@
         for (const cr of run.caseResults) {
           let h = map.get(cr.caseId);
           if (!h) {
-            h = { caseId: cr.caseId, appearances: 0, passes: 0, failures: 0, passRate: 0, isFlaky: false, lastResult: null, trend: [] };
+            h = { caseId: cr.caseId, description: cr.description || '', appearances: 0, passes: 0, failures: 0, passRate: 0, isFlaky: false, lastResult: null, trend: [] };
             map.set(cr.caseId, h);
           }
+          if (cr.description) h.description = cr.description;
           h.appearances++;
           if (cr.passed) h.passes++; else h.failures++;
           h.lastResult = cr.passed ? 'pass' : 'fail';
@@ -475,7 +478,7 @@
         else { badge = 'Unstable'; badgeCls = 'badge-flaky'; }
 
         tr.innerHTML = `
-          <td><code>${h.caseId}</code></td>
+          <td><code>${h.caseId}</code>${h.description ? `<div style="color: var(--text-dim); font-size: 12px; margin-top: 2px;">${h.description}</div>` : ''}</td>
           <td>${rate}% <span style="color: var(--text-dim)">(${h.passes}/${h.appearances})</span></td>
           <td class="trend-dots">${last6}</td>
           <td><span class="badge ${badgeCls}">${badge}</span></td>
