@@ -28,7 +28,8 @@
     "test": "bun test",
     "eval": "bun run script/eval.ts",
     "eval:smoke": "bun run script/eval.ts --suite pr-smoke",
-    "eval:coverage": "bun run script/verify-eval-coverage.ts"
+    "eval:coverage": "bun run script/verify-eval-coverage.ts",
+    "eval:spike": "bun run script/eval-spike-github-models.ts"
   },
   "keywords": [
     "opencode",
