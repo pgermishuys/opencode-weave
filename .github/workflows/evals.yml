@@ -121,6 +121,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add evals/results/agent-routing.jsonl
           git diff --cached --quiet || git commit -m "chore(evals): update agent-routing trend results [skip ci]"
+          git pull --rebase || true
           git push
 
       - name: Upload routing eval artifacts
