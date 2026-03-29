@@ -1,0 +1,127 @@
+name: Check Spec Kit Upstream
+
+on:
+  schedule:
+    # Monthly on the 1st at 9am UTC
+    - cron: '0 9 1 * *'
+  # Allow manual trigger for testing
+  workflow_dispatch: {}
+
+jobs:
+  check-upstream:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get pinned version from README
+        id: pinned
+        run: |
+          # Extract the pinned commit SHA from the README (format: @ `abc1234`)
+          PINNED=$(grep -oP "(?<=@ \`)[a-f0-9]+" examples/workflows/github-speckit/README.md | head -1 || echo "unknown")
+          echo "sha=$PINNED" >> "$GITHUB_OUTPUT"
+          echo "Pinned SHA: $PINNED"
+
+      - name: Get latest Spec Kit info
+        id: latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get latest commit on main
+          LATEST_FULL=$(gh api repos/github/spec-kit/commits/main --jq '.sha' 2>/dev/null || echo "unknown")
+          LATEST_SHORT="${LATEST_FULL:0:7}"
+
+          # Get latest release tag (may be empty if no releases)
+          LATEST_TAG=$(gh api repos/github/spec-kit/releases/latest --jq '.tag_name' 2>/dev/null || echo "none")
+
+          echo "sha=$LATEST_SHORT" >> "$GITHUB_OUTPUT"
+          echo "full_sha=$LATEST_FULL" >> "$GITHUB_OUTPUT"
+          echo "tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
+          echo "Latest SHA: $LATEST_SHORT (tag: $LATEST_TAG)"
+
+      - name: Check if upstream changed
+        id: changed
+        run: |
+          PINNED="${{ steps.pinned.outputs.sha }}"
+          LATEST="${{ steps.latest.outputs.sha }}"
+
+          if [ "$PINNED" = "unknown" ] || [ "$LATEST" = "unknown" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping: could not determine pinned or latest SHA"
+          elif [ "$PINNED" = "$LATEST" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No change: pinned ($PINNED) matches latest ($LATEST)"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Change detected: pinned=$PINNED latest=$LATEST"
+          fi
+
+      - name: Check for existing open upstream-sync issue
+        id: existing
+        if: steps.changed.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COUNT=$(gh issue list --label "upstream-sync" --state open --json number --jq 'length')
+          echo "open_count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "Open upstream-sync issues: $COUNT"
+
+      - name: Open issue if upstream changed and no duplicate exists
+        if: steps.changed.outputs.changed == 'true' && steps.existing.outputs.open_count == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PINNED="${{ steps.pinned.outputs.sha }}"
+          LATEST="${{ steps.latest.outputs.sha }}"
+          LATEST_FULL="${{ steps.latest.outputs.full_sha }}"
+          LATEST_TAG="${{ steps.latest.outputs.tag }}"
+
+          # Write body to a temp file to avoid YAML/shell quoting issues with markdown
+          cat > /tmp/issue-body.md << 'BODY_EOF'
+          ## Upstream Change Detected
+
+          The [github/spec-kit](https://github.com/github/spec-kit) repository has been updated since our last sync.
+
+          ### What changed
+
+          - **Pinned version**: PINNED_SHA_PLACEHOLDER
+          - **Latest commit**: LATEST_SHA_PLACEHOLDER ([view commit](https://github.com/github/spec-kit/commit/LATEST_FULL_PLACEHOLDER))
+          - **Latest release**: LATEST_TAG_PLACEHOLDER
+          - **Diff**: https://github.com/github/spec-kit/compare/PINNED_SHA_PLACEHOLDER...LATEST_SHA_PLACEHOLDER
+
+          ### Files to check (map to our skills)
+
+          - `.github/prompts/speckit.constitution.prompt.md` → `skills/sdd-constitution/SKILL.md`
+          - `.github/prompts/speckit.specify.prompt.md` → `skills/sdd-specification/SKILL.md`
+          - `.github/prompts/speckit.clarify.prompt.md` → `skills/sdd-clarify/SKILL.md`
+          - `.github/prompts/speckit.plan.prompt.md` → `skills/sdd-planning/SKILL.md`
+          - `.github/prompts/speckit.analyze.prompt.md` → `skills/sdd-analysis/SKILL.md`
+          - `.github/prompts/speckit.tasks.prompt.md` → `workflows/spec-driven.jsonc` (Step 7)
+          - `.github/prompts/speckit.implement.prompt.md` → `workflows/spec-driven.jsonc` (Step 9)
+
+          ### Action required
+
+          1. Review the diff linked above
+          2. Update affected skills in `examples/workflows/github-speckit/skills/`
+          3. Update affected workflow steps in `examples/workflows/github-speckit/workflows/spec-driven.jsonc`
+          4. Update the pinned SHA in `examples/workflows/github-speckit/README.md` to the new SHA
+          5. Close this issue
+
+          > This issue was created automatically by the `speckit-upstream-check` workflow.
+          BODY_EOF
+
+          # Replace placeholders with actual values
+          sed -i \
+            -e "s/PINNED_SHA_PLACEHOLDER/${PINNED}/g" \
+            -e "s/LATEST_SHA_PLACEHOLDER/${LATEST}/g" \
+            -e "s/LATEST_FULL_PLACEHOLDER/${LATEST_FULL}/g" \
+            -e "s/LATEST_TAG_PLACEHOLDER/${LATEST_TAG}/g" \
+            /tmp/issue-body.md
+
+          gh issue create \
+            --title "Spec Kit upstream updated — review examples/workflows/github-speckit/" \
+            --label "upstream-sync" \
+            --body-file /tmp/issue-body.md

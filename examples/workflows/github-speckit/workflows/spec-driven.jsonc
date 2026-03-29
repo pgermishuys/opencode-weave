@@ -1,0 +1,233 @@
+{
+  // Spec-Driven Development workflow for Weave, based on GitHub Spec Kit methodology.
+  // See: https://github.com/github/spec-kit
+  //
+  // Adds 4 mandatory review gates (spec, plan, code, security) that Spec Kit lacks.
+  // Artifacts flow through all 11 steps — spec → plan → tasks → implementation → reviews.
+  //
+  // Usage: /run-workflow spec-driven "Build user authentication"
+
+  "name": "spec-driven",
+  "description": "Spec-Driven Development: constitution → specify → clarify → plan → tasks → implement, with mandatory Weft/Warp review gates",
+  "version": 1,
+
+  "steps": [
+    {
+      // ── Step 1: Constitution ───────────────────────────────────────────────
+      // Establish or update the project constitution — the foundational governance
+      // document that all downstream specs, plans, and tasks must comply with.
+      "id": "constitution",
+      "name": "Constitution",
+      "type": "interactive",
+      "agent": "shuttle",
+      "prompt": "## SDD Step 1: Constitution\n\nGoal: {{instance.goal}}\n\nYour task is to establish or update the project constitution at `.specify/memory/constitution.md`.\n\nThe constitution is the foundational governance document. All specs, plans, and tasks produced in later steps must comply with it.\n\n### CRITICAL: This is an interactive step\nYou MUST ask the user questions and then STOP your response to wait for their answers. Do NOT proceed to write the constitution until the user has answered. Do NOT guess or assume answers. Ask your questions, then end your message and wait.\n\n### What to do\n\n1. Check if `.specify/memory/constitution.md` already exists\n   - If it exists: read it, present a summary, then ask the user if they want to update any principles. STOP and wait for their response.\n   - If it doesn't exist: ask the user the questions below. STOP and wait for their answers.\n\n2. Questions to ask the user (ask ALL of these, then STOP and wait):\n   - **Project name** — What should this project be called?\n   - **Core principles** — What are 3-5 non-negotiable rules for this project? (e.g., all endpoints must have tests, prefer simplicity over abstraction)\n   - **Governance** — How should constitution changes be approved? (e.g., PR with reviewer approval)\n   - Offer to propose sensible defaults if the user prefers.\n\n3. AFTER the user responds, write the constitution using this structure:\n   ```\n   # [PROJECT_NAME] Constitution\n   **Version**: 1.0.0 | **Ratified**: YYYY-MM-DD | **Last Amended**: YYYY-MM-DD\n\n   ## Core Principles\n\n   ### [PRINCIPLE_NAME]\n   [Description using MUST/SHOULD language]\n   **Rationale**: [Why this principle exists]\n\n   ## Governance\n   **Amendment procedure**: [How to propose changes]\n   **Versioning**: MAJOR.MINOR.PATCH (semantic versioning)\n   **Compliance review**: [When/how reviewed]\n   ```\n\n4. If updating an existing constitution, prepend a Sync Impact Report as an HTML comment:\n   ```html\n   <!-- Sync Impact Report\n   Version change: X.Y.Z → X.Y.Z\n   Modified principles: [old → new]\n   Added sections: [list or none]\n   Removed sections: [list or none]\n   Follow-up TODOs: [list or none]\n   -->\n   ```\n\n### Quality rules\n- Principles must be declarative and testable\n- No vague language — MUST/SHOULD with explicit rationale\n- Dates in ISO format (YYYY-MM-DD)\n- 3–7 principles (fewer is better)\n\nOnce the constitution is written and the user confirms it looks good, the step is complete.",
+      "completion": { "method": "user_confirm" },
+      "artifacts": {
+        "outputs": [
+          { "name": "constitution_path", "description": "Path to the constitution file (.specify/memory/constitution.md)" }
+        ]
+      }
+    },
+
+    {
+      // ── Step 2: Specify ────────────────────────────────────────────────────
+      // Write a formal feature specification covering user scenarios, functional
+      // requirements (FR-001 format), success criteria, and edge cases.
+      "id": "specify",
+      "name": "Specify",
+      "type": "autonomous",
+      "agent": "shuttle",
+      "prompt": "## SDD Step 2: Specify\n\nGoal: {{instance.goal}}\nConstitution: {{artifacts.constitution_path}}\n\nYour task is to write a formal feature specification.\n\n### Where to write it\nCreate the feature slug from the goal (lowercase, hyphens): `{{instance.slug}}`\nSpec path: `.specify/features/{{instance.slug}}/spec.md`\nCreate the directory if it doesn't exist.\n\n### Read the constitution first\nRead `{{artifacts.constitution_path}}` — every requirement and success criterion must align with the constitution's principles.\n\n### Spec structure (all sections required)\n\n```markdown\n# Feature: [Name]\n**Status**: Draft | **Version**: 0.1.0\n**Goal**: [One sentence — what problem does this solve?]\n\n## User Scenarios\n[P1/P2/P3 priority user stories]\n- **[US1] [P1]** As a [role], I want to [action] so that [outcome]\n  - Given [context], When [action], Then [observable outcome]\n\n## Functional Requirements\n- **[FR-001]** [System] MUST [behaviour] [so that/when condition]\n- **[FR-002]** ...\n\n## Success Criteria\n- **[SC-001]** [Measurable, technology-agnostic criterion]\n\n## Edge Cases\n- [Boundary condition / error scenario]\n\n## Key Entities (if applicable)\n- **[EntityName]**: [attributes and relationships]\n\n## Assumptions\n- [Reasonable default documented explicitly]\n```\n\n### Quality rules\n- Maximum **3** `[NEEDS CLARIFICATION]` markers — if you have more, make reasonable assumptions\n- Requirements must be testable (avoid \"should be fast\", \"should be easy\")\n- No implementation details in requirements (say WHAT, not HOW)\n- Success criteria must be measurable\n\n### Also create\nA requirements quality checklist at `.specify/features/{{instance.slug}}/checklists/requirements.md`:\n```markdown\n# Requirements Quality Checklist: {{instance.slug}}\n- [ ] All FRs are testable\n- [ ] No implementation details in requirements\n- [ ] Success criteria are measurable\n- [ ] Edge cases documented\n- [ ] Constitution alignment verified\n- [ ] Maximum 3 NEEDS CLARIFICATION markers\n```\n\nWhen done writing the spec and checklist, emit `[SPEC_COMPLETE]` on its own line.",
+      "completion": { "method": "agent_signal", "keywords": ["[SPEC_COMPLETE]"] },
+      "artifacts": {
+        "inputs": [
+          { "name": "constitution_path" }
+        ],
+        "outputs": [
+          { "name": "spec_path", "description": "Path to the feature spec (.specify/features/{slug}/spec.md)" },
+          { "name": "feature_dir", "description": "Path to the feature directory (.specify/features/{slug}/)" }
+        ]
+      }
+    },
+
+    {
+      // ── Step 3: Spec Review Gate ───────────────────────────────────────────
+      // Weft reviews the spec for completeness, quality, and constitution alignment.
+      // The workflow pauses if the spec is rejected — it must be fixed before proceeding.
+      "id": "spec-review",
+      "name": "Spec Review",
+      "type": "gate",
+      "agent": "weft",
+      "prompt": "## SDD Gate: Spec Review\n\nReview the feature specification for quality and constitution alignment.\n\n**Spec**: {{artifacts.spec_path}}\n**Constitution**: {{artifacts.constitution_path}}\n\n### Review criteria\n\n1. **Completeness** — All required sections present: User Scenarios, Functional Requirements, Success Criteria, Edge Cases\n2. **Requirement quality** — All FRs are testable, no implementation details, MUST/SHOULD language\n3. **Success criteria** — All SCs are measurable and technology-agnostic\n4. **Constitution alignment** — Requirements don't violate any constitutional principle\n5. **Ambiguity** — Maximum 3 `[NEEDS CLARIFICATION]` markers (more = spec is not ready)\n6. **User value** — User scenarios clearly describe who benefits and why\n\n### Output format\n\nProvide your verdict as either:\n- `[APPROVE]` — spec is ready for clarification and planning\n- `[REJECT]` — spec has blocking issues (list each one with the FR/SC reference)\n\nBe specific about what needs fixing if rejecting. The spec author needs actionable feedback.",
+      "completion": { "method": "review_verdict" },
+      "on_reject": "pause",
+      "artifacts": {
+        "inputs": [
+          { "name": "spec_path" },
+          { "name": "constitution_path" }
+        ]
+      }
+    },
+
+    {
+      // ── Step 4: Clarify ────────────────────────────────────────────────────
+      // Resolve ambiguities in the spec through structured questioning.
+      // At most 5 questions, asked one at a time with multiple-choice options.
+      "id": "clarify",
+      "name": "Clarify",
+      "type": "interactive",
+      "agent": "shuttle",
+      "prompt": "## SDD Step 4: Clarify\n\nGoal: {{instance.goal}}\nSpec: {{artifacts.spec_path}}\n\nYour task is to resolve ambiguities in the spec through structured questioning.\n\n### CRITICAL: This is an interactive step\nYou MUST ask ONE question at a time and then STOP your response to wait for the user's answer. Do NOT ask multiple questions in a single message. Do NOT proceed to the next question until the user has answered. After each answer, update the spec, then ask the next question (or finish if done).\n\n### Ambiguity scan (11 categories)\nRead the spec and scan for ambiguities across these categories:\n1. **Functional Scope** — unclear boundaries of what's in/out\n2. **Domain/Data** — undefined entities, relationships, or data shapes\n3. **UX Flow** — unclear user journeys or interaction sequences\n4. **Non-Functional** — missing performance, scale, or reliability requirements\n5. **Integration** — unspecified external system interactions\n6. **Edge Cases** — unhandled boundary conditions\n7. **Constraints** — unclear business rules or compliance requirements\n8. **Terminology** — ambiguous domain terms\n9. **Completion Signals** — unclear definition of \"done\"\n10. **Placeholders** — `[NEEDS CLARIFICATION]` markers in the spec\n11. **Unresolved** — conflicting requirements\n\n### Prioritization\nFor each ambiguity found, score it: **Impact × Uncertainty**\n- **Impact**: 1 (low) to 3 (high) — how much does this affect architecture/tasks/tests?\n- **Uncertainty**: 1 (low) to 3 (high) — how unclear is it?\nOnly ask about ambiguities with score ≥ 4.\n\n### Questioning rules\n- **Maximum 5 questions total** — prioritize ruthlessly\n- Ask **ONE question at a time** — then STOP your response and wait for the answer\n- Each question must be **multiple-choice** with a recommended option marked `(recommended)`\n- Format:\n  ```\n  **Question [N]/[max]: [Category]**\n  [Clear question text]\n\n  Options:\n  A. [Option] (recommended)\n  B. [Option]\n  C. [Option]\n  ```\n- After asking the question, END your message. Do not continue.\n\n### After each answer\n- Update the spec inline (add the clarification directly to the relevant section)\n- Record the Q&A in a `## Clarifications` section at the bottom of the spec:\n  ```markdown\n  ## Clarifications\n  ### Session YYYY-MM-DD\n  **Q**: [question]\n  **A**: [answer]\n  **Impact**: [what changed in the spec]\n  ```\n\n### When done\nProvide a coverage summary table:\n| Category | Status |\n|----------|--------|\n| Functional Scope | Resolved / Deferred / Clear |\n| ... | ... |\n\nThen confirm with the user that clarifications are complete.",
+      "completion": { "method": "user_confirm" },
+      "artifacts": {
+        "inputs": [
+          { "name": "spec_path" }
+        ]
+      }
+    },
+
+    {
+      // ── Step 5: Plan ───────────────────────────────────────────────────────
+      // Pattern creates a two-part plan: SDD plan (at .specify/) and Weave plan
+      // (at .weave/plans/) for execution tracking.
+      "id": "plan",
+      "name": "Plan",
+      "type": "autonomous",
+      "agent": "pattern",
+      "prompt": "## SDD Step 5: Plan\n\nGoal: {{instance.goal}}\nSpec: {{artifacts.spec_path}}\nConstitution: {{artifacts.constitution_path}}\nFeature dir: {{artifacts.feature_dir}}\n\nYour task is to create a comprehensive implementation plan. You will produce TWO plan files.\n\n### Constitution check (do this first)\nRead `{{artifacts.constitution_path}}`. For each principle, determine:\n- ✅ Plan complies\n- ⚠ Partial compliance — note the gap\n- ❌ Violation — this blocks proceeding\n\nIf any principle is ❌, stop and report the violation before continuing.\n\n### File 1: SDD Plan at `{{artifacts.feature_dir}}/plan.md`\n\n```markdown\n# Implementation Plan: [Feature Name]\n\n## Technical Context\n- Stack: [languages, frameworks, databases]\n- Architecture pattern: [describe]\n- Unknowns: [mark as UNKNOWN — to be resolved in Phase 0]\n\n## Constitution Check\n| Principle | Status | Notes |\n|-----------|--------|-------|\n| [principle name] | ✅/⚠/❌ | [notes] |\n\n## Phase 0: Research\nFor each UNKNOWN in Technical Context:\n- [ ] Research task → output to `{{artifacts.feature_dir}}/research.md`\n\n## Phase 1: Design\n- Data model → `{{artifacts.feature_dir}}/data-model.md`\n  - Entities, attributes, relationships, constraints\n- API contracts (if applicable)\n  - Endpoints, request/response shapes, error codes\n```\n\n### File 2: Weave execution plan at `.weave/plans/{{instance.slug}}.md`\n\nThis is the Tapestry-executable plan. Use Weave's standard plan format:\n```markdown\n# [Feature Name] — Implementation Plan\n\n## TL;DR\n> One sentence summary\n\n## Context\n[Brief technical context]\n\n## Objectives\n- [ ] [Deliverable 1]\n- [ ] [Deliverable 2]\n\n## TODOs\n- [ ] T001 [P1] [US1] [Task description]\n- [ ] T002 [P1] [US1] [Task description]\n```\n\nTask format: `T###` (sequential), `[P1/P2/P3]` (priority), `[US#]` (user story reference).\nGroup tasks by phase: Setup → Foundation → User Stories → Polish.\n\nEmit `[PLAN_CREATED:{{instance.slug}}]` when both files are written.",
+      "completion": { "method": "plan_created", "plan_name": "{{instance.slug}}" },
+      "artifacts": {
+        "inputs": [
+          { "name": "spec_path" },
+          { "name": "constitution_path" },
+          { "name": "feature_dir" }
+        ],
+        "outputs": [
+          { "name": "plan_path", "description": "Path to SDD plan (.specify/features/{slug}/plan.md)" },
+          { "name": "sdd_plan_path", "description": "Path to Weave execution plan (.weave/plans/{slug}.md)" }
+        ]
+      }
+    },
+
+    {
+      // ── Step 6: Plan Review Gate ───────────────────────────────────────────
+      // Weft reviews the plan for spec coverage, constitution compliance,
+      // task clarity, and feasibility before tasking begins.
+      "id": "plan-review",
+      "name": "Plan Review",
+      "type": "gate",
+      "agent": "weft",
+      "prompt": "## SDD Gate: Plan Review\n\nReview the implementation plan for completeness and feasibility.\n\n**SDD Plan**: {{artifacts.plan_path}}\n**Weave Plan**: {{artifacts.sdd_plan_path}}\n**Spec**: {{artifacts.spec_path}}\n**Constitution**: {{artifacts.constitution_path}}\n\n### Review criteria\n\n1. **Spec coverage** — Every FR in the spec has at least one corresponding task in the plan\n2. **Constitution compliance** — Constitution check table shows ✅ for all principles (no ❌)\n3. **Task clarity** — Each task is atomic, independently verifiable, and has a clear deliverable\n4. **Feasibility** — No tasks have unresolved blockers or unrealistic scope\n5. **Phase organization** — Tasks are logically sequenced (no circular dependencies)\n6. **Traceability** — Tasks reference user stories (US#) and priorities (P1/P2/P3)\n\n### Output format\n\nProvide your verdict as either:\n- `[APPROVE]` — plan is ready for task generation\n- `[REJECT]` — plan has blocking issues (list each one with the task/section reference)\n\nBe specific about coverage gaps if rejecting.",
+      "completion": { "method": "review_verdict" },
+      "on_reject": "pause",
+      "artifacts": {
+        "inputs": [
+          { "name": "plan_path" },
+          { "name": "sdd_plan_path" },
+          { "name": "spec_path" },
+          { "name": "constitution_path" }
+        ]
+      }
+    },
+
+    {
+      // ── Step 7: Tasks ──────────────────────────────────────────────────────
+      // Generate a granular task list with SDD task format (T001 [P1] [US1]).
+      // Also updates the Weave plan's TODOs section.
+      "id": "tasks",
+      "name": "Tasks",
+      "type": "autonomous",
+      "agent": "shuttle",
+      "prompt": "## SDD Step 7: Tasks\n\nGoal: {{instance.goal}}\nSDD Plan: {{artifacts.plan_path}}\nSpec: {{artifacts.spec_path}}\nFeature dir: {{artifacts.feature_dir}}\nWeave plan: {{artifacts.sdd_plan_path}}\n\nYour task is to generate a granular task list at `{{artifacts.feature_dir}}/tasks.md`.\n\n### Task format\n```\nT### [P1/P2/P3] [US#] Task description\n- Acceptance: [what done looks like]\n- Files: [files to create/modify]\n- Depends: [T### if any]\n```\n\n### Phase organization\nGroup tasks into these phases:\n1. **Setup** — scaffolding, dependencies, config\n2. **Foundation** — core data models, base components, shared utilities\n3. **User Stories** — one group per user story (US1, US2, ...)\n4. **Polish** — error handling, edge cases, performance, docs\n\n### Cross-reference rules\n- Every FR must be covered by at least one task\n- Every SC must be verifiable through at least one task's acceptance criteria\n- P1 tasks implement must-have FRs, P2 = should-have, P3 = nice-to-have\n\n### Also update the Weave plan\nUpdate the TODOs section in `{{artifacts.sdd_plan_path}}` to reflect the full task list with `- [ ] T### [P#] [US#] Description` format.\n\nWhen done, emit `[TASKS_COMPLETE]` on its own line.",
+      "completion": { "method": "agent_signal", "keywords": ["[TASKS_COMPLETE]"] },
+      "artifacts": {
+        "inputs": [
+          { "name": "sdd_plan_path" },
+          { "name": "spec_path" },
+          { "name": "feature_dir" },
+          { "name": "plan_path" }
+        ]
+      }
+    },
+
+    {
+      // ── Step 8: Analyze ────────────────────────────────────────────────────
+      // Thread performs a READ-ONLY cross-artifact consistency analysis across
+      // spec, plan, tasks, and constitution. Produces a findings report.
+      "id": "analyze",
+      "name": "Analyze",
+      "type": "autonomous",
+      "agent": "thread",
+      "prompt": "## SDD Step 8: Analyze\n\nGoal: {{instance.goal}}\nSpec: {{artifacts.spec_path}}\nSDD Plan: {{artifacts.plan_path}}\nFeature dir: {{artifacts.feature_dir}}\nConstitution: {{artifacts.constitution_path}}\n\nYour task is a READ-ONLY cross-artifact consistency analysis. Do NOT modify any files.\n\n### Step 1: Build a semantic model\nRead all artifacts and build these inventories:\n- All FR-### requirements from the spec\n- All user stories with their priorities\n- All tasks with their US and FR references\n- All constitution principles\n- All success criteria SC-###\n\n### Step 2: Six detection passes\n\n1. **Coverage Gaps** — FRs with no task, SCs with no verifiable task, user stories with no FR\n2. **Duplication** — overlapping tasks, redundant requirements\n3. **Ambiguity** — requirements with multiple valid interpretations, vague acceptance criteria\n4. **Constitution Alignment** — tasks that would violate constitutional principles\n5. **Inconsistency** — conflicting requirements or contradictory task assumptions\n6. **Underspecification** — tasks with no acceptance criteria, FRs with no success criterion\n\n### Step 3: Severity assignment\n- **CRITICAL** — blocks implementation, must be fixed before proceeding\n- **HIGH** — significant risk, strongly recommended to fix\n- **MEDIUM** — notable gap, fix when possible\n- **LOW** — minor improvement\n\n### Output: findings report\nWrite to `{{artifacts.feature_dir}}/analysis.md`:\n```markdown\n# Cross-Artifact Analysis: [Feature Name]\n**Date**: YYYY-MM-DD\n**Artifacts analyzed**: spec.md, plan.md, tasks.md, constitution.md\n\n## Summary\n- Coverage: [X]% of FRs have tasks, [Y]% of SCs are verifiable\n- Critical findings: [N]\n- Total findings: [N]\n\n## Findings\n| ID | Category | Severity | Location | Summary | Recommendation |\n|----|----------|----------|----------|---------|----------------|\n| A001 | Coverage Gap | HIGH | FR-003 | No task covers FR-003 | Add task to Phase 2 |\n```\nMax 50 findings. Prioritize CRITICAL and HIGH.\n\nWhen done, emit `[ANALYSIS_COMPLETE]` on its own line.",
+      "completion": { "method": "agent_signal", "keywords": ["[ANALYSIS_COMPLETE]"] },
+      "artifacts": {
+        "inputs": [
+          { "name": "spec_path" },
+          { "name": "plan_path" },
+          { "name": "feature_dir" },
+          { "name": "constitution_path" }
+        ]
+      }
+    },
+
+    {
+      // ── Step 9: Implement ──────────────────────────────────────────────────
+      // Tapestry executes tasks phase by phase, checking off as it goes.
+      // Completion is detected when the Weave plan reaches 100%.
+      "id": "implement",
+      "name": "Implement",
+      "type": "autonomous",
+      "agent": "shuttle",
+      "prompt": "## SDD Step 9: Implement\n\nGoal: {{instance.goal}}\nWeave plan: {{artifacts.sdd_plan_path}}\nFeature dir: {{artifacts.feature_dir}}\nSpec: {{artifacts.spec_path}}\n\nYour task is to implement the feature by executing tasks from the plan phase by phase.\n\n### Execution rules\n1. Read `{{artifacts.sdd_plan_path}}` to get the full task list\n2. Work phase by phase: Setup → Foundation → User Stories → Polish\n3. For each task:\n   - Read the task description and acceptance criteria from `{{artifacts.feature_dir}}/tasks.md`\n   - Implement the work\n   - Verify against acceptance criteria\n   - Mark `- [ ]` → `- [x]` in BOTH `{{artifacts.sdd_plan_path}}` and `{{artifacts.feature_dir}}/tasks.md`\n4. If a task is blocked, document the blocker as a comment and move to the next unblocked task\n\n### Quality gates (check before marking complete)\n- Does the implementation satisfy the task's acceptance criteria?\n- Does it conform to the constitution's principles?\n- Are there tests (if the spec requires them)?\n\n### Analysis remediation\nBefore starting Phase 1 (User Stories), review `{{artifacts.feature_dir}}/analysis.md` for CRITICAL and HIGH severity findings. Address them as part of implementation.\n\nThe workflow advances automatically when all tasks in `{{artifacts.sdd_plan_path}}` are checked off.",
+      "completion": { "method": "plan_complete", "plan_name": "{{instance.slug}}" },
+      "artifacts": {
+        "inputs": [
+          { "name": "sdd_plan_path" },
+          { "name": "feature_dir" },
+          { "name": "plan_path" },
+          { "name": "spec_path" }
+        ]
+      }
+    },
+
+    {
+      // ── Step 10: Code Review Gate ──────────────────────────────────────────
+      // Weft reviews the implementation against the spec, checking code quality,
+      // test coverage, and constitution compliance.
+      "id": "code-review",
+      "name": "Code Review",
+      "type": "gate",
+      "agent": "weft",
+      "prompt": "## SDD Gate: Code Review\n\nReview the implementation for quality, spec compliance, and constitution alignment.\n\n**Spec**: {{artifacts.spec_path}}\n**Constitution**: {{artifacts.constitution_path}}\n**Tasks**: {{artifacts.feature_dir}}/tasks.md\n**Analysis**: {{artifacts.feature_dir}}/analysis.md\n\nReview all files modified during implementation (check git diff or task file references).\n\n### Review criteria\n\n1. **Spec compliance** — Does the implementation satisfy all FR-### requirements?\n2. **Success criteria** — Are all SC-### criteria verifiable in the implementation?\n3. **Code quality** — Follows project conventions, no obvious bugs, readable\n4. **Test coverage** — Critical paths have tests; edge cases from the spec are tested\n5. **Constitution alignment** — No constitutional principles violated\n6. **Analysis findings** — CRITICAL and HIGH severity findings from analysis.md are addressed\n\n### Output format\n\nProvide your verdict as either:\n- `[APPROVE]` — implementation is ready for security review\n- `[REJECT]` — implementation has blocking issues (list each with file:line reference)\n\nFocus on correctness and spec compliance — style issues are LOW priority unless egregious.",
+      "completion": { "method": "review_verdict" },
+      "on_reject": "pause",
+      "artifacts": {
+        "inputs": [
+          { "name": "spec_path" },
+          { "name": "constitution_path" },
+          { "name": "feature_dir" }
+        ]
+      }
+    },
+
+    {
+      // ── Step 11: Security Review Gate ─────────────────────────────────────
+      // Warp performs a security audit: OWASP Top 10, spec compliance,
+      // constitution compliance, and credential safety.
+      "id": "security-review",
+      "name": "Security Review",
+      "type": "gate",
+      "agent": "warp",
+      "prompt": "## SDD Gate: Security Review\n\nPerform a security audit of the implementation.\n\n**Spec**: {{artifacts.spec_path}}\n**Constitution**: {{artifacts.constitution_path}}\n**Feature dir**: {{artifacts.feature_dir}}\n\nReview all files modified during implementation.\n\n### Security audit scope\n\n1. **OWASP Top 10** — Check for injection, broken auth, sensitive data exposure, XXE, broken access control, security misconfiguration, XSS, insecure deserialization, known vulnerable components, insufficient logging\n2. **Credential safety** — No hardcoded secrets, API keys, passwords, or tokens in code or config\n3. **Input validation** — All user inputs sanitized and validated against spec constraints\n4. **Auth/authz** — Authentication and authorization implemented as specified (if applicable)\n5. **Data handling** — Sensitive data handled per constitution's data principles (if defined)\n6. **Constitution compliance** — No security-relevant constitutional principles violated\n\n### Output format\n\nProvide your verdict as either:\n- `[APPROVE]` — no security concerns blocking release\n- `[REJECT]` — security issues found (list each with severity: CRITICAL/HIGH/MEDIUM and file:line reference)\n\nFast-exit with `[APPROVE]` if the changes have no security-relevant surface area (pure UI, docs, config only).",
+      "completion": { "method": "review_verdict" },
+      "on_reject": "pause",
+      "artifacts": {
+        "inputs": [
+          { "name": "spec_path" },
+          { "name": "constitution_path" },
+          { "name": "feature_dir" }
+        ]
+      }
+    }
+  ]
+}

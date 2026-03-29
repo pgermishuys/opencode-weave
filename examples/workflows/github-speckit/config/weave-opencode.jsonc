@@ -1,0 +1,54 @@
+{
+  // ─────────────────────────────────────────────────────────────────────────
+  // Weave configuration for the GitHub Spec Kit SDD workflow package
+  //
+  // HOW TO USE:
+  //   Merge these settings into your project's .opencode/weave-opencode.jsonc
+  //   Adjust the directory paths to match where you placed this package.
+  //
+  // OPTION A — Using from the Weave repo examples directory (development):
+  //   "workflows": { "directories": ["examples/workflows/github-speckit/workflows"] }
+  //   "skill_directories": ["examples/workflows/github-speckit/skills"]
+  //
+  // OPTION B — After copying the package to your project root:
+  //   "workflows": { "directories": ["github-speckit/workflows"] }
+  //   "skill_directories": ["github-speckit/skills"]
+  //
+  // NOTE: Paths must be relative to your project root (no absolute paths or
+  //       ".." traversal allowed — this is enforced for security).
+  //
+  // USAGE:
+  //   /run-workflow spec-driven "Build user authentication"
+  // ─────────────────────────────────────────────────────────────────────────
+
+  "workflows": {
+    // Point at the workflows/ subdirectory of the package
+    "directories": ["examples/workflows/github-speckit/workflows"]
+  },
+
+  // Point at the skills/ subdirectory of the package
+  "skill_directories": ["examples/workflows/github-speckit/skills"],
+
+  "agents": {
+    // Shuttle handles: constitution, specify, clarify, tasks, and implement steps
+    // These skills teach it SDD artifact formats and quality rules
+    "shuttle": {
+      "skills": ["sdd-constitution", "sdd-specification", "sdd-clarify"]
+    },
+
+    // Pattern handles: the plan step
+    // This skill teaches it the SDD plan format and constitution check gates
+    "pattern": {
+      "skills": ["sdd-planning"]
+    },
+
+    // Thread handles: the analyze step
+    // This skill teaches it the 6-pass cross-artifact analysis methodology
+    "thread": {
+      "skills": ["sdd-analysis"]
+    }
+
+    // Weft (spec-review, plan-review, code-review) and Warp (security-review)
+    // use inline review criteria from the workflow step prompts — no extra skills needed
+  }
+}
