@@ -108,19 +108,6 @@ export interface ProjectFingerprint {
   weaveVersion?: string
 }
 
-// ── Suggestions ──────────────────────────────────────────────────
-
-/** A suggestion generated from session analytics */
-export interface Suggestion {
-  /** Unique identifier for deduplication */
-  id: string
-  /** Human-readable suggestion text */
-  text: string
-  /** Category of suggestion */
-  category: "tool-usage" | "delegation" | "workflow" | "token-usage"
-  /** Confidence level */
-  confidence: "high" | "medium" | "low"
-}
 
 // ── Quality Score ─────────────────────────────────────────────────
 

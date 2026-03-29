@@ -10,7 +10,7 @@ export type {
   SessionTokenBreakdown,
   DetectedStack,
   ProjectFingerprint,
-  Suggestion,
+
   InFlightToolCall,
   TrackedSession,
 } from "./types"
@@ -45,7 +45,6 @@ export {
 
 export { SessionTracker, createSessionTracker } from "./session-tracker"
 
-export { generateSuggestions, getSuggestionsForProject } from "./suggestions"
 
 export { generateTokenReport, getTokenReport } from "./token-report"
 
