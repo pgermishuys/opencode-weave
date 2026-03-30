@@ -240,6 +240,7 @@ export const EvalRunResultSchema = z.object({
   finishedAt: z.string(),
   suiteId: z.string(),
   phase: EvalPhaseSchema,
+  model: z.string().optional(),
   summary: EvalRunSummarySchema,
   caseResults: z.array(EvalCaseResultSchema),
 })

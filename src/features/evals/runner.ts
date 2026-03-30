@@ -190,12 +190,22 @@ export async function runEvalSuite(options: RunEvalSuiteOptions): Promise<RunEva
   }
   const finishedAt = new Date().toISOString()
 
+  // Determine the model used for this run: prefer explicit override, then fall
+  // back to the first model-response executor's model in the selected cases.
+  const firstModelResponseCase = selectedCases.find((c) => c.executor.kind === "model-response")
+  const resolvedModel =
+    options.modelOverride ??
+    (firstModelResponseCase?.executor.kind === "model-response"
+      ? firstModelResponseCase.executor.model
+      : undefined)
+
   const result: EvalRunResult = {
     runId,
     startedAt,
     finishedAt,
     suiteId: suite.id,
     phase: suite.phase,
+    ...(resolvedModel !== undefined ? { model: resolvedModel } : {}),
     summary: buildSummary(caseResults),
     caseResults,
   }

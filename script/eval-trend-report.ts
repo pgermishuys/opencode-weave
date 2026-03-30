@@ -105,6 +105,7 @@ interface MainFormatRun {
   startedAt: string
   finishedAt: string
   suiteId: string
+  model?: string
   summary: {
     totalCases: number
     passedCases: number
@@ -132,7 +133,7 @@ function normalizeMainRun(run: MainFormatRun): TrendRun {
   const endMs = new Date(run.finishedAt).getTime()
   return {
     timestamp: run.startedAt,
-    model: "unknown",
+    model: run.model ?? "unknown",
     totalCases: run.summary.totalCases,
     passedCases: run.summary.passedCases,
     failedCases: run.summary.failedCases + run.summary.errorCases,

@@ -15,7 +15,7 @@ function formatTrajectoryDetail(result: EvalCaseResult): string | null {
 export function formatEvalSummary(result: EvalRunResult): string {
   const suiteRole = result.suiteId === "prompt-smoke" ? "PR smoke" : result.suiteId === "prompt-contracts" ? "full deterministic" : "custom"
   const lines = [
-    `Suite ${result.suiteId} (${result.phase})`,
+    `Suite ${result.suiteId} (${result.phase})${result.model ? ` — Model: ${result.model}` : ""}`,
     `- Suite role: ${suiteRole}`,
     `- Cases: ${result.summary.totalCases}`,
     `- Passed: ${result.summary.passedCases}`,
@@ -56,7 +56,11 @@ export function formatJobSummaryMarkdown(result: EvalRunResult): string {
   const durationSec = (durationMs / 1000).toFixed(1)
 
   let md = `## 🧪 Eval: ${result.suiteId}\n\n`
-  md += `**Phase**: \`${result.phase}\` | **Score**: ${result.summary.passedCases}/${result.summary.totalCases} (${pct}%) | **Duration**: ${durationSec}s\n\n`
+  md += `**Phase**: \`${result.phase}\``
+  if (result.model) {
+    md += ` | **Model**: \`${result.model}\``
+  }
+  md += ` | **Score**: ${result.summary.passedCases}/${result.summary.totalCases} (${pct}%) | **Duration**: ${durationSec}s\n\n`
 
   md += `| Case | Result | Score |\n`
   md += `|------|--------|-------|\n`

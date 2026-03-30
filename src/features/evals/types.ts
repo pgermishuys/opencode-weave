@@ -246,6 +246,7 @@ export interface EvalRunResult {
   finishedAt: string
   suiteId: string
   phase: EvalPhase
+  model?: string
   summary: EvalRunSummary
   caseResults: EvalCaseResult[]
 }
