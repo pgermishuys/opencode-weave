@@ -1,7 +1,7 @@
 # Multi-CLI Support: Adapter Architecture for OpenCode, Claude Code & Copilot CLI
 
 ## TL;DR
-> **Summary**: Refactor Weave from an OpenCode-only plugin into a CLI-agnostic core with adapter modules, enabling the same 8-agent system, hooks, workflows, and analytics to work across OpenCode, Claude Code, and GitHub Copilot CLI.
+> **Summary**: Refactor Weave from an OpenCode-only plugin into a CLI-agnostic core with adapter modules, enabling the same 8-agent system, hooks, workflows, and analytics to work across OpenCode, Claude Code (via a native plugin), and GitHub Copilot CLI. The Claude Code adapter is now a **full plugin** (`weave-claude-plugin/`) that leverages Claude Code's plugin system — subagents, skills, hooks.json, and settings.json — rather than the original shell-hook + SKILL.md approach.
 > **Estimated Effort**: XL
 
 ## Context
@@ -67,7 +67,9 @@ Reference-only (comment, no import):
 **Key architectural insight**: The `src/plugin/plugin-interface.ts` file is the single "adapter" that translates between Weave's internal concepts and OpenCode's plugin hooks. The refactoring strategy is to:
 1. Extract a CLI-agnostic `WeaveCore` from the shared logic
 2. Keep `plugin-interface.ts` as the OpenCode adapter
-3. Build parallel adapters for Claude Code and Copilot CLI
+3. Build parallel adapters for Claude Code (as a native plugin) and Copilot CLI
+
+---
 
 ## Objectives
 
@@ -78,10 +80,10 @@ Enable Weave to function as a multi-CLI agent system where the same agent defini
 - [ ] `WeaveCore` — CLI-agnostic core module containing all shared logic
 - [ ] `CLIAdapter` interface — Abstract contract each CLI adapter must implement
 - [ ] `OpenCodeAdapter` — Refactored from current `plugin-interface.ts` (no behavior change)
-- [ ] `ClaudeCodeAdapter` — Shell-hook-based adapter for Claude Code
-- [ ] `CopilotCLIAdapter` — Markdown-agent + MCP-based adapter for Copilot CLI
+- [ ] `ClaudeCodeAdapter` — Plugin-based adapter; outputs the `weave-claude-plugin/` directory
+- [ ] `CopilotCLIAdapter` — Markdown-agent + MCP-based adapter for Copilot CLI (future work)
 - [ ] `CLIDetector` — Auto-detect which CLI is running and select the right adapter
-- [ ] `ConfigGenerator` — `weave init` command that generates per-CLI config files
+- [ ] `ConfigGenerator` — `weave init` command that generates per-CLI config files / plugin directories
 - [ ] Multi-CLI coexistence — Multiple CLI configs can exist simultaneously in a project
 - [ ] **Integration test harness** — Shared utilities for testing adapters + per-adapter integration tests
 - [ ] **CLI smoke test suite** — End-to-end tests using real CLIs (gated behind `RUN_SMOKE_TESTS=true`)
@@ -90,8 +92,10 @@ Enable Weave to function as a multi-CLI agent system where the same agent defini
 - [ ] `bun test` passes with all existing tests + new adapter tests
 - [ ] `bun run typecheck` passes
 - [ ] OpenCode behavior is identical to current (zero regression)
-- [ ] Claude Code adapter generates valid `.claude/settings.json` hook entries
-- [ ] Claude Code hook scripts pass stdin/stdout integration tests (allow/block decisions, JSON protocol)
+- [ ] Claude Code plugin directory structure is valid and passes structural validation
+- [ ] Claude Code subagent `.md` files have valid YAML frontmatter
+- [ ] Claude Code `hooks/hooks.json` passes JSON parse + structural validation (hook names, matchers)
+- [ ] Claude Code hook scripts (in `hooks/`) pass stdin/stdout integration tests (allow/block decisions, JSON protocol)
 - [ ] Copilot CLI adapter generates valid `.github/agents/` markdown files
 - [ ] Copilot MCP server passes in-process integration tests (`tools/list`, `tools/call`)
 - [ ] All generated config files pass structural validation tests (JSON parse, frontmatter parse)
@@ -129,14 +133,16 @@ Enable Weave to function as a multi-CLI agent system where the same agent defini
                            │
               ┌────────────┼────────────┐
               │            │            │
-     ┌────────▼──┐  ┌─────▼─────┐  ┌──▼──────────┐
-     │  OpenCode │  │  Claude   │  │  Copilot    │
-     │  Adapter  │  │  Code     │  │  CLI        │
-     │           │  │  Adapter  │  │  Adapter    │
-     │ In-proc   │  │ Shell     │  │ Markdown    │
-     │ JS plugin │  │ hooks +   │  │ agents +    │
-     │           │  │ SKILL.md  │  │ MCP server  │
-     └─────┬─────┘  └─────┬─────┘  └──────┬──────┘
+     ┌────────▼──┐  ┌─────▼──────┐  ┌──▼──────────┐
+     │  OpenCode │  │ Claude     │  │  Copilot    │
+     │  Adapter  │  │ Code       │  │  CLI        │
+     │           │  │ Adapter    │  │  Adapter    │
+     │ In-proc   │  │ Native     │  │ Markdown    │
+     │ JS plugin │  │ plugin dir │  │ agents +    │
+     │           │  │ (subagents │  │ MCP server  │
+     │           │  │ + skills   │  │             │
+     │           │  │ + hooks)   │  │             │
+     └─────┬─────┘  └─────┬──────┘  └──────┬──────┘
            │              │               │
      ┌─────▼─────┐  ┌─────▼─────┐  ┌─────▼─────┐
      │ OpenCode  │  │  Claude   │  │ Copilot   │
@@ -145,15 +151,20 @@ Enable Weave to function as a multi-CLI agent system where the same agent defini
 
   Config Generation (weave init):
 
-     ┌──────────────────────────────────────────────┐
-     │              ConfigGenerator                  │
-     │                                              │
-     │  OpenCode → opencode.json (plugin entry)     │
-     │  Claude   → .claude/settings.json (hooks)    │
-     │            + .claude/skills/ (SKILL.md)       │
-     │  Copilot  → .github/agents/ (*.md)           │
-     │            + .github/copilot-instructions.md  │
-     └──────────────────────────────────────────────┘
+     ┌──────────────────────────────────────────────────────┐
+     │                    ConfigGenerator                    │
+     │                                                      │
+     │  OpenCode → opencode.json (plugin entry)             │
+     │  Claude   → weave-claude-plugin/ (plugin dir)        │
+     │              ├── .claude-plugin/plugin.json          │
+     │              ├── agents/*.md  (8 subagents)          │
+     │              ├── skills/*/SKILL.md (commands)        │
+     │              ├── hooks/hooks.json + *.mjs scripts    │
+     │              ├── settings.json                       │
+     │              └── CLAUDE.md                          │
+     │  Copilot  → .github/agents/ (*.md)                  │
+     │              + .github/copilot-instructions.md       │
+     └──────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -227,12 +238,14 @@ export type WeaveHookEvent =
   | "message.after"         // assistant response received
   | "tool.before"           // tool about to execute
   | "tool.after"            // tool finished executing
-  | "session.idle"          // session went idle
+  | "session.idle"          // session went idle (maps to Stop in Claude Code)
   | "session.created"       // new session started
   | "session.deleted"       // session ended
   | "config.init"           // config phase (register agents, commands)
   | "command.execute"       // slash command invoked
   | "params.resolve"        // chat params being resolved (model, limits)
+  | "pre.compaction"        // context window compaction about to begin (Claude Code: PreCompact)
+  | "post.compaction"       // context window compaction completed (Claude Code: PostCompact)
 
 /** Core initialization result */
 export interface WeaveCoreInstance {
@@ -242,7 +255,7 @@ export interface WeaveCoreInstance {
   config: WeaveConfig
   analytics: Analytics | null
   directory: string
-  
+
   // Core operations (CLI-agnostic)
   handleStartWork(promptText: string, sessionId: string): StartWorkResult
   handleWorkflowStart(promptText: string, sessionId: string): WorkflowHookResult
@@ -251,8 +264,13 @@ export interface WeaveCoreInstance {
   checkToolBefore(agentName: string, toolName: string, filePath: string, sessionId: string): ToolCheckResult
   checkToolAfter(toolName: string, sessionId: string, callId: string): void
   handleSessionIdle(sessionId: string): IdleAction
+  handlePreCompact(sessionId: string): PreCompactResult   // snapshot todos
+  handlePostCompact(sessionId: string): PostCompactResult // restore todos + re-orientation context
   getAgentDisplayName(configKey: string): string
   resolveSkills(names: string[], disabled?: Set<string>): string
+  /** Returns true if the given agent name should drive the work-continuation loop.
+   *  Currently: only Tapestry. Lives in core so adapter hook scripts don't hardcode "tapestry". */
+  isContinuationAgent(agentName: string): boolean
 }
 ```
 
@@ -267,8 +285,8 @@ export interface CLICapabilities {
   inProcessHooks: boolean
   /** Shell command hooks (Claude Code) */
   shellHooks: boolean
-  /** Custom agent registration (OpenCode: config, Claude: subagents, Copilot: markdown) */
-  agentRegistration: "plugin-config" | "skill-files" | "markdown-files" | "none"
+  /** Custom agent registration mechanism */
+  agentRegistration: "plugin-config" | "plugin-subagents" | "markdown-files" | "none"
   /** Slash commands */
   slashCommands: boolean
   /** Session management API */
@@ -282,13 +300,15 @@ export interface CLICapabilities {
   /** Idle loop / continuation */
   idleLoop: boolean
   /** Primary continuation mechanism */
-  continuationStrategy: "prompt-async" | "mcp-channel" | "autopilot-mode" | "none"
-  /** Fallback continuation mechanism (if primary unavailable) */
-  continuationFallback?: "exit-code-block" | "acp-server" | "none"
+  continuationStrategy: "prompt-async" | "stop-hook-exit2" | "autopilot-mode" | "none"
   /** Fleet orchestration (parallel agents) */
   fleetOrchestration: "native" | "mcp-based" | "none"
   /** Todo/sidebar integration */
   todoIntegration: boolean
+  /** Dedicated pre/post compaction hooks */
+  compactionHooks: boolean
+  /** Plugin packaging support */
+  pluginSystem: boolean
 }
 
 /** Result of adapter initialization */
@@ -307,22 +327,27 @@ export interface CLIAdapter {
   readonly id: "opencode" | "claude-code" | "copilot-cli"
   /** Capability flags */
   readonly capabilities: CLICapabilities
-  
+
   /** Initialize the adapter with core instance */
   init(core: WeaveCoreInstance): Promise<AdapterInitResult>
-  
+
   /** Generate CLI-specific config files */
   generateConfig(core: WeaveCoreInstance, outputDir: string): Promise<GeneratedConfig>
-  
+
   /** Map a Weave agent to this CLI's agent format */
   mapAgent(agent: WeaveAgentDefinition): CLIAgentManifest
-  
-  /** Map a Weave hook to this CLI's hook mechanism */
+
+  /** Map a Weave hook to this CLI's hook mechanism.
+   *  MUST be an exhaustive switch over WeaveHookEvent — a compile error if a new
+   *  event is added to WeaveHookEvent but not handled here. Return null for
+   *  events the CLI cannot support (adapter will emit a degradation warning). */
   mapHook(event: WeaveHookEvent): CLIHookManifest | null
-  
-  /** Map a Weave command to this CLI's command mechanism */
+
+  /** Map a Weave command to this CLI's command mechanism.
+   *  Derives the skill/command body from WeaveCommandDefinition.template at
+   *  generation time — do NOT hardcode command content; read it from the template. */
   mapCommand(command: WeaveCommandDefinition): CLICommandManifest | null
-  
+
   /** Feature degradation report */
   getDegradationReport(): FeatureDegradation[]
 }
@@ -334,7 +359,7 @@ export interface GeneratedConfig {
 
 export interface CLIAgentManifest {
   /** How the agent is registered in this CLI */
-  type: "plugin-agent" | "skill-file" | "markdown-agent" | "system-prompt"
+  type: "plugin-agent" | "plugin-subagent" | "markdown-agent" | "system-prompt"
   /** Content for the registration (config object, markdown, etc.) */
   content: string | Record<string, unknown>
   /** File path where this agent's config lives (if file-based) */
@@ -353,7 +378,7 @@ export interface CLIHookManifest {
 }
 
 export interface CLICommandManifest {
-  type: "slash-command" | "natural-language" | "unsupported"
+  type: "slash-command" | "skill-file" | "natural-language" | "mcp-tool" | "unsupported"
   nativeName?: string
   content?: string
 }
@@ -381,11 +406,73 @@ export interface CLIDetection {
  * Detection strategy (checked in order):
  * 1. WEAVE_CLI env var (explicit override)
  * 2. Process parent detection (OPENCODE_*, CLAUDE_*, GITHUB_COPILOT_*)
- * 3. Config file presence (.opencode/, .claude/, .github/copilot-instructions.md)
- * 4. SDK availability (can import @opencode-ai/plugin?)
+ * 3. Plugin env vars: CLAUDE_PLUGIN_ROOT, CLAUDE_PLUGIN_DATA (definitive for Claude Code plugin)
+ * 4. Config file presence (.opencode/, weave-claude-plugin/, .github/copilot-instructions.md)
+ * 5. SDK availability (can import @opencode-ai/plugin?)
  */
 export function detectCLI(directory: string): CLIDetection
 ```
+
+---
+
+## Lifecycle Architecture
+
+A critical architectural insight that simplifies the entire design: **static agent identity and dynamic runtime behavior are completely separate concerns**. No drift is possible between them.
+
+### Two Completely Separate Concerns
+
+```
+Static (generated at weave init)        Runtime (hook scripts → WeaveCore)
+────────────────────────────────        ──────────────────────────────────
+agents/loom.md                          hooks/check-continuation.mjs
+agents/tapestry.md                      hooks/user-prompt-submit.mjs
+agents/pattern.md                       hooks/pre-tool-use.mjs
+agents/thread.md                        hooks/post-tool-use.mjs
+agents/weft.md                          hooks/on-stop.mjs
+skills/start-work/SKILL.md              hooks/session-start.mjs
+settings.json                           hooks/pre-compact.mjs
+CLAUDE.md                               hooks/post-compact.mjs
+```
+
+**Left side**: Regenerated when `weave.json` changes (same cadence as config changes). A `weave.json` edit requires a plugin restart in Claude Code (identical to OpenCode).
+
+**Right side**: Always reads live state from WeaveCore at runtime. No drift possible — these scripts call `createWeaveCore(process.cwd())` on every invocation and read current disk state.
+
+### Why This Matters
+
+All 14 prompt mutation points that compose system prompts run at **config/init time only**. They are driven by:
+- `disabledAgents` from `weave.json`
+- `customAgents` from `weave.json`
+- `ProjectFingerprint` (OS, stack, language)
+- `skills` files on disk
+- `agentOverrides` (prompt_append, temperature)
+
+None of these change mid-session. Therefore, static `.md` subagent files generated at `weave init` time are a **complete and accurate representation** of agent identity for the lifetime of that session.
+
+Runtime mutations (continuation prompts, start-work injection, workflow steps, compaction recovery, auto-pause, template vars) are handled entirely by hook scripts that call into WeaveCore and read state from disk. They never touch the agent `.md` files. **No prompt staleness is possible**: the static files and the runtime hooks serve different purposes and neither can go stale relative to the other.
+
+### Full Mutation Lifecycle Table
+
+| Lifecycle Moment | Count | Examples | Handled By |
+|---|---|---|---|
+| Config time (plugin init) | 14 | Loom/Tapestry prompt composition, skill loading, agent overrides, disabled agent stripping | Static `.md` files (regenerated at `weave init`) |
+| Per-command | 7 | /start-work injection, /run-workflow, template var substitution | Hook scripts → WeaveCore |
+| Per-message | 2 active | Auto-pause, keyword detection | Hook scripts → WeaveCore |
+| On-idle | 4 | Work continuation, workflow continuation, todo enforcer | Hook scripts → WeaveCore |
+| Per-step-advance | 4 | Workflow step prompt, context header, delegation, template resolution | Hook scripts → WeaveCore |
+| On-compaction | 1 | Todo preserver | Hook scripts → WeaveCore |
+| Per message.updated | 3 | Context window monitor (logged only), token tracking | Hook scripts → WeaveCore |
+
+### Regeneration Cadence
+
+`weave init --cli claude-code` needs to be re-run **only when `weave.json` changes** — which is the same event that would trigger a plugin restart in OpenCode anyway. There is no background sync needed, no staleness detection needed, no freshness checks needed.
+
+| Trigger | Action Required |
+|---|---|
+| `weave.json` changes (agent added/disabled/overridden) | Re-run `weave init --cli claude-code`, then reinstall plugin |
+| Session starts | Hook scripts auto-read live WeaveCore state — no action needed |
+| Plan state changes mid-session | Hook scripts auto-read live `.weave/state.json` — no action needed |
+| New task starts | Hook scripts auto-read live state — no action needed |
 
 ---
 
@@ -395,7 +482,7 @@ export function detectCLI(directory: string): CLIDetection
 
 **File**: `src/adapters/opencode/index.ts`
 
-This is a thin wrapper around the current `plugin-interface.ts`. The refactoring extracts shared logic into `WeaveCore` and keeps only OpenCode-specific wiring here.
+This is a thin wrapper around the current `plugin-interface.ts`. The refactoring extracts shared logic into `WeaveCore` and keeps only OpenCode-specific wiring here. **No behavior change for existing OpenCode users.**
 
 **What stays in the OpenCode adapter:**
 - The `Plugin` type export and OpenCode's hook signature matching
@@ -421,100 +508,358 @@ This is a thin wrapper around the current `plugin-interface.ts`. The refactoring
 - `@opencode-ai/plugin` — ONLY imported in this adapter
 - `@opencode-ai/sdk` — ONLY imported in this adapter (for `AgentConfig` type)
 
-### B. Claude Code Adapter
+---
+
+### B. Claude Code Adapter — Plugin Architecture
 
 **File**: `src/adapters/claude-code/index.ts`
 
-Claude Code uses **shell command hooks** that receive JSON on stdin and output JSON on stdout. The adapter generates:
+**MAJOR CHANGE from original plan**: Instead of generating loose hook scripts into `.claude/hooks/weave/` and skill files into `.claude/skills/`, the Claude Code adapter produces a **self-contained plugin directory** (`weave-claude-plugin/`) that users install once with:
 
-1. **Hook Scripts** — Small executable scripts in `.claude/hooks/weave/` that invoke Weave's core logic
-2. **Skill Files** — Agent prompts as `.claude/skills/` SKILL.md files
-3. **Settings** — `.claude/settings.json` entries for hook registration
+```
+/plugin install ./weave-claude-plugin
+```
 
-**How hooks work in Claude Code:**
+Or during development:
+```
+claude --plugin-dir ./weave-claude-plugin
+```
+
+#### Plugin Directory Structure
+
+```
+weave-claude-plugin/
+├── .claude-plugin/
+│   └── plugin.json          # name, version, description, author
+├── agents/                   # Weave's 8 agents as Claude Code subagents
+│   ├── loom.md              # Loom — main orchestrator (also used as primary via settings.json)
+│   ├── tapestry.md          # Tapestry — execution orchestrator
+│   ├── pattern.md           # Pattern — strategic planner
+│   ├── thread.md            # Thread — codebase explorer
+│   ├── spindle.md           # Spindle — external research
+│   ├── weft.md              # Weft — code review
+│   ├── warp.md              # Warp — security review
+│   └── shuttle.md           # Shuttle — domain specialist worker
+├── skills/                   # Weave commands as invocable skills
+│   ├── start-work/
+│   │   └── SKILL.md         # /weave:start-work $ARGUMENTS
+│   ├── plan/
+│   │   └── SKILL.md         # /weave:plan $ARGUMENTS
+│   └── metrics/
+│       └── SKILL.md         # /weave:metrics
+├── hooks/
+│   ├── hooks.json            # Plugin-level hook registrations (auto-merged on install)
+│   ├── pre-tool-use.mjs      # Write guard + Pattern MD-only guard
+│   ├── post-tool-use.mjs     # Analytics tracking
+│   ├── user-prompt-submit.mjs # Start-work detection, keyword detection
+│   ├── on-stop.mjs           # Tapestry continuation (exit code 2 or allow)
+│   ├── on-session-start.mjs  # Session init, analytics
+│   ├── pre-compact.mjs       # Snapshot todos before compaction
+│   └── post-compact.mjs      # Restore todos + inject re-orientation after compaction
+├── settings.json             # { "agent": "loom" } — sets Loom as default primary agent
+└── CLAUDE.md                 # Plugin-level CLAUDE.md (project context + Weave instructions)
+```
+
+#### Plugin Metadata
 
 ```json
-// .claude/settings.json (generated by weave init)
+// weave-claude-plugin/.claude-plugin/plugin.json
+{
+  "name": "weave",
+  "version": "0.6.x",
+  "description": "Weave — 8-agent AI orchestration system for Claude Code",
+  "author": "opencode_weave"
+}
+```
+
+#### Plugin settings.json
+
+```json
+// weave-claude-plugin/settings.json
+{
+  "agent": "loom"
+}
+```
+
+This makes Loom the default primary agent when Claude Code launches with this plugin. Users can override with `--agent tapestry` for execution-only sessions.
+
+#### Subagent Frontmatter
+
+Each agent in `agents/` is a markdown file with YAML frontmatter. Plugin subagents do NOT support `hooks`, `mcpServers`, or `permissionMode` in frontmatter (Claude Code security restriction). Tool restrictions are expressed via `tools` or `disallowedTools`:
+
+```markdown
+---
+name: pattern
+description: Strategic planner — creates .md plan files in .weave/plans/. ONLY writes markdown files.
+model: claude-opus-4-5
+tools: [Read, Glob, Grep, Write]   # Write allowed but constrained by hooks/hooks.json
+maxTurns: 10
+---
+
+[Full Pattern system prompt from src/agents/pattern/default.ts]
+```
+
+```markdown
+---
+name: loom
+description: Main orchestrator — routes work to specialist agents, delegates via Task tool
+model: claude-opus-4-5
+maxTurns: 30
+---
+
+[Full Loom system prompt]
+```
+
+**Important constraint**: Subagents CANNOT spawn other subagents in Claude Code. Loom runs as the primary agent (via `settings.json: { "agent": "loom" }`), and dispatches to subagents via the Task tool. Tapestry can run as a primary agent switch (`--agent tapestry`) or as a subagent dispatched by Loom.
+
+#### Skill Files (Commands)
+
+Weave's slash commands become namespaced skills in `skills/`. When the plugin is installed, skills are invocable as `/weave:start-work`, `/weave:plan`, `/weave:metrics`.
+
+Skill body content is derived at generation time from `WeaveCommandDefinition.template` — `mapCommand()` reads `command.template` and expands it, rather than hardcoding content. This ensures skill files always reflect the canonical command template defined in core.
+
+```markdown
+---
+name: start-work
+description: Start executing a Weave plan file
+---
+
+Read the plan file at `$ARGUMENTS` and begin executing it. Load `.weave/state.json` to check
+if there's an existing plan in progress. If not, initialize state and start the first task.
+```
+
+#### Plugin Hooks — hooks/hooks.json
+
+Plugin hooks are defined in `hooks/hooks.json` and auto-merged into the project's hook configuration when the plugin is installed. **This is the correct way to register hooks for plugin subagents**, since subagent frontmatter cannot contain `hooks`.
+
+```json
+// weave-claude-plugin/hooks/hooks.json
 {
   "hooks": {
-    "PreToolUse": [
-      {
+    "PreToolUse": [{
+      "hooks": [{
         "type": "command",
-        "command": "node .claude/hooks/weave/pre-tool-use.mjs"
-      }
-    ],
-    "PostToolUse": [
-      {
+        "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-use.mjs\""
+      }]
+    }],
+    "PostToolUse": [{
+      "hooks": [{
         "type": "command",
-        "command": "node .claude/hooks/weave/post-tool-use.mjs"
-      }
-    ],
-    "UserPromptSubmit": [
-      {
+        "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-use.mjs\""
+      }]
+    }],
+    "UserPromptSubmit": [{
+      "hooks": [{
         "type": "command",
-        "command": "node .claude/hooks/weave/user-prompt-submit.mjs"
-      }
-    ],
-    "Stop": [
-      {
+        "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/user-prompt-submit.mjs\""
+      }]
+    }],
+    "Stop": [{
+      "hooks": [{
         "type": "command",
-        "command": "node .claude/hooks/weave/on-stop.mjs"
-      }
-    ],
-    "SessionStart": [
-      {
+        "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/on-stop.mjs\""
+      }]
+    }],
+    "SubagentStop": [{
+      "matcher": "tapestry",
+      "hooks": [{
         "type": "command",
-        "command": "node .claude/hooks/weave/on-session-start.mjs"
-      }
-    ]
+        "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/on-stop.mjs\""
+      }]
+    }],
+    "SessionStart": [{
+      "hooks": [{
+        "type": "command",
+        "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/on-session-start.mjs\""
+      }]
+    }],
+    "PreCompact": [{
+      "hooks": [{
+        "type": "command",
+        "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-compact.mjs\""
+      }]
+    }],
+    "PostCompact": [{
+      "hooks": [{
+        "type": "command",
+        "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/post-compact.mjs\""
+      }]
+    }]
   }
 }
 ```
 
-**Hook script structure:**
-Each hook script is a small Node.js/Bun script that:
-1. Reads JSON from stdin (Claude Code hook payload)
-2. Imports WeaveCore
-3. Calls the appropriate core method
-4. Outputs JSON response to stdout
-5. Exits with code 0 (allow) or 2 (block)
+**Rationale for `Stop` + `SubagentStop` dual registration**: When Loom is the primary agent, `Stop` fires. When Tapestry runs as a subagent dispatched by Loom, its stop event fires as `SubagentStop` with `matcher: "tapestry"`. The same continuation logic handles both.
 
-**Example: `.claude/hooks/weave/pre-tool-use.mjs`**
+#### Hook Script Structure
+
+Each hook script reads JSON from stdin, calls WeaveCore, and outputs the appropriate JSON response:
+
 ```javascript
-// Generated by weave init — do not edit manually
+// weave-claude-plugin/hooks/pre-tool-use.mjs
+// Generated by weave build — do not edit manually
 import { createWeaveCore } from '@opencode_weave/weave/core'
-const input = JSON.parse(await readStdin())
+
+const raw = []
+for await (const chunk of process.stdin) raw.push(chunk)
+const input = JSON.parse(Buffer.concat(raw).toString())
+
 const core = await createWeaveCore(process.cwd())
-const result = core.checkToolBefore(input.agent, input.tool_name, input.tool_input?.file_path ?? '', input.session_id)
+const result = core.checkToolBefore(
+  input.agent_name ?? '',
+  input.tool_name,
+  input.tool_input?.file_path ?? input.tool_input?.path ?? '',
+  input.session_id
+)
+
 if (!result.allowed) {
-  console.log(JSON.stringify({ decision: "block", reason: result.reason }))
+  process.stdout.write(JSON.stringify({
+    permissionDecision: "deny",
+    reason: result.reason
+  }))
   process.exit(2)
 }
 process.exit(0)
 ```
 
-**Agent mapping for Claude Code:**
-- Each Weave agent becomes a SKILL.md file in `.claude/skills/weave/`
-- Claude Code discovers skills from the `.claude/skills/` directory
-- Subagent-mode agents (pattern, thread, spindle, weft, warp) become skills
-- Primary agents (loom, tapestry) become the main instruction + skills
-- The `CLAUDE.md` file at project root gets a Weave section appended
+```javascript
+// weave-claude-plugin/hooks/on-stop.mjs
+// Tapestry-only continuation — fires on Stop (primary) and SubagentStop:tapestry
+import { createWeaveCore } from '@opencode_weave/weave/core'
 
-**Continuation strategy in Claude Code:**
-Claude Code supports two mechanisms for automatic work continuation:
-1. **Primary: Channels (MCP push)** — Claude Code's "research preview" Channels feature allows an MCP server to push messages into an active session. Weave registers an MCP channel that monitors plan state; when the `Stop` hook fires with remaining tasks, the channel pushes a continuation prompt directly into the session, achieving the same auto-continuation as OpenCode's `promptAsync()`. This requires running the Weave MCP server alongside the hook scripts.
-2. **Fallback: Stop hook exit code 2 + system prompt engineering** — If Channels are unavailable (older Claude Code versions), the `Stop` hook returns exit code 2 (block stopping) with a continuation reason. Combined with system prompt instructions telling the agent "when stop is blocked, continue with the next plan task", this achieves semi-automatic continuation. Less reliable than Channels since it depends on the model following the system prompt instruction.
+const raw = []
+for await (const chunk of process.stdin) raw.push(chunk)
+const input = JSON.parse(Buffer.concat(raw).toString())
 
-**Limitations in Claude Code:**
-- No display name UI — skills are identified by their SKILL.md `name` frontmatter
-- No slash commands — Weave commands become documented natural-language triggers
-- Tool permissions cannot be enforced as strictly (shell hook can only block, not restrict per-agent)
+const core = await createWeaveCore(process.cwd())
 
-### C. Copilot CLI Adapter
+// Use core.isContinuationAgent() — avoids hardcoding "tapestry" in adapter scripts
+const agentName = input.agent_name ?? input.subagent_name ?? ''
+if (agentName && !core.isContinuationAgent(agentName)) {
+  process.exit(0)
+}
+const result = core.handleWorkContinuation(input.session_id)
+
+if (result.shouldContinue) {
+  process.stdout.write(JSON.stringify({
+    decision: "block",
+    reason: result.continuationPrompt
+  }))
+  process.exit(2)  // Block stopping; Claude Code will inject the reason as a new user message
+}
+process.exit(0)
+```
+
+```javascript
+// weave-claude-plugin/hooks/pre-compact.mjs
+// Snapshot todos before context compaction
+import { createWeaveCore } from '@opencode_weave/weave/core'
+
+const raw = []
+for await (const chunk of process.stdin) raw.push(chunk)
+const input = JSON.parse(Buffer.concat(raw).toString())
+
+const core = await createWeaveCore(process.cwd())
+await core.handlePreCompact(input.session_id)
+// Always allow compaction to proceed
+process.exit(0)
+```
+
+```javascript
+// weave-claude-plugin/hooks/post-compact.mjs
+// Restore todos + inject re-orientation context after compaction
+import { createWeaveCore } from '@opencode_weave/weave/core'
+
+const raw = []
+for await (const chunk of process.stdin) raw.push(chunk)
+const input = JSON.parse(Buffer.concat(raw).toString())
+
+const core = await createWeaveCore(process.cwd())
+const result = await core.handlePostCompact(input.session_id)
+
+if (result.reOrientationContext) {
+  // Inject re-orientation as additional context for the model post-compaction
+  process.stdout.write(JSON.stringify({
+    additionalContext: result.reOrientationContext
+  }))
+}
+process.exit(0)
+```
+
+#### Continuation Strategy — Tapestry-Only
+
+The continuation mechanism is **exclusively needed for Tapestry** during plan execution:
+- **Loom** is conversational — no continuation needed
+- **Pattern/Thread/Spindle/Weft/Warp/Shuttle** are single-task subagents — no continuation needed
+- **Tapestry** executes multi-step plans and must auto-continue after each task completes
+
+Continuation flow:
+1. Tapestry finishes a task and stops
+2. `Stop` (if Tapestry = primary) or `SubagentStop` with `matcher: tapestry` fires
+3. `on-stop.mjs` calls `core.handleWorkContinuation(sessionId)`
+4. If remaining tasks exist and all 7 safety checks pass: exit code 2 (block stopping) with continuation prompt in JSON body
+5. Claude Code injects the continuation prompt as a new user message and Tapestry continues
+6. If plan complete or paused: exit code 0 (allow stopping)
+
+**Safety mechanisms** (same 7 checks as OpenCode):
+1. Plan completion check (all tasks done)
+2. Stale detection (same task 3 cycles without progress)
+3. User message auto-pause (user said "pause" or similar)
+4. Manual pause flag in state.json
+5. Session interrupt
+6. Context window approaching limit
+7. Workflow takeover (another workflow supersedes this plan)
+
+#### Compaction Hooks — Improvement Over OpenCode
+
+Claude Code provides dedicated `PreCompact` and `PostCompact` hooks — a direct improvement over OpenCode where re-orientation waits for the next `session.idle` event:
+
+| Hook | Fires When | Weave Action |
+|---|---|---|
+| `PreCompact` | Before context window compaction starts | Snapshot current todos to `.weave/state.json` |
+| `PostCompact` | After compaction completes, before new context | Restore todos + inject re-orientation context: current plan name, file path, progress counts, last completed task, next task, instructions not to forget the plan |
+
+The `PostCompact` injection is more precise than OpenCode's approach because it happens immediately at context restoration time, not at the next idle event.
+
+#### Prompt Composer Handling
+
+Weave's agents (Loom, Tapestry) use dynamic prompt composers that merge base prompts with skill content, workflow instructions, and context-specific additions. Claude Code subagents use static markdown files. Resolution:
+
+1. **At plugin build time**: Generate static subagent `.md` files with all sections fully expanded. Skill content is embedded directly. This is the recommended approach for distribution.
+2. **SessionStart hook injection**: The `on-session-start.mjs` hook can inject dynamic context (current plan state, active workflow) into the session at startup time, supplementing the static subagent prompts.
+3. **Accept full prompts**: Static prompts include all sections; Claude gracefully ignores inapplicable instructions.
+
+#### Plugin Installation Flow
+
+`weave init --cli claude-code` generates a complete plugin directory. Users install it once and only need to re-run `weave init` when `weave.json` changes.
+
+**Production install**:
+```bash
+weave init --cli claude-code          # generates weave-claude-plugin/ in project root
+# Then in Claude Code:
+/plugin install ./weave-claude-plugin
+```
+
+**Development mode** (no install needed — reads files directly):
+```bash
+claude --plugin-dir ./weave-claude-plugin
+```
+
+**After a `weave.json` change** (same as "restart OpenCode" for OpenCode users):
+```bash
+weave init --cli claude-code          # regenerates plugin dir from updated weave.json
+/plugin install ./weave-claude-plugin  # reinstall to pick up changes
+```
+
+No background sync. No staleness checks. Runtime behavior (hook scripts) always reads live WeaveCore state on every invocation — it cannot go stale.
+
+---
+
+### C. Copilot CLI Adapter (Future Work)
 
 **File**: `src/adapters/copilot-cli/index.ts`
 
-Copilot CLI has the most limited extension model: custom agents as markdown files and MCP servers.
+Copilot CLI has the most limited extension model: custom agents as markdown files and MCP servers. This adapter is planned for a future phase.
 
 **Agent mapping:**
 - Each Weave agent becomes a markdown file in `.github/agents/`
@@ -535,7 +880,7 @@ description: Main Orchestrator — routes tasks to specialist agents
 Since Copilot CLI has no hook system, Weave exposes an MCP server that Copilot can call:
 
 ```json
-// .github/copilot-mcp.json or ~/.copilot/mcp-config.json
+// .github/copilot-mcp.json
 {
   "servers": {
     "weave": {
@@ -558,62 +903,62 @@ The MCP server exposes tools like:
 - `.github/copilot-instructions.md` gets a Weave section explaining available agents and MCP tools
 - Agents reference each other via `@agent-name` syntax
 
-**Continuation strategy in Copilot CLI:**
+**Continuation strategy:**
 Copilot CLI supports automatic continuation via:
-1. **Primary: Autopilot mode** — `copilot --autopilot --yolo --max-autopilot-continues N` enables fully autonomous multi-step execution. Weave's agent prompts include plan-checking instructions so the agent naturally reads `.weave/state.json` and continues with the next task after each step. The `--max-autopilot-continues` flag provides a safety limit (maps to Weave's stale detection). Minimal integration code needed — `agent-mapper` injects plan-checking instructions and the MCP `weave_check_progress` tool provides the `shouldContinue` safety signal.
-2. **Alternative: ACP server** — Copilot's Agent Client Protocol (ACP) server mode allows programmatic session management. Weave can run an ACP server that injects continuation prompts, similar to OpenCode's `promptAsync()`. More complex to implement but offers fine-grained control over the continuation flow.
+1. **Primary: Autopilot mode** — `copilot --autopilot --yolo --max-autopilot-continues N` enables fully autonomous multi-step execution. Weave's agent prompts include plan-checking instructions so the agent naturally reads `.weave/state.json` and continues with the next task after each step. The MCP tool `weave_check_progress` provides structured task progress with a `shouldContinue` safety signal.
+2. **Alternative: ACP server** — Copilot's Agent Client Protocol (ACP) server mode allows programmatic session management for fine-grained continuation control.
 
 **Limitations in Copilot CLI:**
 - No lifecycle hooks — cannot intercept tool calls, no write guards
 - No session tracking — analytics limited to what MCP server can observe
 - Fleet orchestration unavailable (no subagent spawning API)
-- Continuation safety coarser-grained — `--max-autopilot-continues` is the primary guard; stale detection and user-pause require agent prompt compliance with `weave_check_progress shouldContinue` flag
+- Continuation safety coarser-grained — `--max-autopilot-continues` is the primary guard
 
 ---
 
 ## Agent Mapping Table
 
-| Weave Agent | OpenCode | Claude Code | Copilot CLI |
+| Weave Agent | OpenCode | Claude Code (Plugin) | Copilot CLI |
 |---|---|---|---|
-| **Loom** (Main Orchestrator) | Primary agent via `config` hook. Display name: "Loom (Main Orchestrator)" | CLAUDE.md section + `.claude/skills/weave/loom.md`. Default routing. | `.github/agents/loom.md`. Invoked via `@loom`. |
-| **Tapestry** (Execution) | Primary agent via `config` hook. Display name: "Tapestry (Execution Orchestrator)" | `.claude/skills/weave/tapestry.md`. Activated by Loom delegation. | `.github/agents/tapestry.md`. Invoked via `@tapestry`. |
-| **Pattern** (Planning) | Subagent. Restricted to .md writes in .weave/. | `.claude/skills/weave/pattern.md` + `PreToolUse` hook enforces .md-only guard. | `.github/agents/pattern.md`. Write restriction noted in prompt only (not enforced). |
-| **Thread** (Codebase Explorer) | Subagent. Read-only tools. | `.claude/skills/weave/thread.md`. Read-only enforced via prompt. | `.github/agents/thread.md`. Read-only via prompt. |
-| **Spindle** (External Research) | Subagent. Read-only tools. | `.claude/skills/weave/spindle.md`. Read-only enforced via prompt. | `.github/agents/spindle.md`. Read-only via prompt. |
-| **Weft** (Code Review) | Subagent. Review-focused. | `.claude/skills/weave/weft.md`. Post-implementation review. | `.github/agents/weft.md`. Invoked via `@weft`. |
-| **Warp** (Security Review) | Subagent. Security-focused. | `.claude/skills/weave/warp.md`. Security audit. | `.github/agents/warp.md`. Invoked via `@warp`. |
-| **Shuttle** (Domain Specialist) | Worker agent. Category system. | `.claude/skills/weave/shuttle.md`. Domain dispatch. | `.github/agents/shuttle.md`. Invoked via `@shuttle`. |
+| **Loom** (Main Orchestrator) | Primary agent via `config` hook. Display name: "Loom (Main Orchestrator)" | `agents/loom.md` subagent + `settings.json: { "agent": "loom" }` makes it primary. Invoked as `weave:loom` in typeahead. | `.github/agents/loom.md`. Invoked via `@loom`. |
+| **Tapestry** (Execution) | Primary agent via `config` hook. Display name: "Tapestry (Execution Orchestrator)" | `agents/tapestry.md` subagent. Dispatched by Loom via Task tool, OR launched as primary with `--agent tapestry`. Continuation hooks scoped to tapestry. | `.github/agents/tapestry.md`. Invoked via `@tapestry`. |
+| **Pattern** (Planning) | Subagent. Restricted to .md writes in .weave/. | `agents/pattern.md` with `tools: [Read, Glob, Grep, Write]`. Write guard enforced by `PreToolUse` hook in hooks.json (blocks non-.md writes). | `.github/agents/pattern.md`. Write restriction in prompt only (not enforced). |
+| **Thread** (Codebase Explorer) | Subagent. Read-only tools. | `agents/thread.md` with `disallowedTools: [Write, Edit, Bash]`. Read-only enforced via frontmatter. | `.github/agents/thread.md`. Read-only via prompt. |
+| **Spindle** (External Research) | Subagent. Read-only tools. | `agents/spindle.md` with `disallowedTools: [Write, Edit, Bash]`. Read-only enforced via frontmatter. | `.github/agents/spindle.md`. Read-only via prompt. |
+| **Weft** (Code Review) | Subagent. Review-focused. | `agents/weft.md`. Post-implementation review. | `.github/agents/weft.md`. Invoked via `@weft`. |
+| **Warp** (Security Review) | Subagent. Security-focused. | `agents/warp.md`. Security audit. | `.github/agents/warp.md`. Invoked via `@warp`. |
+| **Shuttle** (Domain Specialist) | Worker agent. Category system. | `agents/shuttle.md`. Domain dispatch via Task tool. | `.github/agents/shuttle.md`. Invoked via `@shuttle`. |
 
 ---
 
 ## Hook Mapping Table
 
-| Weave Hook | OpenCode Hook | Claude Code Hook | Copilot CLI Equivalent |
+| Weave Hook | OpenCode Hook | Claude Code Hook (Plugin) | Copilot CLI Equivalent |
 |---|---|---|---|
-| **message.before** | `chat.message` | `UserPromptSubmit` (shell) | ❌ None |
-| **tool.before** | `tool.execute.before` | `PreToolUse` (shell) | ❌ None |
-| **tool.after** | `tool.execute.after` | `PostToolUse` (shell) | ❌ None |
-| **session.idle** | `event` (session.idle) | `Stop` (shell) → MCP Channel push or exit 2 | Autopilot mode auto-continues; ACP for programmatic control |
-| **session.created** | `event` (session.created) | `SessionStart` (shell) | ❌ None |
-| **session.deleted** | `event` (session.deleted) | ❌ None (no explicit end) | ❌ None |
-| **config.init** | `config` | `.claude/settings.json` (static) | `.github/agents/*.md` (static) |
+| **message.before** | `chat.message` | `UserPromptSubmit` (hooks.json → user-prompt-submit.mjs) | ❌ None |
+| **tool.before** | `tool.execute.before` | `PreToolUse` (hooks.json → pre-tool-use.mjs); returns `permissionDecision: "deny"` to block | ❌ None |
+| **tool.after** | `tool.execute.after` | `PostToolUse` (hooks.json → post-tool-use.mjs) | ❌ None |
+| **session.idle / work-continuation** | `event` (session.idle) + `client.session.promptAsync` | `Stop` + `SubagentStop` (matcher: tapestry) → exit code 2 blocks; Tapestry-only | Autopilot mode auto-continues; ACP for programmatic control |
+| **session.created** | `event` (session.created) | `SessionStart` (hooks.json → on-session-start.mjs) | ❌ None |
+| **session.deleted** | `event` (session.deleted) | ❌ None (no explicit end hook) | ❌ None |
+| **config.init** | `config` hook | Plugin `agents/*.md` + `settings.json` (static; loaded at install time) | `.github/agents/*.md` (static) |
 | **params.resolve** | `chat.params` | ❌ None | ❌ None |
-| **command.execute** | `command.execute.before` | Natural language trigger | MCP tool call |
-| **context-window-monitor** | `event` (message.updated tokens) | ❌ None (no token access) | ❌ None |
-| **write-guard** | `tool.execute.before` (read tracking) | `PreToolUse` (approximate) | ❌ Not enforceable |
-| **pattern-md-only** | `tool.execute.before` (agent check) | `PreToolUse` (agent detection) | Prompt instruction only |
-| **rules-injector** | `tool.execute.before` (file path) | CLAUDE.md (project rules) | `.github/copilot-instructions.md` |
-| **work-continuation** | `event` (session.idle) + `client.session.promptAsync` | Primary: MCP Channel push; Fallback: `Stop` hook exit 2 + system prompt | Autopilot mode (`--autopilot --yolo`); Alternative: ACP server |
-| **workflow-continuation** | `event` (session.idle) + `client.session.promptAsync` | Primary: MCP Channel push; Fallback: `Stop` hook exit 2 + system prompt | Autopilot mode (`--autopilot --yolo`); Alternative: ACP server |
-| **start-work** | `chat.message` (command detection) | Natural language + `.claude/hooks/weave/` | MCP `weave_start_work` tool |
-| **analytics** | `event` (message.updated) | `PostToolUse` (partial) | MCP server logging |
-| **todo-finalize** | `event` (session.idle) + `client.session.todo` | ❌ No todo API | ❌ No todo API |
-| **tui.command.execute** | `event` (tui.command.execute) — handles session.interrupt (pause work/workflow) and session.compact | ❌ None (no TUI commands) | ❌ None |
-| **message.part.updated** | `event` (message.part.updated) — tracks assistant text for workflow continuation detection | `PostToolUse` / `Stop` (partial — text available in hook payload) | ❌ None |
-| **first-message-variant** | `event` (session.created/deleted) + `chat.message` — selects prompt variant for first message | `SessionStart` (approximate) | ❌ None |
-| **keyword-detector** | `chat.message` — fires on every user message to detect keywords | `UserPromptSubmit` (shell) | ❌ None |
-| **verification-reminder** | `chat.message` — reminds agent to verify work | `UserPromptSubmit` (shell, approximate) | Prompt instruction only |
-| **workflow-command** | `chat.message` — detects natural language workflow commands during active workflows | `UserPromptSubmit` (shell) | MCP tool (manual trigger) |
+| **command.execute** | `command.execute.before` | Plugin skills in `skills/` (invoked as `/weave:start-work`, etc.) | MCP tool call |
+| **pre.compaction** (NEW) | `experimental.session.compacting` (approximate) | `PreCompact` (hooks.json → pre-compact.mjs) — snapshot todos | ❌ None |
+| **post.compaction** (NEW) | `event` (session.idle, delayed) | `PostCompact` (hooks.json → post-compact.mjs) — restore todos + inject re-orientation | ❌ None |
+| **context-window-monitor** | `event` (message.updated tokens) | ❌ No token data in hooks | ❌ None |
+| **write-guard** | `tool.execute.before` (read tracking) | `PreToolUse` (approximate — checks file extension + path) | ❌ Not enforceable |
+| **pattern-md-only** | `tool.execute.before` (agent check) | `PreToolUse` (agent_name check in hook payload) | Prompt instruction only |
+| **rules-injector** | `tool.execute.before` (file path) | Plugin `CLAUDE.md` (loaded as project context) | `.github/copilot-instructions.md` |
+| **work-continuation** | `event` (session.idle) + `client.session.promptAsync` | `Stop`/`SubagentStop` exit code 2 + continuation prompt (Tapestry-only) | Autopilot + MCP `weave_check_progress shouldContinue` |
+| **workflow-continuation** | `event` (session.idle) + `client.session.promptAsync` | `Stop`/`SubagentStop` exit code 2 + workflow continuation prompt (Tapestry-only) | Autopilot mode |
+| **start-work** | `chat.message` (command detection) | `/weave:start-work` skill + `UserPromptSubmit` detection fallback | MCP `weave_start_work` tool |
+| **analytics** | `event` (message.updated) | `PostToolUse` (partial) + `SessionStart` | MCP server logging |
+| **todo-finalize** | `event` (session.idle) + `client.session.todo` | ❌ No todo API in Claude Code | ❌ No todo API |
+| **tui.command.execute** (interrupt) | `event` (tui.command.execute) — session.interrupt, session.compact | ❌ No TUI commands; user uses Ctrl+C; prompt-based pause | ❌ None |
+| **keyword-detector** | `chat.message` | `UserPromptSubmit` (hooks.json → user-prompt-submit.mjs) | ❌ None |
+| **verification-reminder** | `chat.message` | `UserPromptSubmit` (approximate) | Prompt instruction only |
+| **workflow-command** | `chat.message` — detects natural language workflow commands | `UserPromptSubmit` | MCP tool (manual trigger) |
 
 ---
 
@@ -637,18 +982,20 @@ Copilot CLI supports automatic continuation via:
 | Tool permissions | `src/tools/permissions.ts` | Permission maps |
 | Commands | `src/features/builtin-commands/` | Command definitions |
 | Shared utils | `src/shared/` | Logging, version, types |
+| Compaction handlers | `src/core/compaction.ts` (new) | Pre/Post compaction logic (CLI-agnostic) |
 
 ### CLI-Specific (`src/adapters/{cli}/`)
 | Module | OpenCode | Claude Code | Copilot CLI |
 |---|---|---|---|
 | Plugin entry | `src/adapters/opencode/index.ts` (current `src/index.ts`) | `src/adapters/claude-code/index.ts` | `src/adapters/copilot-cli/index.ts` |
-| Hook wiring | In-process callbacks | Shell script generation | MCP server |
-| Agent registration | Config mutation | SKILL.md generation | Markdown file generation |
-| Config generation | `opencode.json` plugin entry | `.claude/settings.json` hooks | `.github/agents/*.md` |
-| Session management | `@opencode-ai/sdk` client | Shell I/O | MCP protocol |
-| Display names | Formatted with role suffixes | Skill frontmatter names | Markdown frontmatter |
-| Command delivery | Slash commands via config | Natural language documentation | MCP tools |
-| Continuation | `client.session.promptAsync` | MCP Channel push (primary) / Stop hook exit 2 (fallback) | Autopilot mode (primary) / ACP server (alternative) |
+| Hook wiring | In-process callbacks | Plugin `hooks/hooks.json` + generated `.mjs` scripts | MCP server |
+| Agent registration | Config mutation via `config` hook | Plugin `agents/*.md` (subagents) | Markdown file generation |
+| Command registration | Slash commands via `config` hook | Plugin `skills/*/SKILL.md` (namespaced) | MCP tools |
+| Config generation | `opencode.json` plugin entry | `weave-claude-plugin/` directory | `.github/agents/*.md` |
+| Session management | `@opencode-ai/sdk` client | Shell I/O (stdin/stdout JSON) | MCP protocol |
+| Display names | Formatted with role suffixes | Subagent `name` frontmatter + plugin namespace (`weave:loom`) | Markdown frontmatter |
+| Continuation | `client.session.promptAsync` | `Stop`/`SubagentStop` exit code 2 + continuation prompt; Tapestry-only | Autopilot mode (primary) / ACP server (alternative) |
+| Compaction | OpenCode experimental.session.compacting | `PreCompact`/`PostCompact` hooks | ❌ Not available |
 
 ---
 
@@ -666,41 +1013,57 @@ When `--cli` is omitted, `CLIDetector` is used. When `--cli all`, generates conf
 
 **OpenCode:**
 ```
-opencode.json → adds plugin entry: { "name": "@opencode_weave/weave" }
-.opencode/weave-opencode.json → symlink to weave.json (or copy)
+opencode.json                    → adds plugin entry: { "name": "@opencode_weave/weave" }
+.opencode/weave-opencode.json    → symlink to weave.json (or copy)
 ```
 
-**Claude Code:**
+**Claude Code (Plugin Directory):**
 ```
-.claude/settings.json → merge hook entries
-.claude/skills/weave/loom.md → Loom skill
-.claude/skills/weave/tapestry.md → Tapestry skill
-.claude/skills/weave/pattern.md → Pattern skill (with constraints)
-.claude/skills/weave/thread.md → Thread skill
-.claude/skills/weave/spindle.md → Spindle skill
-.claude/skills/weave/weft.md → Weft skill
-.claude/skills/weave/warp.md → Warp skill
-.claude/skills/weave/shuttle.md → Shuttle skill
-.claude/hooks/weave/pre-tool-use.mjs → Write guard + Pattern guard
-.claude/hooks/weave/post-tool-use.mjs → Analytics tracking
-.claude/hooks/weave/user-prompt-submit.mjs → Start-work detection
-.claude/hooks/weave/on-stop.mjs → Work continuation
-.claude/hooks/weave/on-session-start.mjs → Session init
-CLAUDE.md → append Weave instructions section (or create if missing)
+weave-claude-plugin/
+├── .claude-plugin/plugin.json   → name, version, description
+├── agents/loom.md               → Loom subagent (primary via settings.json)
+├── agents/tapestry.md           → Tapestry subagent (continuation-enabled)
+├── agents/pattern.md            → Pattern subagent (write guard via hooks)
+├── agents/thread.md             → Thread subagent (read-only via frontmatter)
+├── agents/spindle.md            → Spindle subagent (read-only via frontmatter)
+├── agents/weft.md               → Weft subagent
+├── agents/warp.md               → Warp subagent
+├── agents/shuttle.md            → Shuttle subagent
+├── skills/start-work/SKILL.md   → /weave:start-work skill
+├── skills/plan/SKILL.md         → /weave:plan skill
+├── skills/metrics/SKILL.md      → /weave:metrics skill
+├── hooks/hooks.json             → auto-merged hook registrations (8 hooks)
+├── hooks/pre-tool-use.mjs       → Write guard + Pattern MD-only guard
+├── hooks/post-tool-use.mjs      → Analytics tracking
+├── hooks/user-prompt-submit.mjs → Start-work detection, keyword detection
+├── hooks/on-stop.mjs            → Tapestry continuation (exit 2 or 0)
+├── hooks/on-session-start.mjs   → Session init, analytics
+├── hooks/pre-compact.mjs        → Snapshot todos before compaction
+├── hooks/post-compact.mjs       → Restore todos + re-orientation context
+├── settings.json                → { "agent": "loom" }
+└── CLAUDE.md                    → Weave project context + agent usage guide
+```
+
+After generating the plugin directory, `weave init --cli claude-code` prints:
+```
+Plugin generated at ./weave-claude-plugin/
+Install with: /plugin install ./weave-claude-plugin
+  Or for dev:  claude --plugin-dir ./weave-claude-plugin
+Re-run `weave init --cli claude-code` only when weave.json changes.
 ```
 
 **Copilot CLI:**
 ```
-.github/agents/loom.md → Loom agent
-.github/agents/tapestry.md → Tapestry agent
-.github/agents/pattern.md → Pattern agent
-.github/agents/thread.md → Thread agent
-.github/agents/spindle.md → Spindle agent
-.github/agents/weft.md → Weft agent
-.github/agents/warp.md → Warp agent
-.github/agents/shuttle.md → Shuttle agent
-.github/copilot-instructions.md → append Weave instructions
-.github/copilot-mcp.json → Weave MCP server config (or merge into existing)
+.github/agents/loom.md            → Loom agent
+.github/agents/tapestry.md        → Tapestry agent
+.github/agents/pattern.md         → Pattern agent
+.github/agents/thread.md          → Thread agent
+.github/agents/spindle.md         → Spindle agent
+.github/agents/weft.md            → Weft agent
+.github/agents/warp.md            → Warp agent
+.github/agents/shuttle.md         → Shuttle agent
+.github/copilot-instructions.md   → append Weave instructions
+.github/copilot-mcp.json          → Weave MCP server config (or merge into existing)
 ```
 
 ### Config Path Parameterization
@@ -729,7 +1092,7 @@ export interface WeavePaths {
 export function getPathsForCLI(cli: "opencode" | "claude-code" | "copilot-cli"): WeavePaths
 ```
 
-**Critical**: `.weave/` is ALWAYS shared. WorkState, analytics, and plan files are CLI-agnostic. Only the CLI integration surface (hooks, agent registration) differs.
+**Critical**: `.weave/` is ALWAYS shared. WorkState, analytics, and plan files are CLI-agnostic. Only the CLI integration surface (hooks, agent registration) differs. A plan started in OpenCode will be continued by Tapestry in Claude Code — this is desirable cross-CLI behavior.
 
 ---
 
@@ -739,10 +1102,9 @@ export function getPathsForCLI(cli: "opencode" | "claude-code" | "copilot-cli"):
 |---|---|---|---|
 | **Parallel agents** | Fleet API (`client.session.promptAsync` to new sessions) | Agent teams (worktree-based parallel execution) | ❌ Not available |
 | **Background tasks** | BackgroundManager + session spawning | Claude Code `--background` flag or worktree cloning | ❌ Not available |
-| **Subagent delegation** | `task()` tool | Claude Code task tool (native) | `@agent-name` mention in prompt |
-| **Continuation loop** | `session.idle` event + `promptAsync` | MCP Channel push (primary); Stop hook exit 2 + system prompt (fallback) | Autopilot mode `--max-autopilot-continues N` (primary); ACP server (alternative) |
-
-For Copilot CLI, the MCP server could expose a `weave_fleet_spawn` tool that uses subprocess-based execution (running Claude Code or OpenCode headlessly), but this is a future enhancement.
+| **Subagent delegation** | `task()` tool | Claude Code native Task tool (dispatches to plugin subagents as `weave:pattern`, etc.) | `@agent-name` mention in prompt |
+| **Continuation loop** | `session.idle` + `promptAsync` | `Stop`/`SubagentStop` exit code 2 (Tapestry-only) | Autopilot mode `--max-autopilot-continues N` |
+| **Compaction recovery** | `session.idle` (delayed re-orientation) | `PreCompact` + `PostCompact` (immediate, precise) | ❌ None |
 
 ---
 
@@ -750,32 +1112,39 @@ For Copilot CLI, the MCP server could expose a `weave_fleet_spawn` tool that use
 
 ### Feature Support Matrix
 
-| Feature | OpenCode | Claude Code | Copilot CLI |
+| Feature | OpenCode | Claude Code (Plugin) | Copilot CLI |
 |---|---|---|---|
-| 8 agents | ✅ Full | ✅ Full (as skills) | ✅ Full (as markdown agents) |
-| Tool guards (write, pattern) | ✅ In-process enforcement | ⚠️ Shell hook (exit code 2 blocks) | ❌ Prompt-based only |
-| Work continuation | ✅ Automatic (idle loop) | ✅ Automatic (MCP Channel push) / ⚠️ Semi-auto fallback (Stop hook exit 2) | ✅ Automatic (autopilot mode) / ⚠️ Semi-auto (ACP server) |
-| Workflow engine | ✅ Full | ✅ Full (via MCP Channel continuation) / ⚠️ Partial fallback | ✅ Full (via autopilot mode) / ⚠️ Partial (ACP) |
+| 8 agents | ✅ Full | ✅ Full (as plugin subagents) | ✅ Full (as markdown agents) |
+| Tool guards (write, pattern) | ✅ In-process enforcement | ✅ Shell hook via hooks.json (exit code 2 blocks; `permissionDecision: "deny"`) | ❌ Prompt-based only |
+| Work continuation (Tapestry) | ✅ Automatic (idle loop) | ✅ Automatic (`Stop`/`SubagentStop` exit code 2) | ✅ Automatic (autopilot mode) / ⚠️ Semi-auto (ACP server) |
+| Workflow engine | ✅ Full | ✅ Full (Tapestry-only continuation) | ✅ Full (via autopilot mode) / ⚠️ Partial (ACP) |
+| Compaction recovery | ⚠️ Delayed (next idle) | ✅ Immediate (PreCompact/PostCompact) | ❌ Not available |
 | Analytics | ✅ Full (tokens, cost, timing) | ⚠️ Partial (no token counts from hooks) | ⚠️ Minimal (MCP call counts) |
-| Context window monitor | ✅ Full | ❌ No token data in hooks | ❌ No token data |
-| Todo sidebar | ✅ Native | ❌ No API | ❌ No API |
-| Slash commands | ✅ Native | ❌ Natural language | ⚠️ MCP tools |
-| Custom agents | ✅ Full | ✅ Full (as additional skills) | ✅ Full (as additional .md files) |
+| Context window monitor | ✅ Full | ❌ No token data in hook payloads | ❌ No token data |
+| Todo sidebar | ✅ Native | ❌ No todo API | ❌ No todo API |
+| Slash commands | ✅ Native | ✅ Plugin skills (`/weave:start-work`, namespaced) | ⚠️ MCP tools |
+| Custom agents | ✅ Full | ✅ Full (as additional plugin subagents) | ✅ Full (as additional .md files) |
 | Fleet orchestration | ✅ Full | ⚠️ Limited (worktrees) | ❌ None |
-| Skill system | ✅ Full | ✅ Native skills | ⚠️ Embedded in agent prompts |
-| Config hot-reload | ✅ Plugin reload | ❌ Requires restart | ❌ Requires restart |
+| Skill system | ✅ Full | ✅ Native plugin skills | ⚠️ Embedded in agent prompts |
+| Config hot-reload | ✅ Plugin reload | ❌ Requires `weave init` re-run + plugin reinstall (only on `weave.json` changes) | ❌ Requires restart |
+| Agent typeahead | ✅ @ autocomplete | ✅ Plugin subagents appear as `weave:loom` etc. | ❌ @mention in prompt |
+| Packaged distribution | N/A (npm package) | ✅ `/plugin install <path-or-url>` | ❌ Manual file copy |
 
 ### Key Trade-offs
 
-1. **Shell hooks have cold-start overhead** — Each Claude Code hook invocation spawns a new Node.js process. For frequently-fired hooks (PreToolUse), this adds ~100-200ms latency. Mitigation: Use a persistent background process with IPC, or cache WeaveCore initialization.
+1. **Shell hooks have cold-start overhead** — Each Claude Code hook invocation spawns a new Node.js process. For frequently-fired hooks (PreToolUse), this adds ~100-200ms latency. Mitigation: Use a persistent background process with IPC, or cache `WeaveCore` initialization in module scope.
 
-2. **Copilot CLI agents can't enforce constraints** — Without lifecycle hooks, Pattern's .md-only restriction and write guards are prompt-based only. The agent's prompt says "don't do X" but there's no enforcement. Acceptable trade-off since Copilot CLI is the most basic integration tier.
+2. **Copilot CLI agents can't enforce constraints** — Without lifecycle hooks, Pattern's .md-only restriction and write guards are prompt-based only. Acceptable trade-off since Copilot CLI is the most basic integration tier.
 
 3. **Analytics coverage varies** — OpenCode provides rich token/cost data via events. Claude Code provides tool-level data via shell hooks but no token counts. Copilot CLI only sees MCP tool invocations. Analytics will have different fidelity per CLI.
 
-4. **Dual-CLI projects** — When multiple team members use different CLIs, all generated configs coexist but `.weave/` state is shared. This means work-continuation from OpenCode will try to continue plans started in Claude Code. This is actually desirable — the plan state is CLI-agnostic.
+4. **Dual-CLI projects** — When multiple team members use different CLIs, all generated configs coexist but `.weave/` state is shared. This is intentional — a plan started in OpenCode is continued by Tapestry in Claude Code.
 
-5. **Continuation reliability varies by mechanism** — OpenCode's `promptAsync()` is 100% reliable (programmatic injection). Claude Code's MCP Channel push is expected to be equally reliable but is in "research preview" status — the fallback (Stop hook exit 2 + system prompt) is less reliable since it depends on model compliance. Copilot's autopilot mode is reliable for continuation but the `--max-autopilot-continues` safety limit is coarser-grained than Weave's 7-check system (stale detection, user pause, etc. are enforced via prompt instructions + MCP tool response flags rather than programmatic control).
+5. **Plugin reinstall on `weave.json` changes** — When `weave.json` changes (new agent, disabled agent, override), re-running `weave init --cli claude-code` regenerates the plugin directory. Users must re-run `/plugin install ./weave-claude-plugin` to pick up those changes. This is equivalent to the "restart plugin" flow OpenCode requires after a config change. Development mode (`--plugin-dir`) picks up file changes immediately without reinstall. Importantly, **no reinstall is needed for session-to-session runtime changes** — hook scripts always read live WeaveCore state.
+
+6. **Subagents cannot spawn subagents** — In Claude Code, Loom (running as primary) dispatches to Pattern/Thread/etc. via the native Task tool. Pattern et al. cannot recursively spawn further subagents. This matches Weave's existing delegation model (Loom → subagent, not subagent → subagent) so it's not a practical limitation.
+
+7. **Tapestry duality** — Tapestry can run as a primary agent (user launches with `--agent tapestry`) or as a subagent dispatched by Loom. The `Stop` + `SubagentStop` dual hook registration handles both cases. However, the Tapestry subagent prompt must work correctly in both roles.
 
 ---
 
@@ -789,23 +1158,25 @@ Before any structural changes, remove `@opencode-ai/sdk` types from core modules
 ### Phase 1: Extract WeaveCore (OpenCode still works identically)
 1. Create `src/core/` module with CLI-agnostic types
 2. Move pure logic from `plugin-interface.ts` into core
-3. `plugin-interface.ts` becomes a thin OpenCode adapter calling core methods
-4. All existing tests pass unchanged
+3. Add compaction handlers to core (`handlePreCompact`, `handlePostCompact`)
+4. `plugin-interface.ts` becomes a thin OpenCode adapter calling core methods
+5. All existing tests pass unchanged
 
 ### Phase 2: Adapter Interface + Config Generator CLI
-1. Define `CLIAdapter` interface
+1. Define `CLIAdapter` interface (updated with `pluginSystem` capability, `compactionHooks`)
 2. Wrap existing OpenCode code as `OpenCodeAdapter`
-3. Build `CLIDetector`
+3. Build `CLIDetector` (updated to detect `CLAUDE_PLUGIN_ROOT` env var)
 4. Build `ConfigGenerator` scaffolding
 5. Create integration test harness and shared utilities
 
-### Phase 3: Claude Code Adapter
-1. Build Claude Code adapter
-2. Generate hook scripts, skill files, settings.json
+### Phase 3: Claude Code Plugin Adapter
+1. Build Claude Code plugin adapter
+2. Generate plugin directory: `agents/*.md`, `skills/*/SKILL.md`, `hooks/hooks.json`, hook scripts, `settings.json`, `CLAUDE.md`
 3. Claude Code hook stdin/stdout integration tests (Layer 1 — no CLI needed)
-4. Document feature degradation
+4. Plugin structure validation tests
+5. Document feature degradation
 
-### Phase 4: Copilot CLI Adapter
+### Phase 4: Copilot CLI Adapter (Future Work)
 1. Build Copilot CLI adapter
 2. Generate agent markdown files, MCP server
 3. Build MCP server entry point
@@ -872,13 +1243,13 @@ Before any structural changes, remove `@opencode-ai/sdk` types from core modules
 ### Phase 1: Extract WeaveCore
 
 - [ ] 4. **Extract core initialization**
-  **What**: Create `createWeaveCore()` function that performs all CLI-agnostic initialization (config loading, agent building, hook creation, skill loading, analytics setup) and returns a `WeaveCoreInstance`. The current `src/index.ts` becomes a thin wrapper: `WeavePlugin = async (ctx) => { const core = createWeaveCore(...); return OpenCodeAdapter.init(core); }`.
+  **What**: Create `createWeaveCore()` function that performs all CLI-agnostic initialization (config loading, agent building, hook creation, skill loading, analytics setup) and returns a `WeaveCoreInstance`. The current `src/index.ts` becomes a thin wrapper: `WeavePlugin = async (ctx) => { const core = createWeaveCore(...); return OpenCodeAdapter.init(core); }`. Include `isContinuationAgent(agentName: string): boolean` on `WeaveCoreInstance` — returns true for agents that drive the work-continuation loop (currently: only Tapestry). This keeps adapter hook scripts free of hardcoded agent names.
   **Files**:
-    - Create `src/core/create-core.ts`
+    - Create `src/core/create-core.ts` — include `isContinuationAgent()` implementation
     - Modify `src/index.ts` — delegate to core + OpenCode adapter
     - Modify `src/create-managers.ts` — remove `PluginInput` dependency, accept generic context
     - Modify `src/create-tools.ts` — remove `PluginInput` dependency
-  **Acceptance**: `bun test` passes. OpenCode behavior identical. No regression.
+  **Acceptance**: `bun test` passes. OpenCode behavior identical. No regression. `isContinuationAgent("tapestry")` returns true, `isContinuationAgent("loom")` returns false.
 
 - [ ] 5. **Extract todo finalization from plugin-interface.ts**
   **What**: The todo finalization logic (lines 501-539 of `plugin-interface.ts`) is inline and depends on `client.session.todo()` and `client.session.promptAsync()`. Extract the decision logic (should we finalize?) into core, keep the OpenCode-specific `client` calls in the adapter.
@@ -909,14 +1280,22 @@ Before any structural changes, remove `@opencode-ai/sdk` types from core modules
     - Modify `src/plugin/plugin-interface.ts` — thin message routing
   **Acceptance**: Message handling works identically.
 
+- [ ] 8a. **Add compaction handlers to WeaveCore**
+  **What**: Implement `handlePreCompact(sessionId)` and `handlePostCompact(sessionId)` in `WeaveCoreInstance`. `handlePreCompact` snapshots the current todo list and plan state to `.weave/compaction-snapshot.json`. `handlePostCompact` restores todos (if any were snapshotted) and constructs a re-orientation context string containing: current plan name, plan file path, progress counts (N of M tasks completed), last completed task name, next task name and description, and instructions reminding the agent not to forget the active plan. This context is returned for the `PostCompact` hook to inject as `additionalContext`.
+  **Files**:
+    - Create `src/core/compaction.ts` — `handlePreCompact`, `handlePostCompact`, `CompactionSnapshot` type
+    - Modify `src/core/create-core.ts` — expose `handlePreCompact`, `handlePostCompact` on `WeaveCoreInstance`
+    - Create `src/core/compaction.test.ts`
+  **Acceptance**: `handlePreCompact` writes snapshot. `handlePostCompact` returns correct re-orientation context for an in-progress plan. No-op when no plan is active.
+
 ### Phase 2: Adapter Interface + OpenCode Adapter
 
 - [ ] 9. **Define CLIAdapter interface**
-  **What**: Create the `CLIAdapter` interface, `CLICapabilities`, `CLIAgentManifest`, `CLIHookManifest`, `CLICommandManifest`, and `FeatureDegradation` types as specified in the Core Interface Definitions section above.
+  **What**: Create the `CLIAdapter` interface, `CLICapabilities` (with `compactionHooks: boolean` and `pluginSystem: boolean` fields), `CLIAgentManifest`, `CLIHookManifest`, `CLICommandManifest`, and `FeatureDegradation` types as specified in the Core Interface Definitions section above. Update `CLICommandManifest.type` to include `"skill-file"`. Implement `mapHook()` as an exhaustive switch over `WeaveHookEvent` in every adapter — returning null for unsupported events, and adding to the degradation report. Implement `mapCommand()` to derive skill/command body from `WeaveCommandDefinition.template`.
   **Files**:
     - Create `src/adapters/types.ts`
     - Create `src/adapters/index.ts`
-  **Acceptance**: Types compile. No runtime code yet.
+  **Acceptance**: Types compile. No runtime code yet. The exhaustive switch pattern is documented with a comment indicating it must be kept in sync with `WeaveHookEvent`.
 
 - [ ] 10. **Implement OpenCodeAdapter**
   **What**: Wrap the refactored `plugin-interface.ts` as a class implementing `CLIAdapter`. The `init()` method returns the current `PluginInterface` object. `generateConfig()` outputs the `opencode.json` plugin entry. `mapAgent()` converts `WeaveAgentDefinition` to OpenCode's `AgentConfig`.
@@ -929,14 +1308,14 @@ Before any structural changes, remove `@opencode-ai/sdk` types from core modules
   **Acceptance**: `bun test` passes. OpenCode behavior identical.
 
 - [ ] 11. **Implement CLIDetector**
-  **What**: Implement `detectCLI()` function that checks environment variables (`OPENCODE_*`, `CLAUDE_*`, `GITHUB_COPILOT_*`), process ancestry, and config file presence to determine which CLI is active.
+  **What**: Implement `detectCLI()` function. Detection priority: (1) `WEAVE_CLI` env var, (2) `CLAUDE_PLUGIN_ROOT` env var → claude-code with high confidence, (3) `OPENCODE_*` env vars → opencode, (4) config file presence (`weave-claude-plugin/` directory → claude-code, `.opencode/` → opencode, `.github/agents/` → copilot-cli), (5) SDK availability.
   **Files**:
     - Create `src/adapters/detect.ts`
     - Create `src/adapters/detect.test.ts`
-  **Acceptance**: Detection returns correct CLI for known environment setups. Tests cover all detection strategies.
+  **Acceptance**: Detection returns correct CLI for known environment setups. `CLAUDE_PLUGIN_ROOT` set → detects claude-code with high confidence. Tests cover all detection strategies.
 
 - [ ] 12. **Build ConfigGenerator scaffolding**
-  **What**: Create the `weave init` CLI entry point that accepts `--cli` flag, runs detection, and delegates to the selected adapter's `generateConfig()` method. Initially only supports OpenCode.
+  **What**: Create the `weave init` CLI entry point that accepts `--cli` flag, runs detection, and delegates to the selected adapter's `generateConfig()` method. Initially only supports OpenCode. Output includes feature degradation report.
   **Files**:
     - Create `src/cli/init.ts`
     - Create `src/cli/index.ts`
@@ -944,97 +1323,116 @@ Before any structural changes, remove `@opencode-ai/sdk` types from core modules
   **Acceptance**: `npx @opencode_weave/weave init --cli opencode` generates correct config.
 
 - [ ] 13. **Create integration test harness and shared utilities**
-  **What**: Create shared test infrastructure for adapter integration testing. This includes: (a) a `runHookScript()` utility that spawns a Node.js process with JSON on stdin and captures exit code + stdout — used to test Claude Code shell hooks without Claude Code installed; (b) an `mcpTestClient()` utility that connects to a Weave MCP server in-process via `@modelcontextprotocol/sdk` Client and StdioClientTransport; (c) a `validateGeneratedConfig()` utility that parses and structurally validates generated files (JSON parse, YAML/TOML frontmatter parse, required fields check); (d) a `createTestProject()` utility that creates a temp directory with a `weave.json` config, optional `.weave/state.json`, and optional plan files — used by all adapter tests. These are the building blocks that Phase 3/4/5 tests depend on.
+  **What**: Create shared test infrastructure for adapter integration testing. Includes: (a) `runHookScript()` — spawns a Node.js process with JSON on stdin, captures exit code + stdout; (b) `validatePluginDir()` — validates the complete plugin directory structure (plugin.json, agents/*.md, skills/*/SKILL.md, hooks/hooks.json, settings.json); (c) `validateSubagentMd()` — validates YAML frontmatter in agent files (name, description required; tools/disallowedTools/maxTurns optional; `hooks`/`mcpServers`/`permissionMode` must be ABSENT since they're security-restricted in plugin subagents); (d) `validateHooksJson()` — validates hooks.json structure (hook names, matchers, command entries with `${CLAUDE_PLUGIN_ROOT}` references); (e) `mcpTestClient()` — connects to Weave MCP server in-process; (f) `createTestProject()` — temp directory with weave.json, optional state.json, optional plan files.
   **Files**:
     - Create `src/test-utils/hook-runner.ts` — `runHookScript(scriptPath, input): Promise<{ exitCode, stdout, stderr }>`
+    - Create `src/test-utils/plugin-validator.ts` — `validatePluginDir(path)`, `validateSubagentMd(path)`, `validateHooksJson(path)`, `validateSkillMd(path)`
     - Create `src/test-utils/mcp-client.ts` — `createMCPTestClient(serverCommand, args): Promise<MCPTestClient>`
-    - Create `src/test-utils/config-validator.ts` — `validateClaudeSettings(path)`, `validateSkillMd(path)`, `validateCopilotAgentMd(path)`
-    - Create `src/test-utils/test-project.ts` — `createTestProject(opts): Promise<{ dir, cleanup }>` with optional weave.json, state.json, plan files
+    - Create `src/test-utils/config-validator.ts` — `validateCopilotAgentMd(path)` (for future Copilot adapter)
+    - Create `src/test-utils/test-project.ts` — `createTestProject(opts): Promise<{ dir, cleanup }>`
     - Create `src/test-utils/index.ts` — re-exports
     - Modify `package.json` — add `@modelcontextprotocol/sdk` as devDependency
-  **Acceptance**: All 4 utilities work in isolation. `runHookScript()` can execute a trivial echo script. `createTestProject()` creates and cleans up temp dirs. `validateClaudeSettings()` rejects malformed JSON.
+  **Acceptance**: All utilities work in isolation. `runHookScript()` can execute a trivial echo script. `validateSubagentMd()` rejects files containing `hooks:` frontmatter field. `validateHooksJson()` verifies `${CLAUDE_PLUGIN_ROOT}` in command strings.
 
-### Phase 3: Claude Code Adapter
+### Phase 3: Claude Code Plugin Adapter
 
 - [ ] 14. **Implement ClaudeCodeAdapter**
-  **What**: Implement `CLIAdapter` for Claude Code. `mapAgent()` generates SKILL.md content from `WeaveAgentDefinition`. `mapHook()` maps Weave hooks to Claude Code hook events. `generateConfig()` produces all Claude Code config files.
+  **What**: Implement `CLIAdapter` for Claude Code. `capabilities.pluginSystem = true`, `capabilities.compactionHooks = true`, `capabilities.agentRegistration = "plugin-subagents"`, `capabilities.slashCommands = true` (via skills). `mapAgent()` generates subagent `.md` content with YAML frontmatter. `mapHook()` maps Weave hooks to Claude Code hook events. `mapCommand()` generates SKILL.md content. `generateConfig()` produces the complete `weave-claude-plugin/` directory.
   **Files**:
     - Create `src/adapters/claude-code/index.ts`
-    - Create `src/adapters/claude-code/agent-mapper.ts` (generates SKILL.md content)
-    - Create `src/adapters/claude-code/hook-mapper.ts` (maps hooks to PreToolUse, PostToolUse, etc.)
-    - Create `src/adapters/claude-code/config-generator.ts` (generates .claude/ files)
+    - Create `src/adapters/claude-code/agent-mapper.ts` (generates subagent .md with frontmatter)
+    - Create `src/adapters/claude-code/skill-mapper.ts` (generates SKILL.md content)
+    - Create `src/adapters/claude-code/hook-mapper.ts` (maps Weave hooks to hooks.json entries)
+    - Create `src/adapters/claude-code/plugin-generator.ts` (orchestrates plugin dir generation)
     - Create `src/adapters/claude-code/index.test.ts`
-  **Acceptance**: `generateConfig()` produces valid `.claude/settings.json` and SKILL.md files.
+  **Acceptance**: `generateConfig()` produces a valid plugin directory passing `validatePluginDir()`.
 
-- [ ] 15. **Generate Claude Code hook scripts**
-  **What**: Create the hook script templates that get installed into `.claude/hooks/weave/`. Each script imports WeaveCore, processes stdin JSON, and outputs the hook result.
-  **Files**:
-    - Create `src/adapters/claude-code/scripts/pre-tool-use.ts` (template)
-    - Create `src/adapters/claude-code/scripts/post-tool-use.ts` (template)
-    - Create `src/adapters/claude-code/scripts/user-prompt-submit.ts` (template)
-    - Create `src/adapters/claude-code/scripts/on-stop.ts` (template)
-    - Create `src/adapters/claude-code/scripts/on-session-start.ts` (template)
-    - Create `src/adapters/claude-code/script-generator.ts` (bundles scripts)
-  **Acceptance**: Generated hook scripts are valid JS that can be executed by `node`. They correctly read stdin JSON and write stdout JSON per Claude Code hook protocol.
-
-- [ ] 16. **Claude Code SKILL.md generation**
-  **What**: Generate SKILL.md files for each Weave agent. Include proper frontmatter (name, description) and the full agent prompt. Handle tool restrictions in prompt text (Claude Code skills can't enforce tool restrictions, so they're stated as instructions).
+- [ ] 15. **Generate Claude Code subagent files**
+  **What**: For each of the 8 Weave agents, generate a subagent `.md` file with correct YAML frontmatter:
+  - `name`: the agent's config key (e.g., "loom", "pattern")
+  - `description`: concise description for typeahead
+  - `model`: from `WeaveAgentDefinition.model` (if set)
+  - `maxTurns`: from `WeaveAgentDefinition.steps` (if set)
+  - `tools` or `disallowedTools`: from permission config (Thread/Spindle get `disallowedTools: [Write, Edit, Bash]`; Pattern gets `tools: [Read, Glob, Grep, Write]`)
+  - Body: full agent system prompt from `WeaveAgentDefinition.prompt`
+  - **Must NOT include**: `hooks`, `mcpServers`, `permissionMode` (security restriction for plugin subagents)
   **Files**:
     - Modify `src/adapters/claude-code/agent-mapper.ts`
     - Create `src/adapters/claude-code/agent-mapper.test.ts`
-  **Acceptance**: Generated SKILL.md files have valid frontmatter and complete prompts.
+  **Acceptance**: All 8 generated subagent files pass `validateSubagentMd()`. No forbidden frontmatter fields present.
 
-- [ ] 17. **Claude Code work continuation via MCP Channel push + Stop hook fallback**
-  **What**: Implement two-tier continuation for Claude Code:
-  
-  **(a) Primary: MCP Channel push** — Register a Weave MCP Channel that monitors plan/workflow state. When the `Stop` hook fires and there are remaining tasks, the Channel pushes a rich continuation prompt (same format as OpenCode: plan name, file path, progress counts, prioritized instructions, "do not stop" directive) directly into the active Claude Code session. This achieves true automatic continuation equivalent to OpenCode's `promptAsync()`. The MCP Channel is registered via the Weave MCP server that's already configured in `.claude/settings.json` for the hook scripts.
-  
-  **(b) Fallback: Stop hook exit code 2 + system prompt** — For Claude Code versions that don't support Channels: the `Stop` hook checks for active plans/workflows, and if continuation is needed, returns exit code 2 (block stopping) with a JSON body containing the continuation reason. The agent's system prompt (injected via CLAUDE.md or skill prompts) includes instructions: "If your stop was blocked with a continuation reason, read the next task from `.weave/state.json` and execute it." Less reliable but functional.
-  
-  **(c) Safety mechanisms** — Both paths must respect all 7 continuation safety checks from `work-continuation.ts`: plan completion, stale detection (3 cycles), user message auto-pause, manual pause, session interrupt, context window limit, workflow takeover.
-  
+- [ ] 16. **Generate plugin skills (SKILL.md files)**
+  **What**: Generate `skills/{name}/SKILL.md` files for each Weave command. Skills support `$ARGUMENTS` substitution and are namespaced as `/weave:start-work`, `/weave:plan`, `/weave:metrics`. Frontmatter includes `name` and `description`. Body is derived from `WeaveCommandDefinition.template` at generation time — `mapCommand()` reads `command.template` and expands/renders it rather than hardcoding any skill body content.
   **Files**:
-    - Modify `src/adapters/claude-code/scripts/on-stop.ts` — Check plan state, return exit 2 with continuation reason (fallback path)
-    - Create `src/adapters/claude-code/continuation.ts` — Shared continuation decision logic (calls core's `handleWorkContinuation`)
-    - Create `src/adapters/claude-code/mcp-channel.ts` — MCP Channel registration and push logic (primary path)
-    - Create `src/adapters/claude-code/continuation.test.ts` — Tests for both primary and fallback paths
-  **Acceptance**: When a plan has remaining tasks: (a) MCP Channel pushes continuation prompt into session, OR (b) Stop hook returns exit code 2 with continuation reason. Both paths use the same continuation prompt format as OpenCode. All 7 safety mechanisms are enforced.
+    - Modify `src/adapters/claude-code/skill-mapper.ts`
+    - Create `src/adapters/claude-code/skill-mapper.test.ts`
+  **Acceptance**: Generated SKILL.md files have valid YAML frontmatter. `/weave:start-work` skill body is derived from `WeaveCommandDefinition.template` (not hardcoded). All skills have non-empty descriptions.
 
-- [ ] 18. **Claude Code adapter integration tests (Layer 1)**
-  **What**: Write integration tests that verify the Claude Code adapter end-to-end WITHOUT Claude Code installed. Uses the `runHookScript()` and `validateGeneratedConfig()` test utilities from task 13. Tests cover 3 areas:
+- [ ] 17. **Generate plugin hooks.json and hook scripts**
+  **What**: Generate `hooks/hooks.json` with 8 hook registrations (PreToolUse, PostToolUse, UserPromptSubmit, Stop, SubagentStop with matcher "tapestry", SessionStart, PreCompact, PostCompact). All commands reference `${CLAUDE_PLUGIN_ROOT}/hooks/*.mjs`. Generate each hook script as a Node.js ESM `.mjs` file that: (1) reads stdin JSON, (2) imports WeaveCore via `createWeaveCore(process.cwd())`, (3) calls the appropriate core method, (4) writes JSON response to stdout, (5) exits with correct code.
   
-  **(a) Hook stdin/stdout protocol tests** — For each generated hook script (`pre-tool-use.mjs`, `post-tool-use.mjs`, `user-prompt-submit.mjs`, `on-stop.mjs`, `on-session-start.mjs`):
-  - Pipe valid Claude Code hook JSON to stdin, assert correct exit code (0=allow, 2=block) and valid JSON on stdout
-  - `pre-tool-use`: normal tool → exit 0; Pattern agent writing `.ts` file → exit 2 with block reason; Pattern agent writing `.md` in `.weave/` → exit 0
-  - `on-stop` (primary path — MCP Channels available): no active plan → exit 0; active plan with remaining tasks → exit 0 (hook allows stopping; the MCP Channel push handles continuation separately)
-  - `on-stop` (fallback path — MCP Channels unavailable): no active plan → exit 0; active plan with remaining tasks → exit 2 (hook blocks stopping) with continuation reason in stdout JSON
-  - `user-prompt-submit`: message containing `/start-work` → stdout JSON injects work context
-  - Test malformed JSON input → graceful error (exit 1), not crash
-  - **Note**: Primary vs fallback mode is determined by a `channelsAvailable` flag in the test project's config (or environment variable). Both paths must be tested.
-  
-  **(b) Generated config validation tests** — Run `ClaudeCodeAdapter.generateConfig()` against a test project, then validate:
-  - `.claude/settings.json` is valid JSON with `hooks.PreToolUse`, `hooks.PostToolUse`, `hooks.Stop`, `hooks.SessionStart` entries
-  - Each hook entry has `type: "command"` and `command` pointing to an existing script path
-  - All 8 SKILL.md files exist in `.claude/skills/weave/` with valid YAML frontmatter (`name`, `description` fields)
-  - SKILL.md content includes the full agent prompt (not empty, not truncated)
-  - No duplicate skill names across files
-  
-  **(c) WeaveCore integration via hooks** — Create a test project with a `.weave/state.json` containing an active plan, then:
-  - **Fallback path tests** (set `channelsAvailable: false`): Run the `on-stop` hook script and verify: (1) exit code 2 (block stopping), (2) JSON body contains continuation reason referencing the correct next task
-  - **Primary path tests** (set `channelsAvailable: true`): Run the `on-stop` hook script and verify exit code 0; call the MCP Channel continuation module directly and verify the generated push message matches the continuation prompt format (plan name, progress counts, prioritized instructions)
-  - Test with completed plan → exit code 0 (allow stopping), no continuation (both paths)
-  - Test with paused plan → exit code 0 (allow stopping), no continuation (both paths)
-  - Test stale detection: same task 3 cycles → exit code 0 (allow stopping) (both paths)
-  
+  Key scripts:
+  - `pre-tool-use.mjs` — calls `core.checkToolBefore(agent_name, tool_name, file_path, session_id)` → exit 2 + `{ permissionDecision: "deny", reason }` to block
+  - `on-stop.mjs` — calls `core.isContinuationAgent(agentName)` to gate Tapestry-only logic; then calls `core.handleWorkContinuation(session_id)` → if `shouldContinue`: exit 2 + `{ decision: "block", reason: continuationPrompt }`
+  - `pre-compact.mjs` — calls `core.handlePreCompact(session_id)` → always exit 0
+  - `post-compact.mjs` — calls `core.handlePostCompact(session_id)` → if re-orientation context: `{ additionalContext: ... }`; always exit 0
   **Files**:
+    - Modify `src/adapters/claude-code/hook-mapper.ts`
+    - Create `src/adapters/claude-code/scripts/pre-tool-use.mjs.ts` (template)
+    - Create `src/adapters/claude-code/scripts/post-tool-use.mjs.ts` (template)
+    - Create `src/adapters/claude-code/scripts/user-prompt-submit.mjs.ts` (template)
+    - Create `src/adapters/claude-code/scripts/on-stop.mjs.ts` (template — Tapestry-only gate)
+    - Create `src/adapters/claude-code/scripts/on-session-start.mjs.ts` (template)
+    - Create `src/adapters/claude-code/scripts/pre-compact.mjs.ts` (template)
+    - Create `src/adapters/claude-code/scripts/post-compact.mjs.ts` (template)
+    - Create `src/adapters/claude-code/script-generator.ts` (bundles/renders templates)
+  **Acceptance**: `hooks/hooks.json` passes `validateHooksJson()`. Hook scripts are valid Node.js ESM. `on-stop.mjs` exits 0 for non-tapestry agents. `post-compact.mjs` outputs `additionalContext` when plan is active.
+
+- [ ] 18. **Generate plugin.json, settings.json, and CLAUDE.md**
+  **What**: Generate the remaining plugin files:
+  - `.claude-plugin/plugin.json` — `{ name, version, description, author }`; version read from `package.json`
+  - `settings.json` — `{ "agent": "loom" }` (makes Loom the default primary agent)
+  - `CLAUDE.md` — Weave overview: what it is, the 8 agents (names + roles), how to invoke skills (`/weave:start-work`), where to find plan state (`.weave/state.json`), cross-agent delegation patterns
+  **Files**:
+    - Modify `src/adapters/claude-code/plugin-generator.ts`
+    - Create `src/adapters/claude-code/claude-md-generator.ts`
+  **Acceptance**: `plugin.json` has all required fields. `settings.json` sets `agent: "loom"`. `CLAUDE.md` body is non-empty and mentions all 8 agents.
+
+- [ ] 19. **Claude Code plugin adapter integration tests (Layer 1)**
+  **What**: Write integration tests that verify the Claude Code plugin adapter end-to-end WITHOUT Claude Code installed. Uses utilities from task 13.
+
+  **(a) Plugin structure validation tests** — Run `ClaudeCodeAdapter.generateConfig()` against a test project, then validate:
+  - `validatePluginDir()` passes for the generated directory
+  - All 8 subagent `.md` files exist in `agents/` with valid YAML frontmatter
+  - No subagent file contains forbidden frontmatter fields (`hooks`, `mcpServers`, `permissionMode`)
+  - All 3 skill files exist in `skills/` with valid YAML frontmatter and non-empty bodies
+  - `hooks/hooks.json` passes `validateHooksJson()` with all 8 hook registrations present
+  - All 7 hook scripts exist in `hooks/` as `.mjs` files
+  - `settings.json` contains `{ "agent": "loom" }`
+  - `.claude-plugin/plugin.json` has `name`, `version`, `description` fields
+
+  **(b) Hook stdin/stdout protocol tests** — For each hook script:
+  - `pre-tool-use.mjs`: normal tool → exit 0; Pattern agent writing `.ts` file → exit 2 + JSON with `permissionDecision: "deny"`; Pattern agent writing `.md` in `.weave/` → exit 0
+  - `on-stop.mjs`: non-tapestry agent → exit 0 (guard fires correctly); no active plan → exit 0; active plan with remaining Tapestry tasks → exit 2 + JSON with `decision: "block"` and continuation prompt; completed plan → exit 0; paused plan → exit 0
+  - `post-compact.mjs`: no active plan → exit 0, no stdout; active plan → exit 0 + stdout contains `additionalContext` with plan name and next task
+  - `pre-compact.mjs`: always exit 0; `.weave/compaction-snapshot.json` written
+  - `user-prompt-submit.mjs`: `/start-work` message → stdout contains work context injection; plain message → exit 0
+  - Malformed JSON on stdin → graceful error (exit 1), not crash
+
+  **(c) Compaction round-trip test** — Create test project with active plan. Run `pre-compact.mjs`, verify snapshot written. Run `post-compact.mjs`, verify `additionalContext` includes correct plan name, progress counts, next task name.
+
+  **(d) Tapestry-only guard test** — Run `on-stop.mjs` with `agent_name: "loom"` → exit 0 (no continuation). Run with `agent_name: "pattern"` → exit 0. Run with `agent_name: "tapestry"` and active plan → exit 2.
+
+  **Files**:
+    - Create `src/adapters/claude-code/plugin-structure.test.ts`
     - Create `src/adapters/claude-code/hooks-integration.test.ts`
-    - Create `src/adapters/claude-code/config-validation.test.ts`
-    - Create `src/adapters/claude-code/fixtures/` — sample hook payloads (pre-tool-use-allow.json, pre-tool-use-block.json, etc.)
-  **Acceptance**: All tests pass with `bun test`. No Claude Code binary or API key required. Hook scripts correctly implement the Claude Code hook protocol (stdin JSON → stdout JSON + exit code).
+    - Create `src/adapters/claude-code/compaction.test.ts`
+    - Create `src/adapters/claude-code/fixtures/` — sample hook payloads per hook type
+  **Acceptance**: All tests pass with `bun test`. No Claude Code binary or API key required.
 
-### Phase 4: Copilot CLI Adapter
+### Phase 4: Copilot CLI Adapter (Future Work)
 
-- [ ] 19. **Implement CopilotCLIAdapter**
+- [ ] 20. **Implement CopilotCLIAdapter**
   **What**: Implement `CLIAdapter` for Copilot CLI. `mapAgent()` generates markdown agent file content. `generateConfig()` produces `.github/agents/*.md` files and MCP config.
   **Files**:
     - Create `src/adapters/copilot-cli/index.ts`
@@ -1043,91 +1441,47 @@ Before any structural changes, remove `@opencode-ai/sdk` types from core modules
     - Create `src/adapters/copilot-cli/index.test.ts`
   **Acceptance**: `generateConfig()` produces valid `.github/agents/*.md` files.
 
-- [ ] 20. **Build Weave MCP server for Copilot CLI**
-  **What**: Create an MCP server that exposes Weave commands as MCP tools. This runs as a stdio server that Copilot CLI connects to. Implements: `weave_start_work`, `weave_run_workflow`, `weave_check_progress`, `weave_pause_work`, `weave_metrics`.
+- [ ] 21. **Build Weave MCP server for Copilot CLI**
+  **What**: Create an MCP server that exposes Weave commands as MCP tools. This runs as a stdio server that Copilot CLI connects to. Implements: `weave_start_work`, `weave_run_workflow`, `weave_check_progress` (with `shouldContinue` flag), `weave_pause_work`, `weave_metrics`.
   **Files**:
     - Create `src/adapters/copilot-cli/mcp-server.ts`
     - Create `src/adapters/copilot-cli/mcp-tools.ts`
     - Create `src/adapters/copilot-cli/mcp-server.test.ts`
     - Modify `package.json` — add `bin` entry for `weave mcp-server`
-  **Acceptance**: MCP server starts, responds to tool list requests, and executes `weave_start_work` correctly.
+  **Acceptance**: MCP server starts, responds to tool list requests, and executes `weave_start_work` correctly. `weave_check_progress` returns `shouldContinue` flag.
 
-- [ ] 21. **Copilot CLI agent markdown generation**
-  **What**: Generate markdown files for `.github/agents/` with proper frontmatter and complete agent prompts. Include instructions about available MCP tools and agent cross-references (`@agent-name` syntax).
+- [ ] 22. **Copilot CLI agent markdown and instructions generation**
+  **What**: Generate markdown files for `.github/agents/` with proper frontmatter and complete agent prompts, including instructions about available MCP tools and agent cross-references. Generate or append `.github/copilot-instructions.md` Weave section.
   **Files**:
     - Modify `src/adapters/copilot-cli/agent-mapper.ts`
     - Create `src/adapters/copilot-cli/agent-mapper.test.ts`
-  **Acceptance**: Generated markdown agents include proper frontmatter, full prompts, and MCP tool references.
-
-- [ ] 22. **Copilot CLI instructions file generation**
-  **What**: Generate or append to `.github/copilot-instructions.md` with a Weave section explaining the agent system, available MCP tools, and usage patterns.
-  **Files**:
     - Modify `src/adapters/copilot-cli/config-generator.ts`
-  **Acceptance**: Instructions file accurately describes the Weave agent system for Copilot CLI users.
-
-- [ ] 22a. **Copilot CLI work continuation via autopilot mode + ACP fallback**
-  **What**: Implement two-tier continuation for Copilot CLI:
-  
-  **(a) Primary: Autopilot mode integration** — Generate agent prompts that include plan-state-checking instructions. When Copilot CLI runs in autopilot mode (`--autopilot --yolo --max-autopilot-continues N`), the agent naturally reads `.weave/state.json` after each task, finds the next uncompleted task, and continues execution. The `--max-autopilot-continues` flag maps to a safety limit. Weave's `weave init` output instructs users to launch with autopilot flags for plan execution. The MCP tool `weave_check_progress` provides structured task progress data so the agent doesn't need to parse markdown.
-  
-  **(b) Alternative: ACP server** — For programmatic control, implement an ACP (Agent Client Protocol) server mode that allows external processes to inject continuation prompts into Copilot sessions. This follows the same pattern as OpenCode's `promptAsync()` but uses Copilot's ACP protocol. More complex but enables fine-grained continuation control (exact prompt text, safety checks, stale detection).
-  
-  **(c) Safety mechanisms** — Autopilot mode relies on `--max-autopilot-continues N` as the primary safety limit. The MCP `weave_check_progress` tool returns a `shouldContinue: false` flag when any of the 7 safety conditions are met (plan complete, stale, paused, etc.), and agent prompts instruct the agent to check this before each continuation.
-  
-  **Files**:
-    - Create `src/adapters/copilot-cli/continuation.ts` — Continuation prompt generation for autopilot mode
-    - Modify `src/adapters/copilot-cli/agent-mapper.ts` — Inject plan-checking instructions into agent prompts
-    - Modify `src/adapters/copilot-cli/mcp-tools.ts` — Add `shouldContinue` flag to `weave_check_progress` response
-    - Create `src/adapters/copilot-cli/continuation.test.ts`
-  **Acceptance**: Agent prompts include plan-checking instructions. `weave_check_progress` returns `shouldContinue` flag. `weave init --cli copilot-cli` output includes autopilot launch instructions.
+  **Acceptance**: Generated agents include proper frontmatter, full prompts, MCP tool references. Instructions file accurately describes the Weave agent system.
 
 - [ ] 23. **Copilot CLI adapter integration tests (Layer 1)**
-  **What**: Write integration tests that verify the Copilot CLI adapter end-to-end WITHOUT Copilot CLI installed. Uses the `mcpTestClient()` and `validateGeneratedConfig()` test utilities from task 13. Tests cover 3 areas:
-  
-  **(a) MCP server protocol tests** — Start the Weave MCP server as a child process and connect via `@modelcontextprotocol/sdk` Client with StdioClientTransport:
-  - `tools/list` returns all expected tools: `weave_start_work`, `weave_run_workflow`, `weave_check_progress`, `weave_pause_work`, `weave_metrics`
-  - Each tool has a valid JSON Schema for its input parameters
-  - `weave_check_progress` with no active plan → returns structured "no active plan" response
-  - `weave_start_work` with a valid plan file → creates `.weave/state.json` and returns success
-  - `weave_start_work` with a non-existent plan → returns structured error (not crash)
-  - `weave_pause_work` with active plan → sets `paused: true` in state.json
-  - `weave_metrics` → returns analytics summary (even if empty)
-  - Server handles malformed tool call arguments gracefully
-  
-  **(b) Generated config validation tests** — Run `CopilotCLIAdapter.generateConfig()` against a test project, then validate:
-  - All 8 agent markdown files exist in `.github/agents/` with valid YAML frontmatter (`name`, `description` fields)
-  - Agent markdown content includes the full agent prompt
-  - `.github/copilot-instructions.md` exists and contains a Weave section
-  - MCP config JSON (`.github/copilot-mcp.json` or `~/.copilot/mcp-config.json`) is valid JSON with a `weave` server entry
-  - No duplicate agent names across files
-  - Agent files reference other agents with `@agent-name` syntax where appropriate
-  
-  **(c) MCP-to-WeaveCore integration** — Create a test project with a `.weave/state.json` containing an active plan with 3 tasks (1 completed, 2 remaining). Connect via MCP client and:
-  - Call `weave_check_progress` → verify it returns correct task counts, the next uncompleted task name, and `shouldContinue: true`
-  - Test `shouldContinue` safety signals:
-    - Completed plan (all tasks done) → `shouldContinue: false`
-    - Paused plan (`paused: true` in state.json) → `shouldContinue: false`
-    - Stale detection (same task reported as current for 3+ cycles) → `shouldContinue: false`
-    - No active plan → `shouldContinue: false`
-  - Call `weave_pause_work` then `weave_check_progress` → verify `shouldContinue` flips to `false`
-  
+  **What**: Write integration tests without Copilot CLI installed. Uses `mcpTestClient()` and `createTestProject()` from task 13.
+
+  **(a) MCP server protocol tests** — `tools/list` returns all 5 expected tools; `weave_check_progress` returns correct task counts and `shouldContinue`; `weave_pause_work` sets paused flag; safety signals tested (completed/paused/stale → `shouldContinue: false`).
+
+  **(b) Generated config validation tests** — All 8 `.github/agents/*.md` files have valid frontmatter; MCP config JSON has valid `weave` server entry.
+
   **Files**:
     - Create `src/adapters/copilot-cli/mcp-integration.test.ts`
     - Create `src/adapters/copilot-cli/config-validation.test.ts`
-    - Create `src/adapters/copilot-cli/fixtures/` — sample plan files, state.json snapshots
-  **Acceptance**: All tests pass with `bun test`. No Copilot CLI binary or API key required. MCP server correctly implements the MCP protocol and all tool calls return structured responses.
+    - Create `src/adapters/copilot-cli/fixtures/`
+  **Acceptance**: All tests pass with `bun test`. No Copilot CLI binary or API key required.
 
 ### Phase 5: Polish & Multi-CLI Coexistence
 
 - [ ] 24. **Multi-CLI coexistence testing**
-  **What**: Test that `weave init --cli all` generates configs for all three CLIs simultaneously without conflicts. Verify that `.weave/` state is shared correctly (start plan in OpenCode, continue in Claude Code). Test that generated configs don't overwrite each other.
+  **What**: Test that `weave init --cli all` generates configs for all three CLIs simultaneously without conflicts. Verify that `.weave/` state is shared correctly. Test generated configs don't overwrite each other.
   **Files**:
     - Create `src/adapters/coexistence.test.ts`
     - Modify `src/cli/init.ts` — support `--cli all`
   **Acceptance**: All three CLI configs can coexist. Plan state is shared. No config conflicts.
 
 - [ ] 25. **Package exports for adapters**
-  **What**: Update `package.json` exports to expose core and adapter modules separately so downstream consumers can import specific adapters.
+  **What**: Update `package.json` exports to expose core and adapter modules separately.
   **Files**:
     - Modify `package.json` — add exports for `./core`, `./adapters/opencode`, `./adapters/claude-code`, `./adapters/copilot-cli`
     - Modify `tsconfig.json` — ensure declaration generation covers new paths
@@ -1138,70 +1492,119 @@ Before any structural changes, remove `@opencode-ai/sdk` types from core modules
   **Files**:
     - Modify each adapter's `index.ts` — implement `getDegradationReport()`
     - Modify `src/cli/init.ts` — display degradation report
-  **Acceptance**: `weave init --cli copilot-cli` shows which features are unavailable and suggests workarounds.
+  **Acceptance**: `weave init --cli copilot-cli` shows which features are unavailable and suggests workarounds. `weave init --cli claude-code` shows `compactionHooks: full` (improvement over OpenCode).
 
-- [ ] 27. **Config sync command**
-  **What**: Add `weave sync` command that regenerates CLI-specific files from the current `weave.json`. Useful when agents or hooks change. Detects which CLI configs exist and updates them.
+- [ ] 27. **`weave init` re-run UX improvements**
+  **What**: Improve `weave init` to detect an existing generated directory and offer a clean regeneration path. When `weave-claude-plugin/` already exists, print a diff summary of what changed (agents added/removed, hooks updated). After regeneration, print the reinstall reminder. Add a `--force` flag to overwrite without prompting.
   **Files**:
-    - Create `src/cli/sync.ts`
-    - Modify `src/cli/index.ts` — add sync subcommand
-  **Acceptance**: `weave sync` updates all generated files based on current weave.json.
+    - Modify `src/cli/init.ts` — detect existing plugin dir, show diff summary, `--force` flag
+  **Acceptance**: `weave init --cli claude-code` on an existing plugin dir shows what changed and prints the reinstall reminder. `--force` skips the diff prompt.
 
 - [ ] 28. **CLI smoke tests (Layer 2 — requires real CLIs + API keys)**
-  **What**: Write end-to-end smoke tests that actually launch each CLI headlessly, send a minimal prompt, and verify Weave's integration fires correctly. These are gated behind `RUN_SMOKE_TESTS=true` environment variable — they are NOT part of the default `bun test` run because they require CLI binaries installed and valid API keys. Each test uses the cheapest possible model and `--max-turns 1` to minimize cost.
-  
-  **(a) OpenCode smoke test** — Run `opencode run --format json "respond with just the word OK"` in a temp project directory with `opencode.json` pointing to Weave. Assert: process exits 0, JSON output contains a response, `.weave/analytics/session-summaries.jsonl` was written (proving the plugin loaded and analytics hook fired).
-  
-  **(b) Claude Code smoke test** — Run `claude -p "respond with just the word OK" --output-format json --max-turns 1 --max-budget-usd 0.05` in a temp project directory with `.claude/settings.json` hooks configured. Assert: process exits 0, hook side-effects occurred (check a breadcrumb file the `on-session-start.mjs` hook writes to `.weave/smoke-test-marker`).
-  
-  **(c) Copilot CLI smoke test** — Run `copilot -p "@loom respond with just the word OK" --allow-all-tools` in a temp project directory with `.github/agents/` and MCP config. Assert: process exits 0, output is non-empty.
-  
-  **(d) Cross-CLI state sharing (Layer 3)** — Start a plan via OpenCode (`opencode run --format json "/start-work .weave/plans/smoke-test-plan.md"`), verify `.weave/state.json` exists, then run Claude Code (`claude -p "check current plan progress" --max-turns 1`) and verify it can read the same state. This proves the shared `.weave/` directory works across CLIs.
-  
+  **What**: End-to-end smoke tests gated behind `RUN_SMOKE_TESTS=true`. Each uses cheapest possible model and minimal turns.
+
+  **(a) OpenCode smoke test** — Run `opencode run --format json "respond with just OK"` in temp project with Weave plugin. Assert: `.weave/analytics/session-summaries.jsonl` written (plugin loaded + analytics hook fired).
+
+  **(b) Claude Code smoke test** — Run `claude -p "respond with just OK" --output-format json --max-turns 1 --plugin-dir ./weave-claude-plugin` in temp project. Assert: `on-session-start.mjs` breadcrumb file written to `.weave/smoke-test-marker`.
+
+  **(c) Copilot CLI smoke test** — Run `copilot -p "@loom respond with just OK" --allow-all-tools` in temp project with `.github/agents/` and MCP config. Assert: process exits 0, output non-empty.
+
+  **(d) Cross-CLI state sharing (Layer 3)** — Start plan via OpenCode, verify `.weave/state.json` exists, then run Claude Code with `--plugin-dir ./weave-claude-plugin` and query plan progress, verify it reads same state.
+
   **Files**:
     - Create `src/adapters/smoke-tests/opencode.smoke.test.ts`
     - Create `src/adapters/smoke-tests/claude-code.smoke.test.ts`
     - Create `src/adapters/smoke-tests/copilot-cli.smoke.test.ts`
     - Create `src/adapters/smoke-tests/cross-cli.smoke.test.ts`
-    - Create `src/adapters/smoke-tests/fixtures/smoke-test-plan.md` — minimal 2-task plan for testing
-    - Create `src/adapters/smoke-tests/helpers.ts` — `setupSmokeProject(cli)` creates temp dir with correct config, `cleanupSmokeProject()` tears down
-  **Acceptance**: When `RUN_SMOKE_TESTS=true` and the respective CLI is installed with valid API keys, all smoke tests pass. When `RUN_SMOKE_TESTS` is not set, all smoke tests are skipped (not failed). Each smoke test costs < $0.05 per run.
+    - Create `src/adapters/smoke-tests/fixtures/smoke-test-plan.md` — minimal 2-task plan
+    - Create `src/adapters/smoke-tests/helpers.ts`
+  **Acceptance**: All smoke tests pass when `RUN_SMOKE_TESTS=true` + CLI installed + API keys valid. Skipped (not failed) when `RUN_SMOKE_TESTS` unset. Each costs < $0.05 per run.
+
+---
+
+## "Add a Feature" Walkthrough
+
+### Adding a New Agent
+
+1. Define the agent in `src/agents/{name}/default.ts` (prompt, metadata, permissions)
+2. Register it in `src/agents/builtin-agents.ts`
+3. Run `weave init --cli claude-code` — the adapter calls `mapAgent()` for each agent in core, generating a new `agents/{name}.md` automatically
+4. Reinstall: `/plugin install ./weave-claude-plugin`
+
+No sync command needed. No separate Claude Code–specific agent file to maintain. The static `.md` file is a direct projection of the agent definition at init time.
+
+### Adding a New Hook Event
+
+1. Add the new event to `WeaveHookEvent` in `src/core/types.ts`
+2. Add handler logic to `WeaveCoreInstance` (e.g., `handleNewEvent(sessionId): Result`)
+3. **Every adapter's `mapHook()` will now produce a compile error** because it must be an exhaustive switch over `WeaveHookEvent`. Fix each adapter:
+   - `OpenCodeAdapter.mapHook()` — map to the appropriate OpenCode hook or return null + add to degradation report
+   - `ClaudeCodeAdapter.mapHook()` — map to a Claude Code hook event or return null
+   - `CopilotCLIAdapter.mapHook()` — almost certainly returns null (add to degradation report)
+4. If the Claude Code adapter maps it to a new hook, add the script to `hooks/` templates and add an entry to `hooks/hooks.json` generation
+5. Run `weave init --cli claude-code` — new hook script and hooks.json entry generated automatically
+6. Reinstall: `/plugin install ./weave-claude-plugin`
+
+The exhaustive `mapHook()` switch is the compile-time safety net: no new `WeaveHookEvent` can be silently dropped by any adapter.
+
+### Adding a New Command (Skill)
+
+1. Add `WeaveCommandDefinition` to `src/features/builtin-commands/commands.ts` — set `name`, `description`, `agent`, and `template`
+2. Run `weave init --cli claude-code` — the adapter calls `mapCommand()` which reads `command.template` at generation time and writes `skills/{name}/SKILL.md`
+3. The skill is immediately available as `/weave:{name}` after reinstall
 
 ---
 
 ## Verification
 
 ### Layer 0: Existing Tests (regression)
-- [ ] All existing 1246 tests pass (`bun test`) — zero regression
+- [ ] All existing tests pass (`bun test`) — zero regression
 - [ ] TypeScript compiles cleanly (`bun run typecheck`)
 - [ ] OpenCode integration is byte-for-byte identical behavior
 
 ### Layer 1: Adapter Integration Tests (no CLI, no API key)
-- [ ] Claude Code hook scripts pass stdin/stdout protocol tests (allow/block/error exit codes, valid JSON output)
-- [ ] Claude Code `pre-tool-use` hook blocks Pattern agent from writing non-.md files (exit 2)
-- [ ] Claude Code `on-stop` hook returns continuation prompt when plan has remaining tasks
-- [ ] Claude Code `user-prompt-submit` hook injects work context for `/start-work` messages
-- [ ] Claude Code hook scripts handle malformed JSON input gracefully (exit 1, not crash)
-- [ ] Claude Code generated `.claude/settings.json` is valid JSON with all required hook entries
-- [ ] Claude Code generated SKILL.md files have valid YAML frontmatter and non-empty prompts (all 8 agents)
+
+**Claude Code Plugin:**
+- [ ] `ClaudeCodeAdapter.generateConfig()` produces a directory passing full `validatePluginDir()` check
+- [ ] All 8 subagent `.md` files have valid YAML frontmatter with no forbidden fields (`hooks`, `mcpServers`, `permissionMode`)
+- [ ] `hooks/hooks.json` has all 8 hook registrations (PreToolUse, PostToolUse, UserPromptSubmit, Stop, SubagentStop[tapestry], SessionStart, PreCompact, PostCompact)
+- [ ] All `hooks/*.mjs` scripts are valid Node.js ESM
+- [ ] `pre-tool-use.mjs`: exits 2 + `permissionDecision: "deny"` when Pattern writes non-.md file; exits 0 for Pattern writing `.md` in `.weave/`
+- [ ] `on-stop.mjs`: exits 0 for non-tapestry agents (uses `core.isContinuationAgent()` — not hardcoded); exits 2 with continuation prompt when tapestry has remaining tasks; exits 0 when plan complete or paused; exits 0 when stale (3 cycles)
+- [ ] `pre-compact.mjs`: always exits 0; writes `.weave/compaction-snapshot.json`
+- [ ] `post-compact.mjs`: exits 0 + outputs `additionalContext` with correct plan name, progress, next task when plan active; exits 0, no stdout when no active plan
+- [ ] `user-prompt-submit.mjs`: injects work context for `/start-work` messages; exits 0 for plain messages
+- [ ] All hook scripts handle malformed JSON input gracefully (exit 1, not crash)
+- [ ] `settings.json` contains `{ "agent": "loom" }`
+- [ ] `.claude-plugin/plugin.json` has all required fields including version
+- [ ] Skills `start-work/SKILL.md`, `plan/SKILL.md`, `metrics/SKILL.md` have valid frontmatter + non-empty bodies derived from `WeaveCommandDefinition.template` (not hardcoded strings)
+- [ ] Compaction round-trip: `pre-compact` → snapshot → `post-compact` → correct `additionalContext`
+
+**Copilot CLI (future):**
 - [ ] Copilot MCP server `tools/list` returns all 5 expected tools with valid JSON Schemas
-- [ ] Copilot MCP server `weave_start_work` creates state.json from a plan file
-- [ ] Copilot MCP server `weave_check_progress` returns correct task counts from state.json
+- [ ] Copilot MCP server `weave_check_progress` returns correct task counts + `shouldContinue` flag
 - [ ] Copilot MCP server `weave_pause_work` sets paused flag in state.json
-- [ ] Copilot MCP server handles malformed tool call arguments without crashing
-- [ ] Copilot generated `.github/agents/*.md` files have valid frontmatter and non-empty prompts (all 8 agents)
-- [ ] Copilot generated MCP config JSON has valid `weave` server entry
+- [ ] All `.github/agents/*.md` files have valid frontmatter and non-empty prompts (all 8 agents)
+- [ ] MCP config JSON has valid `weave` server entry
+
+**General:**
 - [ ] All adapter `generateConfig()` outputs can be round-tripped (generate → validate → no errors)
 - [ ] `weave init --cli all` generates all three CLI configs without conflicts in same directory
+- [ ] No `@opencode-ai/plugin` or `@opencode-ai/sdk` imports in `src/core/`
+- [ ] `core.isContinuationAgent("tapestry")` returns true; `core.isContinuationAgent("loom")` returns false
+- [ ] All hook scripts call `core.isContinuationAgent()` rather than hardcoding agent name strings
+- [ ] All adapter `mapHook()` implementations are exhaustive switches over `WeaveHookEvent` (no implicit fall-through)
 
 ### Layer 2: CLI Smoke Tests (requires real CLIs + API keys)
 - [ ] `RUN_SMOKE_TESTS=true` — OpenCode loads Weave plugin and writes analytics
-- [ ] `RUN_SMOKE_TESTS=true` — Claude Code fires hooks and writes breadcrumb marker
+- [ ] `RUN_SMOKE_TESTS=true` — Claude Code fires `SessionStart` hook and writes breadcrumb marker when `--plugin-dir ./weave-claude-plugin` used
+- [ ] `RUN_SMOKE_TESTS=true` — Claude Code `pre-tool-use.mjs` hook is invoked (verify via hook output log or breadcrumb)
 - [ ] `RUN_SMOKE_TESTS=true` — Copilot CLI discovers agents and connects to MCP server
-- [ ] `RUN_SMOKE_TESTS=true` — Cross-CLI state: plan started in OpenCode is readable from Claude Code
+- [ ] `RUN_SMOKE_TESTS=true` — Cross-CLI state: plan started in OpenCode is readable from Claude Code session
 
 ### General
-- [ ] `.weave/` state directory is shared across all CLIs
+- [ ] `.weave/` state directory is shared across all CLIs (plan started in one CLI, continued in another)
 - [ ] Config loader accepts parameterized paths for all CLIs
-- [ ] No `@opencode-ai/plugin` or `@opencode-ai/sdk` imports in `src/core/`
-- [ ] Each adapter's `getDegradationReport()` is accurate
+- [ ] Each adapter's `getDegradationReport()` is accurate and complete
+- [ ] `weave init --cli claude-code` prints plugin install instructions after generation
+- [ ] Re-running `weave init --cli claude-code` on an existing plugin dir shows a change summary and reinstall reminder
