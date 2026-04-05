@@ -36,15 +36,17 @@ function emit(level: LogLevel, message: string, data?: unknown): void {
   if (!shouldLog(level)) return
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const logFn = (client as any)?.app?.log
-  if (typeof logFn === "function") {
+  const appRef = (client as any)?.app
+  if (appRef && typeof appRef.log === "function") {
     const extra =
       data !== undefined
         ? typeof data === "object" && data !== null
           ? (data as Record<string, unknown>)
           : { value: data }
         : undefined
-    ;(logFn as (opts?: unknown) => Promise<unknown>)(
+    // Call log as a method on app to preserve `this` binding (the SDK's
+    // generated classes access `this._client` internally).
+    appRef.log(
       { body: { service: "weave", level: level.toLowerCase(), message, extra } },
     ).catch(() => {})
   } else {
