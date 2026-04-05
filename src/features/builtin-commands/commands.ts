@@ -45,4 +45,14 @@ ${RUN_WORKFLOW_TEMPLATE}
 <user-request>$ARGUMENTS</user-request>`,
     argumentHint: "<workflow-name> [\"goal\"]",
   },
+  "weave-health": {
+    name: "weave-health",
+    description: "Show Weave config health and any validation issues",
+    agent: "loom",
+    template: `<command-instruction>
+Display the Weave health report below to the user. Present warnings and errors prominently.
+If there are no issues, confirm that Weave config is healthy.
+</command-instruction>
+<weave-health>$ARGUMENTS</weave-health>`,
+  },
 }

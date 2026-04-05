@@ -24,6 +24,8 @@ import { readSessionSummaries, readMetricsReports } from "../features/analytics/
 import { generateTokenReport } from "../features/analytics/token-report"
 import { formatMetricsMarkdown } from "../features/analytics/format-metrics"
 import { generateMetricsReport } from "../features/analytics/generate-metrics-report"
+import { getLastConfigLoadResult } from "../config/loader"
+import { generateHealthReport } from "../features/health-report"
 
 export function createPluginInterface(args: {
   pluginConfig: WeaveConfig
@@ -677,6 +679,12 @@ export function createPluginInterface(args: {
         const summaries = readSessionSummaries(directory)
         const metricsMarkdown = formatMetricsMarkdown(reports, summaries, args)
         parts.push({ type: "text", text: metricsMarkdown })
+      }
+
+      if (command === "weave-health") {
+        const loadResult = getLastConfigLoadResult()
+        const reportText = generateHealthReport(loadResult, agents)
+        parts.push({ type: "text", text: reportText })
       }
     },
 

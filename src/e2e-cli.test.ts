@@ -256,4 +256,55 @@ describe("CLI E2E: Weave plugin loading", () => {
     },
     30_000,
   )
+
+  it(
+    "custom agents from config are accessible via debug agent (#30)",
+    async () => {
+      if (!opencodeAvailable || !pluginBuilt) return
+
+      const config = await debugConfig()
+      expect(config).not.toBeNull()
+
+      const agents = config!.agent as Record<string, unknown> | undefined
+      if (!agents) return
+
+      // Identify custom agents: they are in config.agent but NOT builtin display names
+      const builtinKeys = ["loom", "tapestry", "shuttle", "pattern", "thread", "spindle", "warp", "weft"]
+      const builtinDisplayNames = new Set(builtinKeys.map((k) => getAgentDisplayName(k)))
+
+      const customAgentNames = Object.keys(agents).filter((name) => !builtinDisplayNames.has(name))
+
+      if (customAgentNames.length === 0) {
+        console.info("ℹ No custom agents configured — skipping custom agent verification")
+        return
+      }
+
+      for (const customName of customAgentNames) {
+        const agent = await debugAgent(customName)
+        expect(agent).not.toBeNull()
+        expect(agent!.name).toBe(customName)
+      }
+    },
+    30_000,
+  )
+
+  it("builtin agent overrides survive alongside custom_agents in config (#30)", async () => {
+    if (!opencodeAvailable || !pluginBuilt) return
+
+    const config = await debugConfig()
+    expect(config).not.toBeNull()
+
+    // Verify that when Weave plugin is loaded, builtins are still present
+    // (they should not be wiped out by custom_agents validation)
+    const agents = config!.agent as Record<string, unknown>
+    expect(agents).toBeDefined()
+
+    const loomName = getAgentDisplayName("loom")
+    expect(agents[loomName]).toBeDefined()
+
+    // Loom should still have a non-trivial prompt (not reset to empty default)
+    const loom = await debugAgent(loomName)
+    expect(loom).not.toBeNull()
+    expect((loom!.prompt as string).length).toBeGreaterThan(100)
+  })
 })

@@ -52,4 +52,20 @@ describe("BUILTIN_COMMANDS", () => {
   it("token-report has name matching its key", () => {
     expect(BUILTIN_COMMANDS["token-report"].name).toBe("token-report")
   })
+
+  it("has weave-health command", () => {
+    expect(BUILTIN_COMMANDS["weave-health"]).toBeDefined()
+  })
+
+  it("weave-health targets loom agent", () => {
+    expect(BUILTIN_COMMANDS["weave-health"].agent).toBe("loom")
+  })
+
+  it("weave-health has a description", () => {
+    expect(BUILTIN_COMMANDS["weave-health"].description).toBeTruthy()
+  })
+
+  it("weave-health has name matching its key", () => {
+    expect(BUILTIN_COMMANDS["weave-health"].name).toBe("weave-health")
+  })
 })

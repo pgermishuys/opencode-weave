@@ -10,8 +10,10 @@ import { getOrCreateFingerprint } from "./features/analytics/fingerprint"
 import { setClient, setLogLevel } from "./shared/log"
 
 const WeavePlugin: Plugin = async (ctx) => {
-  const pluginConfig = loadWeaveConfig(ctx.directory, ctx)
+  // Set the SDK client FIRST so that config validation warnings reach
+  // OpenCode's app log (visible in the TUI), not just stderr.
   setClient(ctx.client)
+  const pluginConfig = loadWeaveConfig(ctx.directory, ctx)
   if (pluginConfig.log_level) {
     setLogLevel(pluginConfig.log_level)
   }
