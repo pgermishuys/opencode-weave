@@ -43,7 +43,7 @@ jobs:
         run: bun run eval:coverage
 
       - name: Upload eval artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: eval-artifacts
@@ -125,7 +125,7 @@ jobs:
           git push
 
       - name: Upload routing eval artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: routing-eval-artifacts
