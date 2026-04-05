@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.4] - 2026-04-05
+
+### Changed
+
+- **Upgrade `@opencode-ai/plugin` and `@opencode-ai/sdk` from ^1.1.19 to ^1.3.15** — aligns with latest OpenCode CLI release
+- Trim Loom prompt from ~2,000 to ~680 tokens — replace procedural rules with positive identity, cut verbose sections ([ac4cce3](https://github.com/pgermishuys/opencode-weave/commit/ac4cce3))
+- Remove unused suggestions engine ([6feb008](https://github.com/pgermishuys/opencode-weave/commit/6feb008))
+
+### Added
+
+- Client-sink logging — replace file logger with OpenCode client sink and add levelled log control ([e137652](https://github.com/pgermishuys/opencode-weave/commit/e137652))
+- CLI e2e test suite verifying Weave plugin loads correctly in opencode ([c8cbe2e](https://github.com/pgermishuys/opencode-weave/commit/c8cbe2e))
+- On-demand skill configuration — replace SDD workflow example with config-driven custom agents ([0535cb7](https://github.com/pgermishuys/opencode-weave/commit/0535cb7))
+- Todo protection hooks — description override, compaction preserver, and enforcer extraction ([fc8880d](https://github.com/pgermishuys/opencode-weave/commit/fc8880d))
+- Quality scoring, model tracking, and per-session cost attribution to metrics ([0a7f8eb](https://github.com/pgermishuys/opencode-weave/commit/0a7f8eb))
+- Guardrail preventing Loom from executing plan tasks directly ([8eb1018](https://github.com/pgermishuys/opencode-weave/commit/8eb1018))
+
+### Fixed
+
+- Resolve plugin loading failures after `@opencode-ai/sdk` upgrade to 1.3.15 ([a50b81e](https://github.com/pgermishuys/opencode-weave/commit/a50b81e))
+- CI e2e tests now use global config for plugin loading — opencode ignores project-level plugin directives ([696e9e6](https://github.com/pgermishuys/opencode-weave/commit/696e9e6))
+- Skip N/A sentinel values in plan file references ([307e855](https://github.com/pgermishuys/opencode-weave/commit/307e855))
+- Resolve agent prompt contradictions and harden guardrails ([800eab4](https://github.com/pgermishuys/opencode-weave/commit/800eab4))
+- Re-arm todo enforcer on failure so idle retries instead of giving up ([3cbb7b8](https://github.com/pgermishuys/opencode-weave/commit/3cbb7b8))
+
 ## [0.7.3] - 2026-03-26
 
 ### Fixed
@@ -116,7 +141,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove Tapestry→Loom agent-switch hacks and mandatory post-execution review gate ([da184b3](https://github.com/pgermishuys/weave/commit/da184b3))
 - Clear `state.json` on plan completion so `session.idle` takes fast exit path ([13df42e](https://github.com/pgermishuys/weave/commit/13df42e))
 
-[0.7.0]: https://github.com/pgermishuys/weave/compare/v0.6.4...v0.7.0
+[0.7.4]: https://github.com/pgermishuys/opencode-weave/compare/v0.7.3...v0.7.4
+[0.7.3]: https://github.com/pgermishuys/opencode-weave/compare/v0.7.2...v0.7.3
+[0.7.2]: https://github.com/pgermishuys/opencode-weave/compare/v0.7.1...v0.7.2
+[0.7.1]: https://github.com/pgermishuys/opencode-weave/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/pgermishuys/opencode-weave/compare/v0.6.4...v0.7.0
 [0.6.4]: https://github.com/pgermishuys/weave/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/pgermishuys/weave/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/pgermishuys/weave/compare/v0.6.1...v0.6.2
