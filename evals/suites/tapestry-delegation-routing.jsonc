@@ -1,0 +1,20 @@
+{
+  "id": "tapestry-delegation-routing",
+  "title": "Tapestry category routing behavioral evals",
+  "phase": "experimental",
+  "suiteMetadata": {
+    "title": "Tapestry Delegation Routing",
+    "familyId": "tapestry-execution",
+    "familyTitle": "Tapestry Execution",
+    "viewId": "delegation-routing",
+    "viewTitle": "Delegation Routing"
+  },
+  "tags": ["experimental", "tapestry", "delegation-routing", "behavioral"],
+  "caseFiles": [
+    "evals/cases/tapestry/delegation-routing/correct-category-routing.jsonc",
+    "evals/cases/tapestry/delegation-routing/explicit-tag-override.jsonc",
+    "evals/cases/tapestry/delegation-routing/fallback-to-generic.jsonc",
+    "evals/cases/tapestry/delegation-routing/mixed-category-parallel-batch.jsonc",
+    "evals/cases/tapestry/delegation-routing/no-categories-graceful-degradation.jsonc"
+  ]
+}

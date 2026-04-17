@@ -1,0 +1,24 @@
+{
+  "id": "tapestry-delegation-retry-on-failure",
+  "title": "Tapestry retries with error context when Shuttle fails",
+  "description": "Checks that when Shuttle returns a failure, Tapestry retries the delegation with the error details included in the new prompt rather than skipping or immediately blocking.",
+  "phase": "experimental",
+  "tags": ["experimental", "tapestry", "delegation-contract", "error-handling"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "anthropic/claude-opus-4-20250514",
+    "input": "You are executing /start-work. You delegated this task to Shuttle:\n\n- [ ] Task 2/4: Add database migration for users table\n  **Files**: migrations/001_create_users.sql\n  **What**: Create a SQL migration file that creates the users table with id, email, name, created_at columns\n  **Acceptance**: migrations/001_create_users.sql exists. Running the migration creates the users table with all required columns.\n\nShuttle has responded: 'Failed. I created the migration file but the SQL syntax is incorrect — the migration runner reports: ERROR: syntax error at or near \"AUTOINCREMENT\" at line 3. PostgreSQL uses SERIAL or GENERATED ALWAYS AS IDENTITY, not AUTOINCREMENT.'\n\nWhat do you do next?"
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedAnyOf": ["retry", "re-delegate", "delegate again", "error context", "AUTOINCREMENT", "SERIAL", "try again"],
+      "forbiddenContains": ["mark as blocked", "skip this task", "move on", "cannot complete"]
+    }
+  ]
+}

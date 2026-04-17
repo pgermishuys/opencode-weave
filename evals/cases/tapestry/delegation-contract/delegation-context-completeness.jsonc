@@ -1,0 +1,24 @@
+{
+  "id": "tapestry-delegation-context-completeness",
+  "title": "Tapestry includes full task context in delegation prompt",
+  "description": "Checks that when Tapestry delegates a task to Shuttle, the delegation prompt includes the task number, What description, Files, and Acceptance criteria.",
+  "phase": "experimental",
+  "tags": ["experimental", "tapestry", "delegation-contract", "context"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "anthropic/claude-opus-4-20250514",
+    "input": "You are executing /start-work. The plan has one unchecked task:\n\n- [ ] Task 2/5: Add authentication middleware\n  **What**: Create an Express middleware that validates JWT tokens and attaches the decoded user to req.user\n  **Files**: src/middleware/auth.ts, src/middleware/auth.test.ts\n  **Acceptance**: Middleware rejects requests without valid JWT with 401. Middleware attaches decoded user to req.user. Unit tests pass.\n\nDescribe exactly what you would include in the delegation prompt when calling the Task tool to delegate this to Shuttle."
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedAnyOf": ["Task 2/5", "2/5", "JWT", "req.user", "401", "src/middleware/auth.ts"],
+      "forbiddenContains": []
+    }
+  ]
+}

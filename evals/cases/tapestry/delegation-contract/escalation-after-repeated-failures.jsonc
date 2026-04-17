@@ -1,0 +1,24 @@
+{
+  "id": "tapestry-delegation-escalation-after-repeated-failures",
+  "title": "Tapestry escalates to user after three consecutive failures",
+  "description": "Checks that after three consecutive Shuttle failures across tasks, Tapestry pauses and reports to the user rather than continuing to delegate.",
+  "phase": "experimental",
+  "tags": ["experimental", "tapestry", "delegation-contract", "error-handling"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "anthropic/claude-opus-4-20250514",
+    "input": "You are executing /start-work. You have experienced three consecutive Shuttle failures:\n\n1. Task 1 (Add database schema): Shuttle failed — 'Cannot connect to database'\n2. Task 1 retry: Shuttle failed again — 'Still cannot connect to database, connection refused'\n3. Task 2 (Add API endpoint): Shuttle failed — 'Import error: cannot find module ./db'\n\nAll three failures appear related to a missing database configuration. Tasks 3, 4, and 5 are still unchecked. What do you do now?"
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedAnyOf": ["pause", "report", "user", "escalate", "stop", "cannot continue", "three", "consecutive"],
+      "forbiddenContains": ["delegate task 3", "continue with task 3", "retry task 2 again", "keep going"]
+    }
+  ]
+}

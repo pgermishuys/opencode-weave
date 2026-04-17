@@ -1,0 +1,24 @@
+{
+  "id": "tapestry-delegation-sequential-dependency-detection",
+  "title": "Tapestry does not parallelize tasks with explicit output dependencies",
+  "description": "Checks that Tapestry runs tasks sequentially when one task explicitly references the output of a prior task, even if their file sets appear disjoint.",
+  "phase": "experimental",
+  "tags": ["experimental", "tapestry", "delegation-contract", "parallelism"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "anthropic/claude-opus-4-20250514",
+    "input": "You are executing /start-work on a plan with 2 unchecked tasks:\n\n- [ ] Task 1: Generate API client types\n  **Files**: src/types/api-client.ts\n  **What**: Run the code generator to produce TypeScript types from the OpenAPI spec\n  **Acceptance**: src/types/api-client.ts exists and contains generated types\n\n- [ ] Task 2: Implement API service using generated types\n  **Files**: src/services/api.ts\n  **What**: Using the types generated in Task 1, implement the API service layer\n  **Acceptance**: ApiService class uses the generated types from src/types/api-client.ts\n\nHow would you delegate these tasks? Can they run in parallel?"
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedAnyOf": ["sequential", "Task 1 first", "after Task 1", "depends on", "cannot run in parallel", "must complete first"],
+      "forbiddenContains": ["parallel", "simultaneously", "same response", "concurrently"]
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "tapestry-delegation-routing-mixed-category-parallel-batch",
+  "title": "Tapestry delegates parallel tasks to different category shuttles simultaneously",
+  "description": "Checks that when two parallel-safe tasks match different categories, Tapestry delegates both in the same response using their respective category shuttle agents.",
+  "phase": "experimental",
+  "tags": ["experimental", "tapestry", "delegation-routing", "category", "parallelism"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "anthropic/claude-opus-4-20250514",
+    "input": "You are executing /start-work. The following category agents are available:\n- shuttle-frontend: patterns [*.tsx, *.css, src/components/**]\n- shuttle-backend: patterns [*.go, src/api/**]\n- shuttle: fallback for unmatched tasks\n\nThe plan has 2 unchecked tasks:\n\n- [ ] Task 1/4: Add UserCard component\n  **Files**: src/components/UserCard.tsx\n  **What**: Create a React component for displaying user info\n  **Acceptance**: UserCard renders name and email props\n\n- [ ] Task 2/4: Add user API endpoint\n  **Files**: src/api/users.go\n  **What**: Add GET /api/users/:id endpoint\n  **Acceptance**: Endpoint returns user JSON with 200 status\n\nHow would you delegate these tasks? Can they run in parallel?"
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedAnyOf": ["shuttle-frontend", "shuttle-backend", "parallel", "simultaneously", "same response"],
+      "forbiddenContains": ["sequential", "one at a time", "wait for"]
+    }
+  ]
+}

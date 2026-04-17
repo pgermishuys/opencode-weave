@@ -1,0 +1,24 @@
+{
+  "id": "tapestry-delegation-routing-explicit-tag-override",
+  "title": "Tapestry respects explicit [category: name] tag over file pattern match",
+  "description": "Checks that when a task has an explicit [category: backend] tag, Tapestry routes to shuttle-backend even if the task's files would match the frontend category patterns.",
+  "phase": "experimental",
+  "tags": ["experimental", "tapestry", "delegation-routing", "category"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "anthropic/claude-opus-4-20250514",
+    "input": "You are executing /start-work. The following category agents are available:\n- shuttle-frontend: patterns [*.tsx, *.css]\n- shuttle-backend: patterns [*.go, src/api/**]\n- shuttle: fallback for unmatched tasks\n\nThe plan has one unchecked task:\n\n- [ ] Task 2/4: Add API handler for user profile [category: backend]\n  **Files**: src/components/UserProfile.tsx\n  **What**: Add a backend API handler that serves user profile data. The file path is a frontend file but this task is backend logic.\n  **Acceptance**: GET /api/users/:id returns user profile JSON\n\nWhich shuttle agent would you use to delegate this task?"
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedAnyOf": ["shuttle-backend", "backend", "[category: backend]", "explicit tag", "override"],
+      "forbiddenContains": ["shuttle-frontend", "frontend pattern"]
+    }
+  ]
+}

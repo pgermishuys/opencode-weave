@@ -54,6 +54,8 @@ export const CategoryConfigSchema = z.object({
   tools: z.record(z.string(), z.boolean()).optional(),
   prompt_append: z.string().optional(),
   disable: z.boolean().optional(),
+  /** Glob patterns for file-based task routing to this category's Shuttle agent */
+  patterns: z.array(z.string()).optional(),
 })
 
 export const CategoriesConfigSchema = z.record(z.string(), CategoryConfigSchema)

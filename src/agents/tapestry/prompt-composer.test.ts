@@ -10,6 +10,10 @@ import {
   buildTapestryPostExecutionReviewSection,
   buildTapestryExecutionSection,
   buildTapestryStyleSection,
+  buildTapestryDelegationSection,
+  buildTapestryParallelismSection,
+  buildTapestryErrorHandlingSection,
+  buildTapestryCategoryRoutingSection,
 } from "./prompt-composer"
 
 describe("composeTapestryPrompt", () => {
@@ -23,8 +27,11 @@ describe("composeTapestryPrompt", () => {
     expect(prompt).toContain("<Role>")
     expect(prompt).toContain("<Discipline>")
     expect(prompt).toContain("<SidebarTodos>")
+    expect(prompt).toContain("<Delegation>")
+    expect(prompt).toContain("<Parallelism>")
     expect(prompt).toContain("<PlanExecution>")
     expect(prompt).toContain("<Verification>")
+    expect(prompt).toContain("<ErrorHandling>")
     expect(prompt).toContain("<PostExecutionReview>")
     expect(prompt).toContain("<Execution>")
     expect(prompt).toContain("<Style>")
@@ -103,7 +110,7 @@ describe("buildTapestryPostExecutionReviewSection", () => {
 describe("individual tapestry section builders", () => {
   it("buildTapestryRoleSection contains Tapestry identity", () => {
     expect(buildTapestryRoleSection()).toContain("Tapestry")
-    expect(buildTapestryRoleSection()).toContain("execution orchestrator")
+    expect(buildTapestryRoleSection()).toContain("coordination orchestrator")
   })
 
   it("buildTapestryDisciplineSection contains TODO OBSESSION", () => {
@@ -159,8 +166,8 @@ describe("individual tapestry section builders", () => {
     expect(buildTapestryVerificationSection()).toContain("acceptance criteria")
   })
 
-  it("buildTapestryVerificationSection mentions Edit/Write tool call history", () => {
-    expect(buildTapestryVerificationSection()).toContain("Edit/Write tool call history")
+  it("buildTapestryVerificationSection mentions Shuttle output inspection", () => {
+    expect(buildTapestryVerificationSection()).toContain("Shuttle")
   })
 
   it("buildTapestryExecutionSection contains top to bottom", () => {
@@ -169,5 +176,127 @@ describe("individual tapestry section builders", () => {
 
   it("buildTapestryStyleSection contains Dense > verbose", () => {
     expect(buildTapestryStyleSection()).toContain("Dense > verbose")
+  })
+
+  it("buildTapestryDelegationSection contains subagent_type shuttle", () => {
+    const section = buildTapestryDelegationSection()
+    expect(section).toContain("subagent_type")
+    expect(section).toContain("shuttle")
+  })
+
+  it("buildTapestryDelegationSection contains delegation contract fields", () => {
+    const section = buildTapestryDelegationSection()
+    expect(section).toContain("What")
+    expect(section).toContain("Files")
+    expect(section).toContain("Acceptance")
+  })
+
+  it("buildTapestryParallelismSection contains file disjointness rule", () => {
+    const section = buildTapestryParallelismSection()
+    expect(section).toContain("disjoint")
+    expect(section).toContain("3")
+  })
+
+  it("buildTapestryParallelismSection mentions max concurrency", () => {
+    const section = buildTapestryParallelismSection()
+    expect(section).toContain("Maximum 3 concurrent")
+  })
+
+  it("buildTapestryErrorHandlingSection contains retry logic", () => {
+    const section = buildTapestryErrorHandlingSection()
+    expect(section).toContain("Retry")
+    expect(section).toContain("blocked")
+  })
+
+  it("buildTapestryErrorHandlingSection contains escalation after repeated failures", () => {
+    const section = buildTapestryErrorHandlingSection()
+    expect(section).toContain("Three or more consecutive failures")
+    expect(section).toContain("report to the user")
+  })
+})
+
+describe("buildTapestryCategoryRoutingSection", () => {
+  it("returns null when no categories have patterns", () => {
+    expect(buildTapestryCategoryRoutingSection({})).toBeNull()
+    expect(buildTapestryCategoryRoutingSection({ backend: { model: "claude-opus-4" } })).toBeNull()
+  })
+
+  it("returns a section when at least one category has patterns", () => {
+    const section = buildTapestryCategoryRoutingSection({
+      frontend: { patterns: ["*.tsx", "*.css"] },
+    })
+    expect(section).not.toBeNull()
+    expect(section).toContain("<CategoryRouting>")
+  })
+
+  it("includes shuttle-{category} agent name for each category with patterns", () => {
+    const section = buildTapestryCategoryRoutingSection({
+      frontend: { patterns: ["*.tsx"] },
+      backend: { patterns: ["*.go"] },
+    })
+    expect(section).toContain("shuttle-frontend")
+    expect(section).toContain("shuttle-backend")
+  })
+
+  it("includes the file patterns for each category", () => {
+    const section = buildTapestryCategoryRoutingSection({
+      frontend: { patterns: ["src/components/**", "*.tsx", "*.css"] },
+    })
+    expect(section).toContain("src/components/**")
+    expect(section).toContain("*.tsx")
+    expect(section).toContain("*.css")
+  })
+
+  it("includes routing priority instructions", () => {
+    const section = buildTapestryCategoryRoutingSection({
+      frontend: { patterns: ["*.tsx"] },
+    })
+    expect(section).toContain("ROUTING PRIORITY")
+    expect(section).toContain("[category:")
+  })
+
+  it("includes fallback to generic shuttle", () => {
+    const section = buildTapestryCategoryRoutingSection({
+      frontend: { patterns: ["*.tsx"] },
+    })
+    expect(section).toContain("shuttle")
+    expect(section).toContain("fallback")
+  })
+})
+
+describe("composeTapestryPrompt with categories", () => {
+  it("includes CategoryRouting section when categories with patterns provided", () => {
+    const prompt = composeTapestryPrompt({
+      categories: { frontend: { patterns: ["*.tsx"] } },
+    })
+    expect(prompt).toContain("<CategoryRouting>")
+    expect(prompt).toContain("shuttle-frontend")
+  })
+
+  it("omits CategoryRouting section when no categories provided", () => {
+    const prompt = composeTapestryPrompt()
+    expect(prompt).not.toContain("<CategoryRouting>")
+  })
+
+  it("omits CategoryRouting section when categories have no patterns", () => {
+    const prompt = composeTapestryPrompt({
+      categories: { backend: { model: "claude-opus-4" } },
+    })
+    expect(prompt).not.toContain("<CategoryRouting>")
+  })
+
+  it("delegation section uses shuttle-{category} when categories present", () => {
+    const prompt = composeTapestryPrompt({
+      categories: { frontend: { patterns: ["*.tsx"] } },
+    })
+    const delegationSection = prompt.slice(prompt.indexOf("<Delegation>"), prompt.indexOf("</Delegation>"))
+    expect(delegationSection).toContain("shuttle-{category}")
+  })
+
+  it("delegation section uses plain shuttle when no categories", () => {
+    const prompt = composeTapestryPrompt()
+    const delegationSection = prompt.slice(prompt.indexOf("<Delegation>"), prompt.indexOf("</Delegation>"))
+    expect(delegationSection).toContain('subagent_type="shuttle"')
+    expect(delegationSection).not.toContain("shuttle-{category}")
   })
 })

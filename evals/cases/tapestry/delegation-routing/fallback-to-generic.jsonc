@@ -1,0 +1,24 @@
+{
+  "id": "tapestry-delegation-routing-fallback-to-generic",
+  "title": "Tapestry falls back to generic shuttle when no category patterns match",
+  "description": "Checks that when a task's files don't match any category patterns and no explicit tag is set, Tapestry routes to the generic shuttle agent.",
+  "phase": "experimental",
+  "tags": ["experimental", "tapestry", "delegation-routing", "category"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "anthropic/claude-opus-4-20250514",
+    "input": "You are executing /start-work. The following category agents are available:\n- shuttle-frontend: patterns [*.tsx, *.css]\n- shuttle-backend: patterns [*.go, src/api/**]\n- shuttle: fallback for unmatched tasks\n\nThe plan has one unchecked task:\n\n- [ ] Task 3/5: Update README documentation\n  **Files**: README.md, docs/setup.md\n  **What**: Update the README with new installation instructions and add a setup guide\n  **Acceptance**: README.md has updated installation section. docs/setup.md exists with step-by-step setup guide.\n\nWhich shuttle agent would you use to delegate this task?"
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedAnyOf": ["shuttle", "generic", "fallback", "no match", "does not match"],
+      "forbiddenContains": ["shuttle-frontend", "shuttle-backend"]
+    }
+  ]
+}

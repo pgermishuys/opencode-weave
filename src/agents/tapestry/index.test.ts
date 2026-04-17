@@ -26,9 +26,9 @@ describe("createTapestryAgent", () => {
     expect(config.tools?.["task"]).toBeUndefined()
   })
 
-  it("denies call_weave_agent tool", () => {
+  it("allows call_weave_agent tool for delegation", () => {
     const config = createTapestryAgent("claude-sonnet-4")
-    expect(config.tools?.["call_weave_agent"]).toBe(false)
+    expect(config.tools?.["call_weave_agent"]).toBe(true)
   })
 
   it("completion step references terminal-state behavior", () => {
@@ -69,11 +69,11 @@ describe("createTapestryAgent", () => {
     expect(prompt).toContain("</Verification>")
   })
 
-  it("verification protocol mentions tool call history instead of git diff", () => {
+  it("verification protocol mentions Shuttle output inspection", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     const prompt = config.prompt as string
     const verificationSection = prompt.slice(prompt.indexOf("<Verification>"), prompt.indexOf("</Verification>"))
-    expect(verificationSection).toContain("Edit/Write tool call history")
+    expect(verificationSection).toContain("Shuttle")
     expect(verificationSection).not.toContain("git diff")
   })
 
@@ -108,6 +108,33 @@ describe("createTapestryAgent", () => {
     expect(config.prompt).toContain("<PlanExecution>")
     expect(config.prompt).toContain("<PostExecutionReview>")
     expect(config.prompt).toContain("<Continuation>")
+  })
+
+  it("createTapestryAgentWithOptions includes CategoryRouting section when categories with patterns provided", () => {
+    const config = createTapestryAgentWithOptions(
+      "claude-sonnet-4",
+      new Set(),
+      undefined,
+      { frontend: { patterns: ["*.tsx", "*.css"], model: "fast-model" } },
+    )
+    expect(config.prompt).toContain("<CategoryRouting>")
+    expect(config.prompt).toContain("shuttle-frontend")
+    expect(config.prompt).toContain("*.tsx")
+  })
+
+  it("createTapestryAgentWithOptions omits CategoryRouting section when no categories provided", () => {
+    const config = createTapestryAgentWithOptions("claude-sonnet-4")
+    expect(config.prompt).not.toContain("<CategoryRouting>")
+  })
+
+  it("createTapestryAgentWithOptions omits CategoryRouting section when categories have no patterns", () => {
+    const config = createTapestryAgentWithOptions(
+      "claude-sonnet-4",
+      new Set(),
+      undefined,
+      { backend: { model: "claude-opus-4" } },
+    )
+    expect(config.prompt).not.toContain("<CategoryRouting>")
   })
 
   it("verification protocol does NOT mention security-sensitive flagging (removed)", () => {

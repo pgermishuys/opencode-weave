@@ -1,0 +1,21 @@
+{
+  "id": "tapestry-delegation-contracts",
+  "title": "Tapestry delegation contract behavioral evals",
+  "phase": "experimental",
+  "suiteMetadata": {
+    "title": "Tapestry Delegation Contracts",
+    "familyId": "tapestry-execution",
+    "familyTitle": "Tapestry Execution",
+    "viewId": "delegation-contracts",
+    "viewTitle": "Delegation Contracts"
+  },
+  "tags": ["experimental", "tapestry", "delegation-contract", "behavioral"],
+  "caseFiles": [
+    "evals/cases/tapestry/delegation-contract/parallel-batch-detection.jsonc",
+    "evals/cases/tapestry/delegation-contract/delegation-context-completeness.jsonc",
+    "evals/cases/tapestry/delegation-contract/sequential-dependency-detection.jsonc",
+    "evals/cases/tapestry/delegation-contract/verification-after-delegation.jsonc",
+    "evals/cases/tapestry/delegation-contract/retry-on-failure.jsonc",
+    "evals/cases/tapestry/delegation-contract/escalation-after-repeated-failures.jsonc"
+  ]
+}

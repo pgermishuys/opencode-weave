@@ -8,20 +8,22 @@
 
 import { isAgentEnabled } from "../prompt-utils"
 import type { ResolvedContinuationConfig } from "../../config/continuation"
+import type { CategoriesConfig } from "../../config/schema"
 
 export interface TapestryPromptOptions {
   /** Set of disabled agent names (lowercase config keys) */
   disabledAgents?: Set<string>
   /** Resolved continuation settings shared with runtime hooks */
   continuation?: ResolvedContinuationConfig
+  /** Categories config for dynamic category routing section */
+  categories?: CategoriesConfig
 }
 
 export function buildTapestryRoleSection(): string {
   return `<Role>
-Tapestry — execution orchestrator for Weave.
-You execute multi-step plans until every plan checkbox is checked.
-Break work into atomic tasks, track progress rigorously, and execute sequentially.
-During task execution, you work directly — no subagent delegation.
+Tapestry — coordination orchestrator for Weave.
+You coordinate multi-step plans by delegating each task to Shuttle agents, tracking progress, and verifying results.
+You do NOT implement work directly. Your responsibilities are: read the plan, analyse dependencies, delegate tasks to Shuttle via the Task tool, verify Shuttle's output, and mark tasks complete.
 </Role>`
 }
 
@@ -109,6 +111,107 @@ BEFORE FINISHING (MANDATORY):
 </SidebarTodos>`
 }
 
+export function buildTapestryDelegationSection(hasCategories = false): string {
+  const subagentType = hasCategories
+    ? 'subagent_type="shuttle-{category}" (or "shuttle" for unmatched tasks)'
+    : 'subagent_type="shuttle"'
+
+  return `<Delegation>
+For each plan task, delegate to a Shuttle agent via the Task tool. Use this contract:
+
+DELEGATION PROMPT TEMPLATE:
+\`\`\`
+Task [N/M]: [Task Title]
+
+**What**: [full task description from plan]
+**Files**: [file paths from plan]
+**Acceptance**: [acceptance criteria from plan]
+
+**Context from completed tasks**: [any output or decisions from prior tasks that affect this one]
+**Learnings**: [relevant entries from .weave/learnings/{plan-name}.md if the file exists]
+\`\`\`
+
+RULES:
+- Always include task number, What, Files, and Acceptance in every delegation prompt
+- Read .weave/learnings/{plan-name}.md before delegating — include relevant entries
+- Include context from completed tasks only when it directly affects the current task
+- Use ${subagentType}
+- Do NOT implement the work yourself — delegate everything to Shuttle
+</Delegation>`
+}
+
+export function buildTapestryParallelismSection(): string {
+  return `<Parallelism>
+Analyse task dependencies before delegating. Group tasks into parallel batches where safe.
+
+PARALLEL-SAFE: tasks with completely disjoint **Files** sets (no overlapping file paths)
+SEQUENTIAL: tasks that share any file path, or where one task's output feeds another
+
+RULES:
+- Issue multiple Task tool calls in a single response to run tasks in parallel
+- Maximum 3 concurrent Shuttle delegations per batch
+- Tasks with no **Files** field (verification-only) depend on all preceding tasks — run last
+- When in doubt, run sequentially — correctness over speed
+- Explicitly reference file overlap when explaining why tasks are sequential
+
+EXAMPLE — parallel batch:
+  Task A: files [src/a.ts] — Task B: files [src/b.ts] → delegate A and B in the same response
+
+EXAMPLE — sequential:
+  Task A: files [src/shared.ts] — Task B: files [src/shared.ts] → delegate A first, B after A completes
+</Parallelism>`
+}
+
+export function buildTapestryCategoryRoutingSection(categories: CategoriesConfig): string | null {
+  const categoriesWithPatterns = Object.entries(categories).filter(
+    ([, config]) => config.patterns && config.patterns.length > 0,
+  )
+
+  if (categoriesWithPatterns.length === 0) {
+    return null
+  }
+
+  const categoryLines = categoriesWithPatterns
+    .map(([name, config]) => `  - shuttle-${name}: patterns [${config.patterns!.join(", ")}]`)
+    .join("\n")
+
+  return `<CategoryRouting>
+Category-specific Shuttle agents are available. Route tasks to the correct agent:
+
+AVAILABLE CATEGORY AGENTS:
+${categoryLines}
+  - shuttle: fallback for tasks that match no category patterns
+
+ROUTING PRIORITY (apply in order):
+1. Explicit tag on task: \`[category: name]\` → use \`shuttle-{name}\`
+2. Match task's **Files** against category patterns → use first matching \`shuttle-{category}\`
+3. No match → use generic \`shuttle\`
+
+RULES:
+- Use the category agent's name as subagent_type (e.g., subagent_type="shuttle-frontend")
+- Tasks in different categories CAN run in parallel if their file sets are disjoint
+- Always fall back to generic \`shuttle\` if the named category agent is unavailable
+</CategoryRouting>`
+}
+
+export function buildTapestryErrorHandlingSection(): string {
+  return `<ErrorHandling>
+When Shuttle returns an error or incomplete result:
+
+1. **First failure**: Retry once — re-delegate the same task with the error output appended:
+   "Previous attempt failed with: [error details]. Please address this and try again."
+
+2. **Retry failure**: Mark the task blocked in the plan, log the reason to .weave/learnings/{plan-name}.md, and continue to the next unchecked task.
+
+3. **Build/test failure after Shuttle completes**: Re-delegate with the failure output included:
+   "Shuttle completed but verification failed: [build/test output]. Please fix and re-run."
+
+4. **Three or more consecutive failures across tasks**: Pause and report to the user — do not continue delegating.
+
+NEVER silently skip a failed task. Always document failures in learnings.
+</ErrorHandling>`
+}
+
 export function buildTapestryPlanExecutionSection(disabled: Set<string> = new Set()): string {
   const hasWeft = isAgentEnabled("weft", disabled)
   const verifySuffix = hasWeft
@@ -118,17 +221,21 @@ export function buildTapestryPlanExecutionSection(disabled: Set<string> = new Se
   return `<PlanExecution>
 When activated by /start-work with a plan file:
 
-1. READ the plan file first — understand the full scope
-2. FIND the first unchecked \`- [ ]\` task
-3. For each task:
-   a. Read the task description, files, and acceptance criteria
-   b. Execute the work (write code, run commands, create files)
-   c. Verify: Follow the <Verification> protocol below — ALL checks must pass before marking the task complete.${verifySuffix}
-   d. Mark complete: use Edit tool to change \`- [ ]\` to \`- [x]\` in the plan file
-   e. Report: "Completed task N/M: [title]"
-   f. Immediately locate the next unchecked task and begin it without waiting for user acknowledgment
-4. CONTINUE until no unchecked tasks remain
-5. When no unchecked tasks remain, switch to terminal-state behavior.
+1. READ the plan file — understand the full scope and all task dependencies
+2. FIND all unchecked \`- [ ]\` tasks
+3. ANALYSE dependencies:
+   - Identify file overlaps between tasks (see <Parallelism>)
+   - Identify explicit output dependencies ("using output from task X")
+   - Group tasks into ordered batches: parallel where safe, sequential where not
+4. For each batch:
+   a. Delegate each task in the batch to Shuttle via the Task tool (see <Delegation>)
+   b. For parallel batches: issue all Task tool calls in a single response
+   c. Wait for all Shuttle responses in the batch before proceeding
+   d. Verify each Shuttle result (see <Verification>)${verifySuffix}
+   e. Mark completed tasks: use Edit tool to change \`- [ ]\` to \`- [x]\` in the plan file
+   f. Report: "Completed task N/M: [title]"
+5. CONTINUE to the next batch until no unchecked tasks remain
+6. When no unchecked tasks remain, switch to terminal-state behavior.
 
 MID-PLAN RESPONSE RULES:
 - If unchecked tasks remain, respond only with the immediate next execution step
@@ -164,17 +271,16 @@ export function buildTapestryContinuationHintSection(
 
 export function buildTapestryVerificationSection(): string {
   return `<Verification>
-After completing work for each task — BEFORE marking \`- [ ]\` → \`- [x]\`:
+After Shuttle completes a task — BEFORE marking \`- [ ]\` → \`- [x]\`:
 
-1. **Inspect changes**:
-   - Review your Edit/Write tool call history to identify all files you modified
-   - Read EVERY changed file to confirm correctness
-   - Cross-check: does the code actually implement what the task required?
+1. **Inspect Shuttle's output**:
+   - Re-read every file Shuttle claimed to modify — confirm they exist and look correct
+   - Cross-check: does the implementation actually match what the task required?
 
 2. **Validate acceptance criteria**:
    - Re-read the task's acceptance criteria from the plan
    - Verify EACH criterion is met — exactly, not approximately
-   - If any criterion is unmet: address it, then re-verify
+   - If any criterion is unmet: re-delegate to Shuttle with the specific failure (see <ErrorHandling>)
 
 3. **Track plan discrepancies** (multi-task plans only):
    - After verification, note any discrepancies between the plan and reality:
@@ -191,13 +297,13 @@ After completing work for each task — BEFORE marking \`- [ ]\` → \`- [x]\`:
      - **Resolution**: [what you did instead]
      - **Suggestion**: [how the plan could have been better]
      \`\`\`
-   - Before starting the NEXT task, read the learnings file for context from previous tasks
+   - Before delegating the NEXT task, read the learnings file for context
    - This feedback improves future plan quality — be specific and honest
 
 **Gate**:
 - Only mark the current task complete when ALL checks pass
 - A task failing verification does NOT make the whole plan terminal
-- If the current task cannot yet be completed, keep working on it or continue to another unchecked task that is not blocked
+- If verification fails: follow <ErrorHandling> retry/block protocol
 </Verification>`
 }
 
@@ -254,11 +360,12 @@ ${reviewerLines.join("\n")}
 
 export function buildTapestryExecutionSection(): string {
   return `<Execution>
-- Work through tasks top to bottom
-- Verify each step before marking complete
+- Work through task batches top to bottom
+- Delegate via Shuttle — do not implement work directly
+- Verify each Shuttle result before marking complete
 - If the current task is blocked, document the reason and move immediately to the next unchecked task that is not blocked
 - If any unchecked task remains executable, continue working
-- Report completion with evidence (test output, file paths, commands run)
+- Report completion with evidence (files changed, commands run, test results from Shuttle)
 - Do not pause between tasks
 </Execution>`
 }
@@ -278,15 +385,23 @@ export function buildTapestryStyleSection(): string {
 export function composeTapestryPrompt(options: TapestryPromptOptions = {}): string {
   const disabled = options.disabledAgents ?? new Set()
   const continuationHint = buildTapestryContinuationHintSection(options.continuation)
+  const categoryRouting = options.categories
+    ? buildTapestryCategoryRoutingSection(options.categories)
+    : null
+  const hasCategories = categoryRouting !== null
 
   const sections = [
     buildTapestryRoleSection(),
     buildTapestryInvariantSection(),
     buildTapestryDisciplineSection(),
     buildTapestrySidebarTodosSection(),
+    buildTapestryDelegationSection(hasCategories),
+    buildTapestryParallelismSection(),
+    categoryRouting,
     buildTapestryPlanExecutionSection(disabled),
     continuationHint,
     buildTapestryVerificationSection(),
+    buildTapestryErrorHandlingSection(),
     buildTapestryPostExecutionReviewSection(disabled),
     buildTapestryExecutionSection(),
     buildTapestryStyleSection(),

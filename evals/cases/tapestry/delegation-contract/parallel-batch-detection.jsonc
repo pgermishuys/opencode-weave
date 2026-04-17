@@ -1,0 +1,24 @@
+{
+  "id": "tapestry-delegation-parallel-batch-detection",
+  "title": "Tapestry delegates parallel-safe tasks in the same response",
+  "description": "Checks that Tapestry identifies tasks with disjoint file sets as parallel-safe and delegates them in a single response, while keeping tasks with overlapping files sequential.",
+  "phase": "experimental",
+  "tags": ["experimental", "tapestry", "delegation-contract", "parallelism"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "anthropic/claude-opus-4-20250514",
+    "input": "You are executing /start-work on a plan with 3 unchecked tasks:\n\n- [ ] Task 1: Add user service\n  **Files**: src/services/user.ts\n  **What**: Create a user service with CRUD operations\n  **Acceptance**: UserService class exported from src/services/user.ts\n\n- [ ] Task 2: Add product service\n  **Files**: src/services/product.ts\n  **What**: Create a product service with CRUD operations\n  **Acceptance**: ProductService class exported from src/services/product.ts\n\n- [ ] Task 3: Update user service with product reference\n  **Files**: src/services/user.ts\n  **What**: Add a method to user service that references products\n  **Acceptance**: UserService has a getProductsForUser method\n\nAnalyse the tasks and describe how you would delegate them. Which tasks can run in parallel and which must be sequential?"
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedAnyOf": ["parallel", "Task 1 and Task 2", "tasks 1 and 2", "simultaneously", "same response", "concurrently"],
+      "forbiddenContains": ["Task 3 in parallel with Task 1", "all three in parallel", "all tasks simultaneously"]
+    }
+  ]
+}

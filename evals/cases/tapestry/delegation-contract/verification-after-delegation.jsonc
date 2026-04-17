@@ -1,0 +1,24 @@
+{
+  "id": "tapestry-delegation-verification-after-delegation",
+  "title": "Tapestry verifies Shuttle output before marking task complete",
+  "description": "Checks that after receiving a Shuttle completion report, Tapestry verifies the work (reads files, checks acceptance criteria) before marking the task complete in the plan.",
+  "phase": "experimental",
+  "tags": ["experimental", "tapestry", "delegation-contract", "verification"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "anthropic/claude-opus-4-20250514",
+    "input": "You are executing /start-work. You delegated this task to Shuttle:\n\n- [ ] Task 3/5: Add input validation to user registration endpoint\n  **Files**: src/routes/users.ts\n  **What**: Add Zod schema validation to the POST /users endpoint\n  **Acceptance**: Requests with missing email field return 400. Requests with invalid email format return 400. Valid requests proceed normally.\n\nShuttle has responded: 'Done. Added Zod validation schema to src/routes/users.ts. The schema validates email and name fields. Tests pass.'\n\nWhat do you do next before marking this task complete?"
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedAnyOf": ["verify", "read", "check", "acceptance", "src/routes/users.ts", "400", "confirm"],
+      "forbiddenContains": ["mark complete without", "immediately mark", "task is done"]
+    }
+  ]
+}

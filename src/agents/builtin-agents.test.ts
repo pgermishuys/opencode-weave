@@ -297,4 +297,63 @@ describe("AGENT_METADATA", () => {
       expect(withDisabled[name]?.prompt).toBe(withoutDisabled[name]?.prompt)
     }
   })
+
+  it("registers shuttle-{category} agents for categories with patterns", () => {
+    const agents = createBuiltinAgents({
+      categories: {
+        frontend: {
+          model: "fast-model",
+          prompt_append: "React expert",
+          patterns: ["*.tsx", "*.css"],
+        },
+      },
+      availableModels: new Set(["fast-model"]),
+    })
+    expect(agents["shuttle"]).toBeDefined()
+    expect(agents["shuttle-frontend"]).toBeDefined()
+    expect(agents["shuttle-frontend"]?.model).toBe("fast-model")
+    expect(agents["shuttle-frontend"]?.prompt).toContain("React expert")
+  })
+
+  it("does not register shuttle-{category} agents for categories without patterns", () => {
+    const agents = createBuiltinAgents({
+      categories: {
+        backend: { model: "claude-opus-4", temperature: 0.3 },
+      },
+    })
+    expect(agents["shuttle"]).toBeDefined()
+    expect(agents["shuttle-backend"]).toBeUndefined()
+  })
+
+  it("base shuttle agent always registered even when categories have patterns", () => {
+    const agents = createBuiltinAgents({
+      categories: {
+        frontend: { patterns: ["*.tsx"], model: "fast-model" },
+      },
+      availableModels: new Set(["fast-model"]),
+    })
+    expect(agents["shuttle"]).toBeDefined()
+  })
+
+  it("category shuttle inherits base shuttle tools", () => {
+    const agents = createBuiltinAgents({
+      categories: {
+        frontend: { patterns: ["*.tsx"] },
+      },
+    })
+    expect(agents["shuttle-frontend"]?.tools).toEqual(agents["shuttle"]?.tools)
+  })
+
+  it("category shuttle merges tool overrides with base shuttle tools", () => {
+    const agents = createBuiltinAgents({
+      categories: {
+        frontend: {
+          patterns: ["*.tsx"],
+          tools: { web_search: true },
+        },
+      },
+    })
+    expect(agents["shuttle-frontend"]?.tools?.["call_weave_agent"]).toBe(false)
+    expect(agents["shuttle-frontend"]?.tools?.["web_search"]).toBe(true)
+  })
 })

@@ -1,0 +1,33 @@
+{
+  "id": "tapestry-delegation-routing-correct-category",
+  "title": "Tapestry routes task to correct category shuttle based on file patterns",
+  "description": "Checks that when categories are configured with file patterns, Tapestry routes a task whose files match a category pattern to the corresponding shuttle-{category} agent.",
+  "phase": "experimental",
+  "tags": ["experimental", "tapestry", "delegation-routing", "category"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry",
+    "options": {
+      "categories": {
+        "frontend": {
+          "patterns": ["*.tsx", "*.css", "src/components/**"],
+          "model": "claude-sonnet-4",
+          "prompt_append": "You are a React/TypeScript specialist."
+        }
+      }
+    }
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "anthropic/claude-opus-4-20250514",
+    "input": "You are executing /start-work. The following category agents are available:\n- shuttle-frontend: patterns [*.tsx, *.css, src/components/**]\n- shuttle: fallback for unmatched tasks\n\nThe plan has one unchecked task:\n\n- [ ] Task 1/3: Add UserCard component\n  **Files**: src/components/UserCard.tsx, src/components/UserCard.css\n  **What**: Create a React component that displays user name, avatar, and email\n  **Acceptance**: UserCard component renders correctly. Props: name, email, avatarUrl. Styled with UserCard.css.\n\nWhich shuttle agent would you use to delegate this task and why?"
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedAnyOf": ["shuttle-frontend", "frontend", "*.tsx", "matches"],
+      "forbiddenContains": ["shuttle-backend", "generic shuttle", "plain shuttle"]
+    }
+  ]
+}
