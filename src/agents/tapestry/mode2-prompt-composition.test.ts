@@ -11,6 +11,19 @@ import {
   buildTapestryCategoryRoutingSection,
 } from "./prompt-composer"
 
+function getSection(prompt: string, tagName: string): string | null {
+  const startTag = `<${tagName}>`
+  const endTag = `</${tagName}>`
+  const startIndex = prompt.indexOf(startTag)
+
+  if (startIndex === -1) {
+    return null
+  }
+
+  const endIndex = prompt.indexOf(endTag)
+  return prompt.slice(startIndex, endIndex + endTag.length)
+}
+
 describe("Mode 2 prompt composition — category routing section", () => {
   it("routing section instructs routing to shuttle-frontend for *.tsx files", () => {
     const section = buildTapestryCategoryRoutingSection({
@@ -53,15 +66,21 @@ describe("Mode 2 prompt composition — category routing section", () => {
 })
 
 describe("Mode 2 prompt composition — full composed prompt", () => {
-  it("composed prompt with categories includes CategoryRouting section", () => {
+  it("includes CategoryRouting in the composed prompt when at least one category has patterns", () => {
     const prompt = composeTapestryPrompt({
       categories: {
         frontend: { patterns: ["*.tsx", "*.css"], prompt_append: "React expert" },
+        backend: { model: "claude-opus-4", temperature: 0.3 },
       },
     })
-    expect(prompt).toContain("<CategoryRouting>")
-    expect(prompt).toContain("shuttle-frontend")
-    expect(prompt).toContain("*.tsx")
+    const categoryRoutingSection = getSection(prompt, "CategoryRouting")
+    const delegationSection = getSection(prompt, "Delegation")
+
+    expect(categoryRoutingSection).not.toBeNull()
+    expect(categoryRoutingSection).toContain("shuttle-frontend")
+    expect(categoryRoutingSection).toContain("*.tsx")
+    expect(categoryRoutingSection).not.toContain("shuttle-backend")
+    expect(delegationSection).toContain("shuttle-{category}")
   })
 
   it("composed prompt with categories uses shuttle-{category} in delegation section", () => {
@@ -72,14 +91,12 @@ describe("Mode 2 prompt composition — full composed prompt", () => {
     expect(delegationSection).toContain("shuttle-{category}")
   })
 
-  it("composed prompt without categories omits CategoryRouting section (Mode 1 preserved)", () => {
+  it("omits CategoryRouting and keeps plain shuttle delegation when no categories are provided", () => {
     const prompt = composeTapestryPrompt()
-    expect(prompt).not.toContain("<CategoryRouting>")
-  })
+    const categoryRoutingSection = getSection(prompt, "CategoryRouting")
+    const delegationSection = getSection(prompt, "Delegation")
 
-  it("composed prompt without categories uses plain shuttle in delegation section", () => {
-    const prompt = composeTapestryPrompt()
-    const delegationSection = prompt.slice(prompt.indexOf("<Delegation>"), prompt.indexOf("</Delegation>"))
+    expect(categoryRoutingSection).toBeNull()
     expect(delegationSection).toContain('subagent_type="shuttle"')
     expect(delegationSection).not.toContain("shuttle-{category}")
   })
@@ -94,13 +111,18 @@ describe("Mode 2 prompt composition — full composed prompt", () => {
     expect(categoryRoutingIdx).toBeLessThan(planExecIdx)
   })
 
-  it("categories without patterns do not produce CategoryRouting section", () => {
+  it("omits CategoryRouting and keeps plain shuttle delegation when categories have no patterns", () => {
     const prompt = composeTapestryPrompt({
       categories: {
         backend: { model: "claude-opus-4", temperature: 0.3 },
       },
     })
-    expect(prompt).not.toContain("<CategoryRouting>")
+    const categoryRoutingSection = getSection(prompt, "CategoryRouting")
+    const delegationSection = getSection(prompt, "Delegation")
+
+    expect(categoryRoutingSection).toBeNull()
     expect(prompt).not.toContain("shuttle-backend")
+    expect(delegationSection).toContain('subagent_type="shuttle"')
+    expect(delegationSection).not.toContain("shuttle-{category}")
   })
 })

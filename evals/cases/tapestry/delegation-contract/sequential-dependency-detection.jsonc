@@ -18,7 +18,7 @@
     {
       "kind": "llm-judge",
       "expectedAnyOf": ["sequential", "Task 1 first", "after Task 1", "depends on", "cannot run in parallel", "must complete first"],
-      "forbiddenContains": ["parallel", "simultaneously", "same response", "concurrently"]
+      "forbiddenContains": ["parallelize", "parallelized", "parallel execution", "simultaneously", "same response", "concurrently"]
     }
   ]
 }

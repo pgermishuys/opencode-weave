@@ -335,6 +335,21 @@ describe("AGENT_METADATA", () => {
     expect(agents["shuttle"]).toBeDefined()
   })
 
+  it("skips registering only disabled category shuttle agents", () => {
+    const agents = createBuiltinAgents({
+      disabledAgents: ["shuttle-frontend"],
+      categories: {
+        frontend: { patterns: ["*.tsx"], model: "fast-model" },
+        backend: { patterns: ["*.go"], model: "fast-model" },
+      },
+      availableModels: new Set(["fast-model"]),
+    })
+
+    expect(agents["shuttle"]).toBeDefined()
+    expect(agents["shuttle-frontend"]).toBeUndefined()
+    expect(agents["shuttle-backend"]).toBeDefined()
+  })
+
   it("category shuttle inherits base shuttle tools", () => {
     const agents = createBuiltinAgents({
       categories: {

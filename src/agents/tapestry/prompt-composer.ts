@@ -163,16 +163,20 @@ EXAMPLE — sequential:
 }
 
 export function buildTapestryCategoryRoutingSection(categories: CategoriesConfig): string | null {
-  const categoriesWithPatterns = Object.entries(categories).filter(
-    ([, config]) => config.patterns && config.patterns.length > 0,
-  )
+  const categoriesWithPatterns = Object.entries(categories).flatMap(([name, config]) => {
+    if (!config.patterns || config.patterns.length === 0) {
+      return []
+    }
+
+    return [{ name, patterns: config.patterns }]
+  })
 
   if (categoriesWithPatterns.length === 0) {
     return null
   }
 
   const categoryLines = categoriesWithPatterns
-    .map(([name, config]) => `  - shuttle-${name}: patterns [${config.patterns!.join(", ")}]`)
+    .map(({ name, patterns }) => `  - shuttle-${name}: patterns [${patterns.join(", ")}]`)
     .join("\n")
 
   return `<CategoryRouting>

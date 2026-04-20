@@ -17,8 +17,13 @@
   "evaluators": [
     {
       "kind": "llm-judge",
-      "expectedAnyOf": ["shuttle-frontend", "shuttle-backend", "parallel", "simultaneously", "same response"],
-      "forbiddenContains": ["sequential", "one at a time", "wait for"]
+      "expectedAnyOf": [
+        "shuttle-frontend and shuttle-backend in parallel",
+        "delegate to shuttle-frontend and shuttle-backend simultaneously",
+        "route Task 1 to shuttle-frontend and Task 2 to shuttle-backend in the same response",
+        "Task 1 to shuttle-frontend and Task 2 to shuttle-backend concurrently"
+      ],
+      "forbiddenContains": ["sequential", "one at a time", "wait for", "generic shuttle", "plain shuttle"]
     }
   ]
 }

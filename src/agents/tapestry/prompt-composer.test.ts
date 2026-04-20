@@ -159,6 +159,7 @@ describe("individual tapestry section builders", () => {
       recovery: { compaction: false },
       idle: { enabled: false, work: true, workflow: false, todo_prompt: false },
     })
+    expect(section).not.toBeNull()
     expect(section).toContain("resume from persisted plan/workflow state")
   })
 
@@ -221,6 +222,16 @@ describe("buildTapestryCategoryRoutingSection", () => {
     expect(buildTapestryCategoryRoutingSection({ backend: { model: "claude-opus-4" } })).toBeNull()
   })
 
+  it("returns null when all categories lack patterns", () => {
+    expect(
+      buildTapestryCategoryRoutingSection({
+        frontend: { model: "claude-sonnet-4" },
+        backend: { patterns: [] },
+        docs: {},
+      }),
+    ).toBeNull()
+  })
+
   it("returns a section when at least one category has patterns", () => {
     const section = buildTapestryCategoryRoutingSection({
       frontend: { patterns: ["*.tsx", "*.css"] },
@@ -234,6 +245,7 @@ describe("buildTapestryCategoryRoutingSection", () => {
       frontend: { patterns: ["*.tsx"] },
       backend: { patterns: ["*.go"] },
     })
+    expect(section).not.toBeNull()
     expect(section).toContain("shuttle-frontend")
     expect(section).toContain("shuttle-backend")
   })
@@ -242,6 +254,7 @@ describe("buildTapestryCategoryRoutingSection", () => {
     const section = buildTapestryCategoryRoutingSection({
       frontend: { patterns: ["src/components/**", "*.tsx", "*.css"] },
     })
+    expect(section).not.toBeNull()
     expect(section).toContain("src/components/**")
     expect(section).toContain("*.tsx")
     expect(section).toContain("*.css")
@@ -251,6 +264,7 @@ describe("buildTapestryCategoryRoutingSection", () => {
     const section = buildTapestryCategoryRoutingSection({
       frontend: { patterns: ["*.tsx"] },
     })
+    expect(section).not.toBeNull()
     expect(section).toContain("ROUTING PRIORITY")
     expect(section).toContain("[category:")
   })
@@ -259,6 +273,7 @@ describe("buildTapestryCategoryRoutingSection", () => {
     const section = buildTapestryCategoryRoutingSection({
       frontend: { patterns: ["*.tsx"] },
     })
+    expect(section).not.toBeNull()
     expect(section).toContain("shuttle")
     expect(section).toContain("fallback")
   })

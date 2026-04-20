@@ -283,12 +283,16 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
         categoryPrompt = (categoryPrompt ? categoryPrompt + "\n\n" : "") + categoryConfig.prompt_append
       }
 
+      const categoryToolOverrides = categoryConfig.tools
       const categoryShuttle: AgentConfig = {
         ...baseShuttle,
         model: categoryModel,
         prompt: categoryPrompt,
         ...(categoryConfig.temperature !== undefined && { temperature: categoryConfig.temperature }),
-        ...(categoryConfig.tools && { tools: { ...baseShuttle.tools, ...categoryConfig.tools } }),
+        // Categories always inherit Shuttle's base tool policy. When `tools` is present,
+        // even as `{}`, treat it as "merge no overrides" rather than "clear all tools" so
+        // the category agent keeps the base permissions unless explicit boolean overrides are set.
+        ...(categoryToolOverrides !== undefined && { tools: { ...baseShuttle.tools, ...categoryToolOverrides } }),
       }
 
       result[categoryAgentName] = categoryShuttle

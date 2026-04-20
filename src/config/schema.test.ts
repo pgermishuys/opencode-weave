@@ -61,11 +61,34 @@ describe("WeaveConfigSchema", () => {
     }
   })
 
-  it("parses categories config", () => {
+  it("parses categories config shape", () => {
     const result = WeaveConfigSchema.safeParse({
-      categories: { deep: { model: "claude-opus-4", temperature: 0.5 } },
+      categories: {
+        deep: {
+          model: "claude-opus-4",
+          prompt_append: "Investigate deeply",
+          temperature: 0.5,
+          patterns: ["src/**/*.ts", "tests/**/*.ts"],
+          tools: {
+            bash: true,
+            webfetch: false,
+          },
+        },
+      },
     })
     expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.categories?.deep).toEqual({
+        model: "claude-opus-4",
+        prompt_append: "Investigate deeply",
+        temperature: 0.5,
+        patterns: ["src/**/*.ts", "tests/**/*.ts"],
+        tools: {
+          bash: true,
+          webfetch: false,
+        },
+      })
+    }
   })
 
   it("parses categories config with patterns field", () => {
@@ -85,6 +108,20 @@ describe("WeaveConfigSchema", () => {
         "*.tsx",
         "*.css",
       ])
+    }
+  })
+
+  it("parses categories config with empty patterns array", () => {
+    const result = WeaveConfigSchema.safeParse({
+      categories: {
+        unscoped: {
+          patterns: [],
+        },
+      },
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.categories?.unscoped?.patterns).toEqual([])
     }
   })
 

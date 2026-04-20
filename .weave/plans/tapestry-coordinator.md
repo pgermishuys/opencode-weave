@@ -1,7 +1,7 @@
 # Tapestry Coordinator: Two-Mode Delegation to Shuttle
 
 ## TL;DR
-> **Summary**: Transform Tapestry into a coordinator that delegates plan tasks to Shuttle agents in two modes: Mode 1 (uncategorized) spawns generic shuttles with parallelism based on file disjointness; Mode 2 (categorized) routes tasks to category-specific `shuttle-{name}` agents based on file patterns and explicit tags. Each mode has prompt composition tests and behavioral evals using Opus 4.6.
+> **Summary**: Transform Tapestry into a coordinator that delegates plan tasks to Shuttle agents in two modes: Mode 1 (uncategorized) spawns generic shuttles with parallelism based on file disjointness; Mode 2 (categorized) routes tasks to category-specific `shuttle-{name}` agents based on file patterns and explicit tags. Each mode has prompt composition tests and behavioral evals using Claude Opus 4 (`anthropic/claude-opus-4-20250514`).
 > **Estimated Effort**: Large
 
 ## Context
@@ -30,12 +30,12 @@ Tapestry delegates all implementation work to Shuttle instances, keeping only co
 ### Deliverables
 - [ ] Phase 1: Tapestry delegates to generic shuttle with parallelism (Mode 1)
 - [ ] Phase 1: Prompt composition test suite for Mode 1
-- [ ] Phase 1: Behavioral eval suite for Mode 1 (LLM evals with Opus 4.6)
+- [ ] Phase 1: Behavioral eval suite for Mode 1 (LLM evals with Claude Opus 4 / `anthropic/claude-opus-4-20250514`)
 - [ ] Phase 2: Category config schema extended with `patterns` field
 - [ ] Phase 2: Category-specific shuttle agents registered at startup
 - [ ] Phase 2: Tapestry routes tasks to category shuttles (Mode 2)
 - [ ] Phase 2: Prompt composition test suite for Mode 2
-- [ ] Phase 2: Behavioral eval suite for Mode 2 (LLM evals with Opus 4.6)
+- [ ] Phase 2: Behavioral eval suite for Mode 2 (LLM evals with Claude Opus 4 / `anthropic/claude-opus-4-20250514`)
 
 ### Definition of Done
 - [ ] `npm test` passes
@@ -191,10 +191,10 @@ Tapestry delegates all implementation work to Shuttle instances, keeping only co
   All cases use:
   - `target: { kind: "builtin-agent-prompt", agent: "tapestry" }`
   - `executor: { kind: "model-response", provider: "openrouter", model: "anthropic/claude-opus-4-20250514", input: "<scenario>" }`
-  - Model: Opus 4.6 via OpenRouter — intelligent enough for correct coordination decisions
+  - Model: Claude Opus 4 via OpenRouter (`anthropic/claude-opus-4-20250514`) — intelligent enough for correct coordination decisions
 
   **Files**: `evals/suites/tapestry-delegation-contracts.jsonc`, `evals/cases/tapestry/delegation-contract/parallel-batch-detection.jsonc`, `evals/cases/tapestry/delegation-contract/delegation-context-completeness.jsonc`, `evals/cases/tapestry/delegation-contract/sequential-dependency-detection.jsonc`, `evals/cases/tapestry/delegation-contract/verification-after-delegation.jsonc`, `evals/cases/tapestry/delegation-contract/retry-on-failure.jsonc`, `evals/cases/tapestry/delegation-contract/escalation-after-repeated-failures.jsonc`
-  **Acceptance**: `bun run script/eval.ts --suite tapestry-delegation-contracts` runs all 6 cases against Opus 4.6 via OpenRouter. Cases pass with ≥80% score. Suite registered in eval infrastructure.
+  **Acceptance**: `bun run script/eval.ts --suite tapestry-delegation-contracts` runs all 6 cases against Claude Opus 4 (`anthropic/claude-opus-4-20250514`) via OpenRouter. Cases pass with ≥80% score. Suite registered in eval infrastructure.
 
 ### Phase 2: Mode 2 — Categorized Delegation
 
@@ -271,10 +271,10 @@ Tapestry delegates all implementation work to Shuttle instances, keeping only co
   All cases use:
   - `target: { kind: "builtin-agent-prompt", agent: "tapestry" }` (with appropriate variant for categories config)
   - `executor: { kind: "model-response", provider: "openrouter", model: "anthropic/claude-opus-4-20250514", input: "<scenario>" }`
-  - Model: Opus 4.6 via OpenRouter
+  - Model: Claude Opus 4 via OpenRouter (`anthropic/claude-opus-4-20250514`)
 
   **Files**: `evals/suites/tapestry-delegation-routing.jsonc`, `evals/cases/tapestry/delegation-routing/correct-category-routing.jsonc`, `evals/cases/tapestry/delegation-routing/explicit-tag-override.jsonc`, `evals/cases/tapestry/delegation-routing/fallback-to-generic.jsonc`, `evals/cases/tapestry/delegation-routing/mixed-category-parallel-batch.jsonc`, `evals/cases/tapestry/delegation-routing/no-categories-graceful-degradation.jsonc`
-  **Acceptance**: `bun run script/eval.ts --suite tapestry-delegation-routing` runs all 5 cases against Opus 4.6 via OpenRouter. Cases pass with ≥80% score. Suite registered in eval infrastructure.
+  **Acceptance**: `bun run script/eval.ts --suite tapestry-delegation-routing` runs all 5 cases against Claude Opus 4 (`anthropic/claude-opus-4-20250514`) via OpenRouter. Cases pass with ≥80% score. Suite registered in eval infrastructure.
 
 - [x] 21. Verify no regressions in Loom delegation paths
   **What**: Confirm Loom still delegates to Tapestry via `/start-work` and to Shuttle for ad-hoc tasks. Confirm the base `shuttle` agent (without category suffix) still exists. Run full test suite.
@@ -287,9 +287,9 @@ Tapestry delegates all implementation work to Shuttle instances, keeping only co
 - [ ] Shuttle prompt contains structured task intake instructions
 - [ ] `call_weave_agent` is `true` for Tapestry, `false` for all Shuttle variants
 - [ ] Mode 1 prompt composition tests pass (≥6 scenarios: parallelism, delegation context, verification, retry, concurrency)
-- [ ] `tapestry-delegation-contracts` behavioral evals pass (≥6 scenarios: parallel batch, delegation context, sequential deps, verification, retry, escalation) at ≥80% score with Opus 4.6 via OpenRouter
+- [ ] `tapestry-delegation-contracts` behavioral evals pass (≥6 scenarios: parallel batch, delegation context, sequential deps, verification, retry, escalation) at ≥80% score with Claude Opus 4 (`anthropic/claude-opus-4-20250514`) via OpenRouter
 - [ ] Mode 2 prompt composition tests pass (≥6 scenarios: pattern routing, explicit tags, fallback, mixed batch, prompt_append, no-categories)
-- [ ] `tapestry-delegation-routing` behavioral evals pass (≥5 scenarios: category routing, tag override, fallback, mixed batch, no-categories degradation) at ≥80% score with Opus 4.6 via OpenRouter
+- [ ] `tapestry-delegation-routing` behavioral evals pass (≥5 scenarios: category routing, tag override, fallback, mixed batch, no-categories degradation) at ≥80% score with Claude Opus 4 (`anthropic/claude-opus-4-20250514`) via OpenRouter
 - [ ] `CategoryConfigSchema` accepts `patterns` field (Phase 2)
 - [ ] Given categories config with patterns, multiple `shuttle-{name}` agents are registered (Phase 2)
 - [ ] Base `shuttle` agent still registered (Loom compatibility)

@@ -21,7 +21,7 @@ describe("createTapestryAgent", () => {
     expect(config.prompt!.length).toBeGreaterThan(0)
   })
 
-  it("allows task tool for post-execution reviews", () => {
+  it("does not configure the task tool by default", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     expect(config.tools?.["task"]).toBeUndefined()
   })
