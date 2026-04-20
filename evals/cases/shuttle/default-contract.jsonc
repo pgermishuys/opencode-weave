@@ -13,7 +13,7 @@
   "evaluators": [
     { "kind": "xml-sections-present", "sections": ["Role", "Execution", "Constraints", "Style"] },
     { "kind": "contains-all", "patterns": [
-      "category-based specialist worker",
+      "domain specialist worker",
       "Execute the assigned task completely",
       "Never spawn subagents",
       "Never read or expose .env files"

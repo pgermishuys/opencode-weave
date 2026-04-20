@@ -11,10 +11,10 @@
     "kind": "prompt-render"
   },
   "evaluators": [
-    { "kind": "xml-sections-present", "sections": ["Role", "PlanExecution", "Verification", "PostExecutionReview"] },
-    { "kind": "section-contains-all", "section": "Role", "patterns": ["no subagent delegation"] },
+    { "kind": "xml-sections-present", "sections": ["Role", "Invariant", "Delegation", "Parallelism", "PlanExecution", "Verification", "PostExecutionReview"] },
+    { "kind": "section-contains-all", "section": "Role", "patterns": ["coordination orchestrator", "do NOT implement work directly"] },
     { "kind": "section-contains-all", "section": "PostExecutionReview", "patterns": ["Task tool", "user approval"] },
-    { "kind": "ordered-contains", "patterns": ["<Role>", "<PlanExecution>", "<Verification>", "<PostExecutionReview>"] },
-    { "kind": "tool-policy", "expectations": { "call_weave_agent": false } }
+    { "kind": "ordered-contains", "patterns": ["<Role>", "<Invariant>", "<Delegation>", "<Parallelism>", "<PlanExecution>", "<Verification>", "<PostExecutionReview>"] },
+    { "kind": "tool-policy", "expectations": { "call_weave_agent": true } }
   ]
 }

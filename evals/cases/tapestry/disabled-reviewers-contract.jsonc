@@ -15,7 +15,7 @@
   },
   "evaluators": [
     { "kind": "xml-sections-present", "sections": ["PostExecutionReview"] },
-    { "kind": "section-contains-all", "section": "PostExecutionReview", "patterns": ["Report the summary of all changes", "Identify all changed files"] },
-    { "kind": "excludes-all", "patterns": ["subagent_type \"weft\"", "subagent_type \"warp\"", "Task tool"] }
+    { "kind": "section-contains-all", "section": "PostExecutionReview", "patterns": ["Identify all changed files", "Report the summary of all changes to the user."] },
+    { "kind": "excludes-all", "patterns": ["subagent_type \"weft\"", "subagent_type \"warp\"", "Delegate to"] }
   ]
 }

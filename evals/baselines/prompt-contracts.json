@@ -2,7 +2,7 @@
   "version": 1,
   "suiteId": "prompt-contracts",
   "phase": "prompt",
-  "generatedAt": "2026-03-21T11:56:42.923Z",
+  "generatedAt": "2026-04-20T11:38:54.427Z",
   "normalizedScore": 1,
   "cases": [
     {
@@ -22,10 +22,18 @@
       "errorCount": 0
     },
     {
+      "caseId": "loom-plan-review-scoped-contract",
+      "status": "passed",
+      "normalizedScore": 1,
+      "assertionPassed": 9,
+      "assertionFailed": 0,
+      "errorCount": 0
+    },
+    {
       "caseId": "loom-review-workflow-contract",
       "status": "passed",
       "normalizedScore": 1,
-      "assertionPassed": 7,
+      "assertionPassed": 6,
       "assertionFailed": 0,
       "errorCount": 0
     },
@@ -34,6 +42,14 @@
       "status": "passed",
       "normalizedScore": 1,
       "assertionPassed": 9,
+      "assertionFailed": 0,
+      "errorCount": 0
+    },
+    {
+      "caseId": "shuttle-default-contract",
+      "status": "passed",
+      "normalizedScore": 1,
+      "assertionPassed": 11,
       "assertionFailed": 0,
       "errorCount": 0
     },
@@ -49,7 +65,7 @@
       "caseId": "tapestry-default-contract",
       "status": "passed",
       "normalizedScore": 1,
-      "assertionPassed": 12,
+      "assertionPassed": 19,
       "assertionFailed": 0,
       "errorCount": 0
     },
@@ -58,6 +74,22 @@
       "status": "passed",
       "normalizedScore": 1,
       "assertionPassed": 6,
+      "assertionFailed": 0,
+      "errorCount": 0
+    },
+    {
+      "caseId": "tapestry-warp-only-review-contract",
+      "status": "passed",
+      "normalizedScore": 1,
+      "assertionPassed": 5,
+      "assertionFailed": 0,
+      "errorCount": 0
+    },
+    {
+      "caseId": "tapestry-weft-only-review-contract",
+      "status": "passed",
+      "normalizedScore": 1,
+      "assertionPassed": 5,
       "assertionFailed": 0,
       "errorCount": 0
     },
@@ -82,14 +114,6 @@
       "status": "passed",
       "normalizedScore": 1,
       "assertionPassed": 12,
-      "assertionFailed": 0,
-      "errorCount": 0
-    },
-    {
-      "caseId": "shuttle-default-contract",
-      "status": "passed",
-      "normalizedScore": 1,
-      "assertionPassed": 11,
       "assertionFailed": 0,
       "errorCount": 0
     }
