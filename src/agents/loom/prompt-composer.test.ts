@@ -10,6 +10,7 @@ import {
   buildReviewWorkflowSection,
   buildStyleSection,
   buildCustomAgentDelegationSection,
+  buildCategoryRoutingSection,
 } from "./prompt-composer"
 import type { ProjectFingerprint } from "../../features/analytics/types"
 import type { AvailableAgent } from "../dynamic-prompt-builder"
@@ -424,5 +425,115 @@ describe("composeLoomPrompt with custom agents", () => {
       disabledAgents: new Set(["code-reviewer"]),
     })
     expect(prompt).not.toContain("<CustomDelegation>")
+  })
+})
+
+describe("buildCategoryRoutingSection", () => {
+  it("returns empty string when categories is undefined", () => {
+    expect(buildCategoryRoutingSection(undefined, new Set())).toBe("")
+  })
+
+  it("returns empty string when categories is empty", () => {
+    expect(buildCategoryRoutingSection({}, new Set())).toBe("")
+  })
+
+  it("returns non-empty string when categories have no patterns", () => {
+    const cats = { frontend: { description: "Frontend work" } }
+    const result = buildCategoryRoutingSection(cats, new Set())
+    expect(result).toContain("<CategoryRouting>")
+    expect(result).toContain("`shuttle-frontend`")
+  })
+
+  it("returns empty string when shuttle is disabled", () => {
+    const cats = { frontend: { patterns: ["src/ui/**"] } }
+    expect(buildCategoryRoutingSection(cats, new Set(["shuttle"]))).toBe("")
+  })
+
+  it("includes shuttle-{category} agent for categories with patterns", () => {
+    const cats = { frontend: { patterns: ["src/ui/**", "*.css"] } }
+    const result = buildCategoryRoutingSection(cats, new Set())
+    expect(result).toContain("<CategoryRouting>")
+    expect(result).toContain("`shuttle-frontend`")
+    expect(result).toContain("src/ui/**")
+    expect(result).toContain("*.css")
+    expect(result).toContain("</CategoryRouting>")
+  })
+
+  it("includes category description when provided", () => {
+    const cats = { backend: { description: "Backend API work", patterns: ["src/api/**"] } }
+    const result = buildCategoryRoutingSection(cats, new Set())
+    expect(result).toContain("Backend API work")
+    expect(result).toContain("`shuttle-backend`")
+  })
+
+  it("omits disabled category shuttle agents", () => {
+    const cats = {
+      frontend: { patterns: ["src/ui/**"] },
+      backend: { patterns: ["src/api/**"] },
+    }
+    const result = buildCategoryRoutingSection(cats, new Set(["shuttle-frontend"]))
+    expect(result).not.toContain("shuttle-frontend")
+    expect(result).toContain("`shuttle-backend`")
+  })
+
+  it("returns empty string when all category agents are disabled", () => {
+    const cats = { frontend: { patterns: ["src/ui/**"] } }
+    expect(buildCategoryRoutingSection(cats, new Set(["shuttle-frontend"]))).toBe("")
+  })
+
+  it("lists categories without patterns in an 'Also available' subsection", () => {
+    const cats = {
+      frontend: { description: "UI", patterns: ["src/ui/**"] },
+      docs: { description: "Docs only" },
+    }
+    const result = buildCategoryRoutingSection(cats, new Set())
+    expect(result).toContain("`shuttle-frontend`")
+    expect(result).toContain("Also available")
+    expect(result).toContain("`shuttle-docs`")
+  })
+})
+
+describe("composeLoomPrompt with categories", () => {
+  it("does not include CategoryRouting when no categories provided", () => {
+    const prompt = composeLoomPrompt()
+    expect(prompt).not.toContain("<CategoryRouting>")
+  })
+
+  it("includes CategoryRouting even when categories have no patterns", () => {
+    const prompt = composeLoomPrompt({ categories: { frontend: { description: "UI" } } })
+    expect(prompt).toContain("<CategoryRouting>")
+    expect(prompt).toContain("shuttle-frontend")
+  })
+
+  it("includes CategoryRouting when categories with patterns are configured", () => {
+    const prompt = composeLoomPrompt({
+      categories: { frontend: { patterns: ["src/ui/**"] } },
+    })
+    expect(prompt).toContain("<CategoryRouting>")
+    expect(prompt).toContain("`shuttle-frontend`")
+    expect(prompt).toContain("src/ui/**")
+  })
+
+  it("places CategoryRouting after DelegationNarration and before PlanWorkflow", () => {
+    const prompt = composeLoomPrompt({
+      categories: { frontend: { patterns: ["src/ui/**"] } },
+    })
+    const narrationEnd = prompt.indexOf("</DelegationNarration>")
+    const categoryStart = prompt.indexOf("<CategoryRouting>")
+    const planStart = prompt.indexOf("<PlanWorkflow>")
+    expect(categoryStart).toBeGreaterThan(narrationEnd)
+    expect(categoryStart).toBeLessThan(planStart)
+  })
+
+  it("produces identical output to default when categories is undefined", () => {
+    const defaultPrompt = composeLoomPrompt()
+    const withUndefined = composeLoomPrompt({ categories: undefined })
+    expect(withUndefined).toBe(defaultPrompt)
+  })
+
+  it("differs from default output when categories with no patterns are provided", () => {
+    const defaultPrompt = composeLoomPrompt()
+    const withNoPatterned = composeLoomPrompt({ categories: { frontend: {} } })
+    expect(withNoPatterned).not.toBe(defaultPrompt)
   })
 })

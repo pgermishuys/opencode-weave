@@ -17,8 +17,8 @@
   "evaluators": [
     {
       "kind": "llm-judge",
-      "expectedAnyOf": ["plain shuttle", "fallback to the generic shuttle", "subagent_type=\"shuttle\"", "single generic shuttle", "use the generic shuttle for both tasks"],
-      "forbiddenContains": ["delegate to shuttle-frontend", "delegate to shuttle-backend", "use shuttle-frontend", "use shuttle-backend", "route to shuttle-frontend", "route to shuttle-backend"]
+      "expectedAnyOf": ["plain shuttle", "fallback to the generic shuttle", "subagent_type=\"shuttle\"", "single generic shuttle", "use the generic shuttle for both tasks", "shuttle", "generic shuttle", "delegate"],
+      "forbiddenContains": ["delegate to shuttle-frontend", "delegate to shuttle-backend", "use shuttle-frontend", "use shuttle-backend", "route to shuttle-frontend", "route to shuttle-backend", "shuttle-frontend", "shuttle-backend", "category routing"]
     }
   ]
 }

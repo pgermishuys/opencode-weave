@@ -113,6 +113,34 @@ describe("Integration: manager config", () => {
     expect(result).toContain("Keep")
   })
 
+  it("forwards categories to createBuiltinAgents — shuttle-frontend exists and tapestry prompt has CategoryRouting", () => {
+    const config = WeaveConfigSchema.parse({
+      categories: {
+        frontend: {
+          patterns: ["src/frontend/**"],
+          model: "gpt-4o",
+          prompt_append: "Focus on React.",
+        },
+      },
+    })
+
+    const managers = createManagers({
+      ctx: makeMockCtx(fixture.directory),
+      pluginConfig: config,
+    })
+
+    // (a) shuttle-frontend agent must exist with category model/prompt
+    expect(managers.agents["shuttle-frontend"]).toBeDefined()
+    expect(managers.agents["shuttle-frontend"].model).toBe("gpt-4o")
+    expect(managers.agents["shuttle-frontend"].prompt).toContain("Focus on React.")
+
+    // (b) tapestry prompt must contain CategoryRouting block, agent name, and glob
+    const tapestryPrompt = managers.agents["tapestry"]?.prompt ?? ""
+    expect(tapestryPrompt).toContain("<CategoryRouting>")
+    expect(tapestryPrompt).toContain("shuttle-frontend")
+    expect(tapestryPrompt).toContain("src/frontend/**")
+  })
+
   it("registers workflow-specific custom variants for prompt stripping", () => {
     createManagers({
       ctx: makeMockCtx(fixture.directory),

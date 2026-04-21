@@ -23,7 +23,7 @@ describe("createTapestryAgent", () => {
 
   it("does not configure the task tool by default", () => {
     const config = createTapestryAgent("claude-sonnet-4")
-    expect(config.tools?.["task"]).toBeUndefined()
+    expect(config.tools?.["task"]).toBe(true)
   })
 
   it("allows call_weave_agent tool for delegation", () => {

@@ -221,7 +221,7 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     // so their prompts conditionally omit references to disabled agents
     let built: AgentConfigWithOptions
     if (name === "loom") {
-      built = createLoomAgentWithOptions(resolvedModel, disabledSet, fingerprint, customAgentMetadata)
+      built = createLoomAgentWithOptions(resolvedModel, disabledSet, fingerprint, customAgentMetadata, categories)
     } else if (name === "tapestry") {
       built = createTapestryAgentWithOptions(resolvedModel, disabledSet, continuation, categories)
     } else {
@@ -254,14 +254,12 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     result[name] = built
   }
 
-  // Register category-specific Shuttle agents for categories that have patterns defined.
-  // Each category with patterns gets a `shuttle-{categoryName}` agent variant with the
-  // category's model and prompt_append baked in. The base `shuttle` agent remains as fallback.
+  // Register category-specific Shuttle agents for all configured categories.
+  // Patterns affect Tapestry's routing hints, not whether the agent exists.
+  // The base `shuttle` agent remains as the generic fallback.
   if (categories && result["shuttle"]) {
     const baseShuttle = result["shuttle"]
     for (const [categoryName, categoryConfig] of Object.entries(categories)) {
-      if (!categoryConfig.patterns?.length) continue
-
       const categoryAgentName = `shuttle-${categoryName}`
       if (disabledSet.has(categoryAgentName)) {
         debug(`Category shuttle agent "${categoryAgentName}" is disabled — skipping`)
@@ -286,8 +284,10 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
       const categoryToolOverrides = categoryConfig.tools
       const categoryShuttle: AgentConfig = {
         ...baseShuttle,
+        description: `Shuttle (${categoryName} specialist) — handles ${categoryName} domain tasks dispatched by Tapestry`,
         model: categoryModel,
         prompt: categoryPrompt,
+        mode: "subagent",
         ...(categoryConfig.temperature !== undefined && { temperature: categoryConfig.temperature }),
         // Categories always inherit Shuttle's base tool policy. When `tools` is present,
         // even as `{}`, treat it as "merge no overrides" rather than "clear all tools" so

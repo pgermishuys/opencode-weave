@@ -50,6 +50,7 @@ export function createManagers(options: {
   const agents = createBuiltinAgents({
     disabledAgents: pluginConfig.disabled_agents,
     agentOverrides: pluginConfig.agents,
+    categories: pluginConfig.categories,
     resolveSkills,
     fingerprint,
     customAgentMetadata,

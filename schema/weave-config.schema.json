@@ -256,7 +256,8 @@
                 "type": "array",
                 "items": {
                   "type": "string"
-                }
+                },
+                "description": "Glob patterns for file-based task routing to this category's Shuttle agent"
               }
             },
             "additionalProperties": false

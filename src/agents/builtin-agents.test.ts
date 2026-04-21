@@ -315,14 +315,27 @@ describe("AGENT_METADATA", () => {
     expect(agents["shuttle-frontend"]?.prompt).toContain("React expert")
   })
 
-  it("does not register shuttle-{category} agents for categories without patterns", () => {
+  it("registers shuttle-{category} agents for categories without patterns", () => {
     const agents = createBuiltinAgents({
       categories: {
         backend: { model: "claude-opus-4", temperature: 0.3 },
       },
+      availableModels: new Set(["claude-opus-4"]),
     })
     expect(agents["shuttle"]).toBeDefined()
-    expect(agents["shuttle-backend"]).toBeUndefined()
+    expect(agents["shuttle-backend"]).toBeDefined()
+  })
+
+  it("category shuttle has category-specific description", () => {
+    const agents = createBuiltinAgents({
+      categories: {
+        frontend: { patterns: ["*.tsx"], model: "fast-model" },
+      },
+      availableModels: new Set(["fast-model"]),
+    })
+    const desc = agents["shuttle-frontend"]?.description ?? ""
+    expect(desc).toContain("frontend")
+    expect(desc).not.toBe(agents["shuttle"]?.description)
   })
 
   it("base shuttle agent always registered even when categories have patterns", () => {
@@ -370,5 +383,59 @@ describe("AGENT_METADATA", () => {
     })
     expect(agents["shuttle-frontend"]?.tools?.["call_weave_agent"]).toBe(false)
     expect(agents["shuttle-frontend"]?.tools?.["web_search"]).toBe(true)
+  })
+
+  it("category shuttle agents have mode 'subagent'", () => {
+    const agents = createBuiltinAgents({
+      categories: {
+        frontend: { patterns: ["*.tsx"] },
+        backend: { patterns: ["*.go"], model: "claude-opus-4" },
+      },
+      availableModels: new Set(["claude-opus-4"]),
+    })
+    expect(agents["shuttle-frontend"]?.mode).toBe("subagent")
+    expect(agents["shuttle-backend"]?.mode).toBe("subagent")
+  })
+
+  it("base shuttle agent mode is unchanged ('all') when categories are registered", () => {
+    const agents = createBuiltinAgents({
+      categories: {
+        frontend: { patterns: ["*.tsx"] },
+      },
+    })
+    expect(agents["shuttle"]?.mode).toBe("all")
+  })
+
+  it("creates category shuttle agent with category-specific description", () => {
+    const agents = createBuiltinAgents({
+      categories: {
+        frontend: {
+          patterns: ["*.tsx"],
+        },
+      },
+    })
+    expect(agents["shuttle-frontend"]?.description).toContain("frontend")
+    expect(agents["shuttle-frontend"]?.description).not.toBe(agents["shuttle"]?.description)
+  })
+
+  it("category shuttle agents have mode 'subagent'", () => {
+    const agents = createBuiltinAgents({
+      categories: {
+        frontend: { patterns: ["*.tsx"] },
+        backend: { model: "claude-opus-4" },
+      },
+      availableModels: new Set(["claude-opus-4"]),
+    })
+    expect(agents["shuttle-frontend"]?.mode).toBe("subagent")
+    expect(agents["shuttle-backend"]?.mode).toBe("subagent")
+  })
+
+  it("base shuttle agent mode is unchanged ('all') when categories are registered", () => {
+    const agents = createBuiltinAgents({
+      categories: {
+        frontend: { patterns: ["*.tsx"] },
+      },
+    })
+    expect(agents["shuttle"]?.mode).toBe("all")
   })
 })

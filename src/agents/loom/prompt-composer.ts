@@ -10,6 +10,7 @@ import type { ProjectFingerprint } from "../../features/analytics/types"
 import { buildProjectContextSection, buildDelegationTable } from "../dynamic-prompt-builder"
 import type { AvailableAgent } from "../dynamic-prompt-builder"
 import { isAgentEnabled } from "../prompt-utils"
+import type { CategoriesConfig } from "../../config/schema"
 
 export interface LoomPromptOptions {
   /** Set of disabled agent names (lowercase config keys) */
@@ -18,6 +19,8 @@ export interface LoomPromptOptions {
   fingerprint?: ProjectFingerprint | null
   /** Custom agent metadata for dynamic delegation sections */
   customAgents?: AvailableAgent[]
+  /** Categories config for category-aware shuttle routing */
+  categories?: CategoriesConfig
 }
 
 export function buildRoleSection(): string {
@@ -187,6 +190,59 @@ export function buildStyleSection(): string {
 }
 
 /**
+ * Build a category routing section listing shuttle-{category} agents.
+ * Categories with patterns get file-pattern routing guidance.
+ * Categories without patterns are still listed as available specialists.
+ * Returns empty string when no categories exist or shuttle is disabled.
+ */
+export function buildCategoryRoutingSection(
+  categories: CategoriesConfig | undefined,
+  disabled: Set<string>,
+): string {
+  if (!categories || !isAgentEnabled("shuttle", disabled)) return ""
+
+  const withPatterns: string[] = []
+  const withoutPatterns: string[] = []
+  for (const [name, cfg] of Object.entries(categories)) {
+    const agentName = `shuttle-${name}`
+    if (!isAgentEnabled(agentName, disabled)) continue
+    const desc = cfg.description ? ` — ${cfg.description}` : ""
+    if (cfg.patterns?.length) {
+      const patterns = cfg.patterns.join(", ")
+      withPatterns.push(`- \`${agentName}\`${desc} (patterns: ${patterns})`)
+    } else {
+      withoutPatterns.push(`- \`${agentName}\`${desc}`)
+    }
+  }
+
+  if (withPatterns.length === 0 && withoutPatterns.length === 0) return ""
+
+  const lines: string[] = []
+
+  if (withPatterns.length > 0) {
+    lines.push("Prefer category-specific shuttle agents when file patterns match the task:")
+    lines.push("")
+    lines.push(...withPatterns)
+    if (withoutPatterns.length > 0) {
+      lines.push("")
+      lines.push("Also available (no file-pattern routing — use when task domain is clear):")
+      lines.push("")
+      lines.push(...withoutPatterns)
+    }
+    lines.push("")
+    lines.push(
+      "Use `shuttle-{category}` instead of generic `shuttle` when the task matches a category's patterns.",
+    )
+  } else {
+    lines.push("Category-specific shuttle agents are available — use by task domain:")
+    lines.push("")
+    lines.push(...withoutPatterns)
+  }
+
+  return `<CategoryRouting>\n${lines.join("\n")}\n</CategoryRouting>`
+}
+
+/**
  * Build a delegation section for custom agents.
  * Returns empty string if no enabled custom agents exist.
  */
@@ -216,6 +272,7 @@ export function composeLoomPrompt(options: LoomPromptOptions = {}): string {
   const disabled = options.disabledAgents ?? new Set()
   const fingerprint = options.fingerprint
   const customAgents = options.customAgents ?? []
+  const categories = options.categories
 
   const sections = [
     buildRoleSection(),
@@ -224,6 +281,7 @@ export function composeLoomPrompt(options: LoomPromptOptions = {}): string {
     buildSidebarTodosSection(),
     buildDelegationSection(disabled),
     buildDelegationNarrationSection(disabled),
+    buildCategoryRoutingSection(categories, disabled),
     buildCustomAgentDelegationSection(customAgents, disabled),
     buildPlanWorkflowSection(disabled),
     buildReviewWorkflowSection(disabled),

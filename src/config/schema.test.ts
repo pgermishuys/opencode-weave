@@ -148,6 +148,49 @@ describe("WeaveConfigSchema", () => {
     }
   })
 
+  it("parses categories config with patterns field", () => {
+    const result = WeaveConfigSchema.safeParse({
+      categories: {
+        frontend: {
+          model: "claude-sonnet-4",
+          prompt_append: "React specialist",
+          patterns: ["src/components/**", "*.tsx", "*.css"],
+        },
+      },
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.categories?.frontend?.patterns).toEqual([
+        "src/components/**",
+        "*.tsx",
+        "*.css",
+      ])
+    }
+  })
+
+  it("rejects categories config with non-string-array patterns", () => {
+    const result = WeaveConfigSchema.safeParse({
+      categories: {
+        frontend: {
+          patterns: [123, true],
+        },
+      },
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it("parses categories config without patterns (backward compatibility)", () => {
+    const result = WeaveConfigSchema.safeParse({
+      categories: {
+        backend: { model: "claude-opus-4", temperature: 0.3 },
+      },
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.categories?.backend?.patterns).toBeUndefined()
+    }
+  })
+
   it("parses custom agent modelOptions passthrough", () => {
     const result = WeaveConfigSchema.safeParse({
       custom_agents: {

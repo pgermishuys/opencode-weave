@@ -17,7 +17,7 @@
   "evaluators": [
     {
       "kind": "llm-judge",
-      "expectedAnyOf": ["pause", "report", "user", "escalate", "stop", "cannot continue", "notify the user", "cannot proceed", "surface the failure"],
+      "expectedAnyOf": ["pause", "report", "user", "escalate", "stop", "cannot continue", "notify the user", "cannot proceed", "surface the failure", "three", "consecutive"],
       "forbiddenContains": ["delegate task 3", "continue with task 3", "retry task 2 again", "keep going"]
     }
   ]

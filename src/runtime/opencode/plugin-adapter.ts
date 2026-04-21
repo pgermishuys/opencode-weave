@@ -18,25 +18,7 @@ import { getAgentConfigKey } from "../../shared/agent-display-names"
 import { projectExecutionTransition } from "../../domain/session/execution-lease"
 import { createTrustedMessageState } from "./trusted-message-state"
 import type { BuiltinCommandEnvelopeName } from "./protocol"
-
-function buildEnabledAgentKeys(pluginConfig: WeaveConfig): Set<string> {
-  const disabled = new Set(pluginConfig.disabled_agents ?? [])
-  const enabled = new Set<string>()
-
-  for (const builtin of ["loom", "tapestry", "shuttle", "pattern", "thread", "spindle", "weft", "warp"]) {
-    if (!disabled.has(builtin)) {
-      enabled.add(builtin)
-    }
-  }
-
-  for (const custom of Object.keys(pluginConfig.custom_agents ?? {})) {
-    if (!disabled.has(custom)) {
-      enabled.add(custom)
-    }
-  }
-
-  return enabled
-}
+import { buildEnabledAgentKeys } from "./enabled-agent-keys"
 
 export function createPluginAdapter(args: {
   pluginConfig: WeaveConfig

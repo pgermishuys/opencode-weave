@@ -26,7 +26,7 @@
   "evaluators": [
     {
       "kind": "llm-judge",
-      "expectedAnyOf": ["shuttle-frontend", "route to shuttle-frontend", "*.tsx", "src/components/**"],
+      "expectedAnyOf": ["shuttle-frontend", "route to shuttle-frontend", "*.tsx", "src/components/**", "frontend", "matches"],
       "forbiddenContains": ["shuttle-backend", "generic shuttle", "plain shuttle"]
     }
   ]

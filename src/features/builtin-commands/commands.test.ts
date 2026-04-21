@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import { BUILTIN_COMMANDS } from "./commands"
+import { START_WORK_TEMPLATE } from "./templates/start-work"
 
 describe("BUILTIN_COMMANDS", () => {
   it("has start-work command", () => {
@@ -67,5 +68,51 @@ describe("BUILTIN_COMMANDS", () => {
 
   it("weave-health has name matching its key", () => {
     expect(BUILTIN_COMMANDS["weave-health"].name).toBe("weave-health")
+  })
+})
+
+describe("START_WORK_TEMPLATE — delegation semantics", () => {
+  it("instructs Tapestry to delegate tasks to Shuttle via Task tool", () => {
+    expect(START_WORK_TEMPLATE).toContain("Task tool")
+    expect(START_WORK_TEMPLATE).toContain("Shuttle")
+  })
+
+  it("explicitly forbids direct implementation", () => {
+    expect(START_WORK_TEMPLATE).toContain("do NOT implement work directly")
+  })
+
+  it("contains delegation prompt template with required fields", () => {
+    expect(START_WORK_TEMPLATE).toContain("**What**")
+    expect(START_WORK_TEMPLATE).toContain("**Files**")
+    expect(START_WORK_TEMPLATE).toContain("**Acceptance**")
+  })
+
+  it("preserves non-terminal execution semantics", () => {
+    expect(START_WORK_TEMPLATE).toContain("non-terminal")
+    expect(START_WORK_TEMPLATE).toContain("- [ ]")
+  })
+
+  it("preserves verification step before marking complete", () => {
+    expect(START_WORK_TEMPLATE).toContain("Verify")
+    expect(START_WORK_TEMPLATE).toContain("- [x]")
+  })
+
+  it("preserves progress reporting step", () => {
+    expect(START_WORK_TEMPLATE).toContain("Report progress")
+  })
+
+  it("preserves blocked-task handling", () => {
+    expect(START_WORK_TEMPLATE).toContain("blocked")
+    expect(START_WORK_TEMPLATE).toContain("next unchecked task")
+  })
+
+  it("preserves stop conditions", () => {
+    expect(START_WORK_TEMPLATE).toContain("all checkboxes are checked")
+    expect(START_WORK_TEMPLATE).toContain("user explicitly tells you to stop")
+    expect(START_WORK_TEMPLATE).toContain("every remaining unchecked task is truly blocked")
+  })
+
+  it("does not tell Tapestry to write code or run commands directly", () => {
+    expect(START_WORK_TEMPLATE).not.toContain("write code, run commands, create files")
   })
 })

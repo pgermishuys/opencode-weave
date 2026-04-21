@@ -22,7 +22,11 @@
         "include the What, Files, and Acceptance criteria sections",
         "implement auth middleware in src/middleware/auth.ts and tests in src/middleware/auth.test.ts",
         "reject requests without valid JWT with 401 and attach the decoded user to req.user",
-        "delegate the complete task context rather than a short summary"
+        "delegate the complete task context rather than a short summary",
+        "JWT",
+        "req.user",
+        "401",
+        "src/middleware/auth.ts"
       ],
       "forbiddenContains": []
     }

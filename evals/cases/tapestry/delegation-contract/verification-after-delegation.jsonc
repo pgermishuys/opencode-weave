@@ -18,7 +18,7 @@
     {
       "kind": "llm-judge",
       "expectedAnyOf": ["verify", "read", "check", "acceptance", "src/routes/users.ts", "400", "confirm"],
-      "forbiddenContains": ["no need to verify", "trust Shuttle's report and mark", "mark the task complete immediately"]
+      "forbiddenContains": ["no need to verify", "trust Shuttle's report and mark", "mark the task complete immediately", "mark complete without", "immediately mark", "task is done"]
     }
   ]
 }

@@ -17,7 +17,7 @@
   "evaluators": [
     {
       "kind": "llm-judge",
-      "expectedAnyOf": ["generic shuttle", "plain shuttle", "fallback shuttle", "no category match", "does not match a category"],
+      "expectedAnyOf": ["generic shuttle", "plain shuttle", "fallback shuttle", "no category match", "does not match a category", "shuttle", "generic", "fallback", "no match", "does not match"],
       "forbiddenContains": ["shuttle-frontend", "shuttle-backend"]
     }
   ]

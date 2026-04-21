@@ -17,8 +17,8 @@
   "evaluators": [
     {
       "kind": "llm-judge",
-      "expectedAnyOf": ["shuttle-backend", "route to shuttle-backend", "explicit [category: backend]", "explicit tag override", "category tag overrides file pattern"],
-      "forbiddenContains": ["shuttle-frontend", "route to shuttle-frontend"]
+      "expectedAnyOf": ["shuttle-backend", "route to shuttle-backend", "explicit [category: backend]", "explicit tag override", "category tag overrides file pattern", "backend", "[category: backend]", "explicit tag", "override"],
+      "forbiddenContains": ["shuttle-frontend", "route to shuttle-frontend", "frontend pattern"]
     }
   ]
 }

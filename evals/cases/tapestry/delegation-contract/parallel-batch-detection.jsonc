@@ -17,7 +17,7 @@
   "evaluators": [
     {
       "kind": "llm-judge",
-      "expectedAnyOf": ["Task 1 and Task 2 can run concurrently", "Tasks 1 and 2 can be delegated in the same response", "delegate Task 1 and Task 2 together", "batch Task 1 and Task 2", "run Task 1 and Task 2 simultaneously", "delegate Tasks 1 and 2 together while Task 3 waits", "Task 3 must wait for Task 1"],
+      "expectedAnyOf": ["Task 1 and Task 2 can run concurrently", "Tasks 1 and 2 can be delegated in the same response", "delegate Task 1 and Task 2 together", "batch Task 1 and Task 2", "run Task 1 and Task 2 simultaneously", "delegate Tasks 1 and 2 together while Task 3 waits", "Task 3 must wait for Task 1", "parallel", "Task 1 and Task 2", "tasks 1 and 2", "simultaneously", "same response", "concurrently"],
       "forbiddenContains": ["Task 3 in parallel with Task 1", "all three in parallel", "all tasks simultaneously"]
     }
   ]

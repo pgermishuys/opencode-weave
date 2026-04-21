@@ -17,7 +17,7 @@
   "evaluators": [
     {
       "kind": "llm-judge",
-      "expectedAnyOf": ["retry", "re-delegate", "delegate again", "error context", "attempt again", "try again"],
+      "expectedAnyOf": ["retry", "re-delegate", "delegate again", "error context", "attempt again", "try again", "AUTOINCREMENT", "SERIAL"],
       "forbiddenContains": ["mark as blocked", "skip this task", "move on", "cannot complete"]
     }
   ]

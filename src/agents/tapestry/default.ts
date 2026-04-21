@@ -6,6 +6,7 @@ export const TAPESTRY_DEFAULTS: AgentConfig = {
   description: "Tapestry (Execution Orchestrator)",
   tools: {
     call_weave_agent: true,
+    task: true,
   },
   prompt: composeTapestryPrompt(),
 }

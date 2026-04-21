@@ -119,6 +119,30 @@ describe("Integration: plugin bootstrap config", () => {
     expect(loomPrompt).not.toContain("<ProjectContext>")
   })
 
+  it("generates shuttle-{category} agent and CategoryRouting in Tapestry prompt when categories configured", async () => {
+    fixture.writeProjectConfig({
+      categories: {
+        frontend: {
+          patterns: ["src/frontend/**"],
+          model: "gpt-4o",
+          prompt_append: "Focus on React.",
+        },
+      },
+    })
+
+    const plugin = await WeavePlugin(makeMockCtx(fixture.directory))
+    const configObj: Record<string, unknown> = {}
+    await (plugin.config as (config: Record<string, unknown>) => Promise<void>)(configObj)
+
+    const agents = configObj.agent as Record<string, { prompt?: string }>
+    expect(agents["shuttle-frontend"]).toBeDefined()
+
+    const tapestryDisplayName = getAgentDisplayName("tapestry")
+    const tapestryPrompt = agents[tapestryDisplayName]?.prompt ?? ""
+    expect(tapestryPrompt).toContain("<CategoryRouting>")
+    expect(tapestryPrompt).toContain("shuttle-frontend")
+  })
+
   it("applies overrides, custom agents, disabled agents, and fingerprinted prompts together", async () => {
     fixture.writeFile("bun.lockb", "")
     fixture.writeProjectConfig({
