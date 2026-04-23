@@ -10,7 +10,7 @@
     "variant": {
       "additionalReviewers": [
         {
-          "key": "shuttle",
+          "key": "review-shuttle",
           "label": "Shuttle Reviewer",
           "source": "custom"
         }
@@ -26,7 +26,7 @@
   "evaluators": [
     {
       "kind": "llm-judge",
-      "expectedContains": ["weft", "shuttle", "warp", "review"],
+      "expectedContains": ["weft", "review-shuttle", "warp", "review"],
       "forbiddenContains": ["plan execution is complete without review"]
     }
   ]

@@ -27,7 +27,7 @@ export function resolveEffectiveReviewers(input: {
   const { pluginConfig, customAgentMetadata } = input
 
   const requested = pluginConfig.review?.additional_agents ?? []
-  const disabled = new Set(pluginConfig.disabled_agents ?? [])
+  const disabled = new Set((pluginConfig.disabled_agents ?? []).map((agent) => agent.toLowerCase()))
   const customConfig = pluginConfig.custom_agents ?? {}
 
   const metadataByLower = new Map<string, AvailableAgent>()
@@ -89,7 +89,7 @@ export function resolveEffectiveReviewers(input: {
       continue
     }
 
-    if (disabled.has(resolvedCustomKey)) {
+    if (disabled.has(resolvedCustomKey.toLowerCase())) {
       const warning = `Ignoring reviewer \"${resolvedCustomKey}\" in review.additional_agents: agent is disabled via disabled_agents`
       warnings.push(warning)
       warnConfig(warning)

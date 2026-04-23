@@ -30,7 +30,7 @@ function formatAdditionalReviewers(additionalReviewers: ResolvedReviewer[]): str
   if (additionalReviewers.length === 0) return ""
 
   return additionalReviewers
-    .map((reviewer) => `${reviewer.label} (subagent_type \"${reviewer.key}\")`)
+    .map((reviewer) => `${reviewer.label} (subagent_type "${reviewer.key}")`)
     .join(", ")
 }
 

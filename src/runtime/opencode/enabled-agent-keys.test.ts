@@ -118,6 +118,22 @@ describe("buildEnabledAgentKeys", () => {
     const categoryShuttles = [...result].filter(k => k.startsWith("shuttle-"))
     expect(categoryShuttles).toHaveLength(0)
   })
+
+  it("matches disabled_agents case-insensitively", () => {
+    const result = buildEnabledAgentKeys({
+      disabled_agents: ["WeFt", "Custom-Reviewer", "Shuttle-Docs"],
+      custom_agents: {
+        "custom-reviewer": { model: "gpt-4o" },
+      },
+      categories: {
+        docs: { description: "Docs work" },
+      },
+    })
+
+    expect(result.has("weft")).toBe(false)
+    expect(result.has("custom-reviewer")).toBe(false)
+    expect(result.has("shuttle-docs")).toBe(false)
+  })
 })
 
 describe("buildEffectiveAdditionalReviewerKeys", () => {

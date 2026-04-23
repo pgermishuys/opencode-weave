@@ -16,17 +16,17 @@ const BUILTIN_AGENT_NAMES = ["loom", "tapestry", "shuttle", "pattern", "thread",
  *   `shuttle-{category}` key is not disabled
  */
 export function buildEnabledAgentKeys(pluginConfig: WeaveConfig): Set<string> {
-  const disabled = new Set(pluginConfig.disabled_agents ?? [])
+  const disabled = new Set((pluginConfig.disabled_agents ?? []).map((agent) => agent.toLowerCase()))
   const enabled = new Set<string>()
 
   for (const builtin of BUILTIN_AGENT_NAMES) {
-    if (!disabled.has(builtin)) {
+    if (!disabled.has(builtin.toLowerCase())) {
       enabled.add(builtin)
     }
   }
 
   for (const custom of Object.keys(pluginConfig.custom_agents ?? {})) {
-    if (!disabled.has(custom)) {
+    if (!disabled.has(custom.toLowerCase())) {
       enabled.add(custom)
     }
   }
@@ -36,7 +36,7 @@ export function buildEnabledAgentKeys(pluginConfig: WeaveConfig): Set<string> {
   if (shuttleEnabled && pluginConfig.categories) {
     for (const categoryName of Object.keys(pluginConfig.categories)) {
       const categoryAgentName = `shuttle-${categoryName}`
-      if (!disabled.has(categoryAgentName)) {
+      if (!disabled.has(categoryAgentName.toLowerCase())) {
         enabled.add(categoryAgentName)
       }
     }
@@ -46,11 +46,8 @@ export function buildEnabledAgentKeys(pluginConfig: WeaveConfig): Set<string> {
 }
 
 /**
- * Derives only effective additional reviewer keys from review.additional_agents.
- *
- * Notes:
- * - Excludes `weft` because it remains built-in always-on reviewer flow.
- * - Excludes `warp` because security review is resolved separately.
+ * Derives the keys for whatever resolveEffectiveReviewers considers
+ * effective additional reviewers from review.additional_agents.
  */
 export function buildEffectiveAdditionalReviewerKeys(
   pluginConfig: WeaveConfig,

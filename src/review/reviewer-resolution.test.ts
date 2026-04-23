@@ -6,37 +6,39 @@ describe("resolveEffectiveReviewers", () => {
   it("rejects additional reviewers configured as mode primary", () => {
     const warnSpy = spyOn(console, "error").mockImplementation(() => {})
 
-    const config: WeaveConfig = {
-      custom_agents: {
-        "primary-reviewer": { mode: "primary", model: "gpt-4o" },
-      },
-      review: {
-        additional_agents: ["primary-reviewer"],
-      },
+    try {
+      const config: WeaveConfig = {
+        custom_agents: {
+          "primary-reviewer": { mode: "primary", model: "gpt-4o" },
+        },
+        review: {
+          additional_agents: ["primary-reviewer"],
+        },
+      }
+
+      const metadata = [
+        {
+          name: "primary-reviewer",
+          description: "Primary Reviewer",
+          metadata: { category: "advisor", cost: "EXPENSIVE", triggers: [] },
+        },
+      ]
+
+      const result = resolveEffectiveReviewers({
+        pluginConfig: config,
+        customAgentMetadata: metadata,
+      })
+
+      expect(result.reviewers).toHaveLength(1)
+      expect(result.reviewers[0]?.isValid).toBe(false)
+      expect(result.effectiveReviewers).toHaveLength(0)
+      expect(result.warnings.some((w) => w.includes('mode "primary" cannot be delegated via subagent_type'))).toBe(
+        true,
+      )
+      expect(warnSpy.mock.calls.some((call) => String(call[0]).includes('mode "primary"'))).toBe(true)
+    } finally {
+      warnSpy.mockRestore()
     }
-
-    const metadata = [
-      {
-        name: "primary-reviewer",
-        description: "Primary Reviewer",
-        metadata: { category: "advisor", cost: "EXPENSIVE", triggers: [] },
-      },
-    ]
-
-    const result = resolveEffectiveReviewers({
-      pluginConfig: config,
-      customAgentMetadata: metadata,
-    })
-
-    expect(result.reviewers).toHaveLength(1)
-    expect(result.reviewers[0]?.isValid).toBe(false)
-    expect(result.effectiveReviewers).toHaveLength(0)
-    expect(result.warnings.some((w) => w.includes('mode "primary" cannot be delegated via subagent_type'))).toBe(
-      true,
-    )
-    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes('mode "primary"'))).toBe(true)
-
-    warnSpy.mockRestore()
   })
 
   it("allows additional reviewers in mode subagent or all", () => {
@@ -72,5 +74,42 @@ describe("resolveEffectiveReviewers", () => {
     expect(result.reviewers).toHaveLength(2)
     expect(result.reviewers.every((reviewer) => reviewer.isValid)).toBe(true)
     expect(result.effectiveReviewers.map((r) => r.key)).toEqual(["subagent-reviewer", "all-reviewer"])
+  })
+
+  it("matches disabled_agents case-insensitively for additional reviewers", () => {
+    const warnSpy = spyOn(console, "error").mockImplementation(() => {})
+
+    try {
+      const config: WeaveConfig = {
+        custom_agents: {
+          "Review-Custom": { mode: "subagent", model: "gpt-4o" },
+        },
+        disabled_agents: ["review-custom"],
+        review: {
+          additional_agents: ["Review-Custom"],
+        },
+      }
+
+      const metadata = [
+        {
+          name: "Review-Custom",
+          description: "Custom Reviewer",
+          metadata: { category: "advisor", cost: "EXPENSIVE", triggers: [] },
+        },
+      ]
+
+      const result = resolveEffectiveReviewers({
+        pluginConfig: config,
+        customAgentMetadata: metadata,
+      })
+
+      expect(result.reviewers).toHaveLength(1)
+      expect(result.reviewers[0]?.isValid).toBe(false)
+      expect(result.effectiveReviewers).toHaveLength(0)
+      expect(result.warnings.some((w) => w.includes("agent is disabled via disabled_agents"))).toBe(true)
+      expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("agent is disabled via disabled_agents"))).toBe(true)
+    } finally {
+      warnSpy.mockRestore()
+    }
   })
 })
