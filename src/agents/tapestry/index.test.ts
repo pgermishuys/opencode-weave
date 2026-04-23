@@ -140,6 +140,37 @@ describe("createTapestryAgent", () => {
     expect(config.prompt).not.toContain("<CategoryRouting>")
   })
 
+  it("createTapestryAgentWithOptions preserves legacy prompt when additional reviewers are omitted or empty", () => {
+    const legacy = createTapestryAgent("claude-sonnet-4")
+    const withoutReviewers = createTapestryAgentWithOptions("claude-sonnet-4")
+    const withEmptyReviewers = createTapestryAgentWithOptions("claude-sonnet-4", undefined, undefined, undefined, [])
+
+    expect(withoutReviewers.prompt).toBe(legacy.prompt)
+    expect(withEmptyReviewers.prompt).toBe(legacy.prompt)
+  })
+
+  it("createTapestryAgentWithOptions includes additional reviewers when provided", () => {
+    const config = createTapestryAgentWithOptions(
+      "claude-sonnet-4",
+      new Set(),
+      undefined,
+      undefined,
+      [{ key: "review-custom", label: "Custom Reviewer", source: "custom", isValid: true }],
+    )
+
+    const reviewSection = getSection(config.prompt as string, "PostExecutionReview")
+    expect(reviewSection).not.toBeNull()
+    expect(reviewSection).toContain("Delegate to Weft")
+    expect(reviewSection).toContain("subagent_type \"review-custom\"")
+    expect(reviewSection).toContain("review.additional_agents")
+    expect(reviewSection).toContain("Consensus")
+    expect(reviewSection).toContain("Discrepancies")
+    expect(reviewSection).toContain("Unique findings")
+    expect(reviewSection).toContain("Do NOT average results")
+    expect(reviewSection).toContain("parallel Task calls")
+    expect(reviewSection).toContain("final sequential synthesis")
+  })
+
   it("createTapestryAgentWithOptions includes manual-only CategoryRouting when categories have no patterns", () => {
     const config = createTapestryAgentWithOptions(
       "claude-sonnet-4",

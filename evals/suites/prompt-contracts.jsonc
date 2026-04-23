@@ -17,6 +17,7 @@
     "evals/cases/shuttle/default-contract.jsonc",
     "evals/cases/tapestry/weft-only-review-contract.jsonc",
     "evals/cases/tapestry/warp-only-review-contract.jsonc",
+    "evals/cases/tapestry/multi-reviewers-contract.jsonc",
     "evals/cases/loom/plan-review-scoped-contract.jsonc"
   ]
 }

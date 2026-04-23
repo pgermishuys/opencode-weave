@@ -139,6 +139,10 @@ describe("buildDelegationSection", () => {
 })
 
 describe("buildPlanWorkflowSection", () => {
+  const additionalReviewers = [
+    { key: "review-custom", label: "Custom Reviewer", source: "custom" as const, isValid: true },
+  ]
+
   it("contains plan routing statement", () => {
     const section = buildPlanWorkflowSection(new Set())
     expect(section).toContain("Plans are executed by Tapestry")
@@ -148,7 +152,7 @@ describe("buildPlanWorkflowSection", () => {
   it("includes Pattern, Weft, Warp, and Tapestry by default", () => {
     const section = buildPlanWorkflowSection(new Set())
     expect(section).toContain("Pattern")
-    expect(section).toContain("Weft")
+    expect(section).toContain("Weft (primary reviewer)")
     expect(section).toContain("Warp")
     expect(section).toContain("Tapestry")
   })
@@ -170,6 +174,12 @@ describe("buildPlanWorkflowSection", () => {
     expect(section).not.toContain("REVIEW")
   })
 
+  it("includes review step for additional reviewers even when weft/warp are disabled", () => {
+    const section = buildPlanWorkflowSection(new Set(["weft", "warp"]), additionalReviewers)
+    expect(section).toContain("REVIEW")
+    expect(section).toContain("configured reviewers: Custom Reviewer (subagent_type \"review-custom\")")
+  })
+
   it("includes Warp in review step for security-relevant plans", () => {
     const section = buildPlanWorkflowSection(new Set())
     expect(section).toContain("Warp for security-relevant plans")
@@ -179,18 +189,55 @@ describe("buildPlanWorkflowSection", () => {
     const section = buildPlanWorkflowSection(new Set(["warp"]))
     expect(section).not.toContain("Warp")
   })
+
+  it("adds collection, comparison, and synthesis buckets", () => {
+    const section = buildPlanWorkflowSection(new Set())
+    expect(section).toContain("Collection phase")
+    expect(section).toContain("Comparison phase")
+    expect(section).toContain("Synthesis phase")
+    expect(section).toContain("consensus")
+    expect(section).toContain("discrepancies")
+    expect(section).toContain("unique findings")
+  })
 })
 
 describe("buildReviewWorkflowSection", () => {
+  const additionalReviewers = [
+    { key: "review-custom", label: "Custom Reviewer", source: "custom" as const, isValid: true },
+  ]
+
   it("returns empty string when both weft and warp disabled", () => {
     const section = buildReviewWorkflowSection(new Set(["weft", "warp"]))
     expect(section).toBe("")
+  })
+
+  it("includes ad-hoc review for additional reviewers when weft/warp are disabled", () => {
+    const section = buildReviewWorkflowSection(new Set(["weft", "warp"]), additionalReviewers)
+    expect(section).toContain("Ad-hoc review")
+    expect(section).toContain("configured additional reviewers: Custom Reviewer (subagent_type \"review-custom\")")
+    expect(section).not.toContain("Delegate to Weft")
   })
 
   it("includes ad-hoc review section by default", () => {
     const section = buildReviewWorkflowSection(new Set())
     expect(section).toContain("Ad-hoc review")
     expect(section).toContain("Weft")
+  })
+
+  it("requires collection, comparison, and synthesis buckets", () => {
+    const section = buildReviewWorkflowSection(new Set())
+    expect(section).toContain("Collection phase")
+    expect(section).toContain("Comparison phase")
+    expect(section).toContain("Synthesis phase")
+    expect(section).toContain("consensus")
+    expect(section).toContain("discrepancies")
+    expect(section).toContain("unique findings")
+  })
+
+  it("instructs to surface minority findings and escalate disagreements", () => {
+    const section = buildReviewWorkflowSection(new Set())
+    expect(section).toContain("Do not hide rejections or minority findings")
+    expect(section).toContain("Escalate real reviewer disagreements to the user")
   })
 
   it("includes Warp mandatory line when warp enabled", () => {
@@ -535,5 +582,25 @@ describe("composeLoomPrompt with categories", () => {
     const defaultPrompt = composeLoomPrompt()
     const withNoPatterned = composeLoomPrompt({ categories: { frontend: {} } })
     expect(withNoPatterned).not.toBe(defaultPrompt)
+  })
+})
+
+describe("composeLoomPrompt with additional reviewers", () => {
+  const additionalReviewers = [
+    { key: "review-custom", label: "Custom Reviewer", source: "custom" as const, isValid: true },
+    { key: "audit-bot", label: "Audit Bot", source: "custom" as const, isValid: true },
+  ]
+
+  it("keeps Weft as primary and names additional reviewers", () => {
+    const prompt = composeLoomPrompt({ additionalReviewers })
+    expect(prompt).toContain("Weft (primary reviewer)")
+    expect(prompt).toContain("Custom Reviewer (subagent_type \"review-custom\")")
+    expect(prompt).toContain("Audit Bot (subagent_type \"audit-bot\")")
+  })
+
+  it("maintains legacy prompt when additional reviewers are empty", () => {
+    const legacy = composeLoomPrompt()
+    const withEmpty = composeLoomPrompt({ additionalReviewers: [] })
+    expect(withEmpty).toBe(legacy)
   })
 })

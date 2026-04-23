@@ -1,4 +1,6 @@
 import type { WeaveConfig } from "../../config/schema"
+import type { AvailableAgent } from "../../agents/dynamic-prompt-builder"
+import { resolveEffectiveReviewers } from "../../review/reviewer-resolution"
 
 const BUILTIN_AGENT_NAMES = ["loom", "tapestry", "shuttle", "pattern", "thread", "spindle", "weft", "warp"] as const
 
@@ -41,4 +43,19 @@ export function buildEnabledAgentKeys(pluginConfig: WeaveConfig): Set<string> {
   }
 
   return enabled
+}
+
+/**
+ * Derives only effective additional reviewer keys from review.additional_agents.
+ *
+ * Notes:
+ * - Excludes `weft` because it remains built-in always-on reviewer flow.
+ * - Excludes `warp` because security review is resolved separately.
+ */
+export function buildEffectiveAdditionalReviewerKeys(
+  pluginConfig: WeaveConfig,
+  customAgentMetadata: AvailableAgent[],
+): Set<string> {
+  const resolution = resolveEffectiveReviewers({ pluginConfig, customAgentMetadata })
+  return new Set(resolution.effectiveReviewers.map((reviewer) => reviewer.key))
 }

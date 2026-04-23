@@ -9,6 +9,7 @@
 import { isAgentEnabled } from "../prompt-utils"
 import type { ResolvedContinuationConfig } from "../../config/continuation"
 import type { CategoriesConfig } from "../../config/schema"
+import type { ResolvedReviewer } from "../../review/reviewer-resolution"
 
 export interface TapestryPromptOptions {
   /** Set of disabled agent names (lowercase config keys) */
@@ -17,6 +18,8 @@ export interface TapestryPromptOptions {
   continuation?: ResolvedContinuationConfig
   /** Categories config for dynamic category routing section */
   categories?: CategoriesConfig
+  /** Additional configured terminal reviewers from review.additional_agents */
+  additionalReviewers?: ResolvedReviewer[]
 }
 
 export function buildTapestryRoleSection(): string {
@@ -333,11 +336,15 @@ After Shuttle completes a task — BEFORE marking \`- [ ]\` → \`- [x]\`:
 </Verification>`
 }
 
-export function buildTapestryPostExecutionReviewSection(disabled: Set<string>): string {
+export function buildTapestryPostExecutionReviewSection(
+  disabled: Set<string>,
+  additionalReviewers: ResolvedReviewer[] = [],
+): string {
   const hasWeft = isAgentEnabled("weft", disabled)
   const hasWarp = isAgentEnabled("warp", disabled)
+  const hasAdditionalReviewers = additionalReviewers.length > 0
 
-  if (!hasWeft && !hasWarp) {
+  if (!hasWeft && !hasWarp && !hasAdditionalReviewers) {
     return `<PostExecutionReview>
 This section applies only after ALL plan tasks are already checked off.
 
@@ -354,7 +361,15 @@ After ALL plan tasks are checked off:
 
   const reviewerLines: string[] = []
   if (hasWeft) {
-    reviewerLines.push(`   - Delegate to Weft: subagent_type "weft" — reviews code quality`)
+    reviewerLines.push(`   - Delegate to Weft: subagent_type "weft" — primary terminal quality reviewer`)
+  }
+  if (hasAdditionalReviewers) {
+    reviewerLines.push(
+      ...additionalReviewers.map(
+        (reviewer) =>
+          `   - Delegate to ${reviewer.label}: subagent_type "${reviewer.key}" — additional ${reviewer.source} reviewer from review.additional_agents`,
+      ),
+    )
   }
   if (hasWarp) {
     reviewerLines.push(
@@ -362,7 +377,11 @@ After ALL plan tasks are checked off:
     )
   }
 
-  const reviewerNames = [hasWeft && "Weft", hasWarp && "Warp"].filter(Boolean).join(" and ")
+  const reviewerNames = [
+    hasWeft && "Weft",
+    ...additionalReviewers.map((reviewer) => reviewer.label),
+    hasWarp && "Warp",
+  ].filter(Boolean).join(", ")
 
   return `<PostExecutionReview>
 This section applies only when no unchecked plan tasks remain.
@@ -372,15 +391,25 @@ Ignore this section completely while any unchecked task remains.
 When all plan tasks are checked off:
 
 1. Identify all changed files:
-    - If a **Start SHA** was provided in the session context, run \`git diff --name-only <start-sha>..HEAD\` to get the complete list of changed files (this captures all changes including intermediate commits)
-   - If no Start SHA is available (non-git workspace), use the plan's \`**Files**:\` fields as the review scope
-2. Run the required terminal validation workflow using the Task tool:
+     - If a **Start SHA** was provided in the session context, run \`git diff --name-only <start-sha>..HEAD\` to get the complete list of changed files (this captures all changes including intermediate commits)
+    - If no Start SHA is available (non-git workspace), use the plan's \`**Files**:\` fields as the review scope
+ 2. Run the required terminal review workflow using the Task tool:
 ${reviewerLines.join("\n")}
-   - Include the list of changed files in your prompt to each terminal validator
-3. Report the terminal results to the user:
-   - Summarize ${reviewerNames}'s findings (APPROVE or REJECT with details)
-   - If either validator REJECTS, present the blocking issues to the user for decision — do NOT attempt to fix them yourself
-   - Tapestry follows the plan; terminal findings require user approval before any further changes
+    - Include the list of changed files in every reviewer prompt
+    - Default-safe parallelism: independent reviewers MAY run as parallel Task calls in one response; if dependencies are unclear, run sequentially
+    - Always collect every reviewer output before synthesis (APPROVE, REJECT, BLOCKED, or tool failure)
+ 3. Compare reviewer outputs explicitly before answering the user:
+    - Do NOT average results
+    - Do NOT discard minority or isolated findings
+    - If any reviewer is BLOCKED or fails to return a result, report that reviewer as blocked/failing with the reason/output
+ 4. Provide one final sequential synthesis to the user (after all reviewer outputs are collected):
+    - **Consensus**: findings/verdicts shared by multiple reviewers
+    - **Discrepancies**: direct reviewer disagreements that need user decision
+    - **Unique findings**: material concerns raised by only one reviewer
+    - Include each reviewer's final verdict (APPROVE/REJECT/BLOCKED)
+    - If any reviewer REJECTS or BLOCKS, present all blocking issues for user decision — do NOT attempt to fix them yourself
+    - Tapestry follows the plan; terminal findings require user approval before any further changes
+    - Reviewers involved: ${reviewerNames}
 </PostExecutionReview>`
 }
 
@@ -419,6 +448,7 @@ export function composeTapestryPrompt(options: TapestryPromptOptions = {}): stri
       .filter(([, cfg]) => cfg.patterns && cfg.patterns.length > 0)
       .map(([name]) => name)
     : undefined
+  const additionalReviewers = options.additionalReviewers ?? []
 
   const sections = [
     buildTapestryRoleSection(),
@@ -432,7 +462,7 @@ export function composeTapestryPrompt(options: TapestryPromptOptions = {}): stri
     continuationHint,
     buildTapestryVerificationSection(),
     buildTapestryErrorHandlingSection(),
-    buildTapestryPostExecutionReviewSection(disabled),
+    buildTapestryPostExecutionReviewSection(disabled, additionalReviewers),
     buildTapestryExecutionSection(),
     buildTapestryStyleSection(),
   ].filter((section): section is string => Boolean(section))

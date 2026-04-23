@@ -134,6 +134,15 @@ export const AnalyticsConfigSchema = z.object({
   use_fingerprint: z.boolean().optional(),
 })
 
+export const ReviewConfigSchema = z.object({
+  /**
+   * Additional reviewer agents (by custom_agents key) to run alongside the default reviewer.
+   *
+   * Example: ["security-reviewer", "performance-reviewer"]
+   */
+  additional_agents: z.array(z.string()).optional(),
+})
+
 export const ContinuationRecoveryConfigSchema = z.object({
   /** Whether Weave should inject a resume prompt after session compaction/context restoration. */
   compaction: z.boolean().optional(),
@@ -174,6 +183,7 @@ export const WeaveConfigSchema = z.object({
   skill_directories: z.array(SafeRelativePathSchema).optional(),
   background: BackgroundConfigSchema.optional(),
   analytics: AnalyticsConfigSchema.optional(),
+  review: ReviewConfigSchema.optional(),
   continuation: ContinuationConfigSchema.optional(),
   tmux: TmuxConfigSchema.optional(),
   experimental: ExperimentalConfigSchema.optional(),
@@ -190,6 +200,7 @@ export type CategoryConfig = z.infer<typeof CategoryConfigSchema>
 export type CategoriesConfig = z.infer<typeof CategoriesConfigSchema>
 export type BackgroundConfig = z.infer<typeof BackgroundConfigSchema>
 export type AnalyticsConfig = z.infer<typeof AnalyticsConfigSchema>
+export type ReviewConfig = z.infer<typeof ReviewConfigSchema>
 export type ContinuationRecoveryConfig = z.infer<typeof ContinuationRecoveryConfigSchema>
 export type ContinuationIdleConfig = z.infer<typeof ContinuationIdleConfigSchema>
 export type ContinuationConfig = z.infer<typeof ContinuationConfigSchema>

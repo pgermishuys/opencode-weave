@@ -1,6 +1,7 @@
 import type { AgentConfig } from "@opencode-ai/sdk"
 import type { ResolvedContinuationConfig } from "../../config/continuation"
 import type { CategoriesConfig } from "../../config/schema"
+import type { ResolvedReviewer } from "../../review/reviewer-resolution"
 import type { AgentFactory } from "../types"
 import { TAPESTRY_DEFAULTS } from "./default"
 import { composeTapestryPrompt } from "./prompt-composer"
@@ -16,18 +17,27 @@ export function createTapestryAgentWithOptions(
   disabledAgents?: Set<string>,
   continuation?: ResolvedContinuationConfig,
   categories?: CategoriesConfig,
+  additionalReviewers: ResolvedReviewer[] = [],
 ): AgentConfig {
   const hasDisabled = disabledAgents && disabledAgents.size > 0
-  const needsCustomPrompt = hasDisabled || continuation || categories
+  const hasAdditionalReviewers = additionalReviewers.length > 0
+  const needsCustomPrompt = hasDisabled || continuation || categories || hasAdditionalReviewers
 
   if (!needsCustomPrompt) {
     return { ...TAPESTRY_DEFAULTS, tools: { ...TAPESTRY_DEFAULTS.tools }, model, mode: "primary" }
   }
 
+  const prompt = composeTapestryPrompt({
+    disabledAgents,
+    continuation,
+    categories,
+    additionalReviewers,
+  })
+
   return {
     ...TAPESTRY_DEFAULTS,
     tools: { ...TAPESTRY_DEFAULTS.tools },
-    prompt: composeTapestryPrompt({ disabledAgents, continuation, categories }),
+    prompt,
     model,
     mode: "primary",
   }

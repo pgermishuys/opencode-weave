@@ -288,6 +288,69 @@ describe("WeaveConfigSchema", () => {
     }
   })
 
+  it("parses review.additional_agents as string array", () => {
+    const result = WeaveConfigSchema.safeParse({
+      review: { additional_agents: ["security-reviewer", "perf-reviewer"] },
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.review?.additional_agents).toEqual([
+        "security-reviewer",
+        "perf-reviewer",
+      ])
+    }
+  })
+
+  it("parses empty review.additional_agents array", () => {
+    const result = WeaveConfigSchema.safeParse({
+      review: { additional_agents: [] },
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.review?.additional_agents).toEqual([])
+    }
+  })
+
+  it("rejects non-string values in review.additional_agents", () => {
+    const result = WeaveConfigSchema.safeParse({
+      review: { additional_agents: ["security-reviewer", 42] },
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it("accepts duplicate and builtin names in review.additional_agents (runtime validation handles them)", () => {
+    const result = WeaveConfigSchema.safeParse({
+      review: {
+        additional_agents: ["security-reviewer", "security-reviewer", "weft", "warp", "loom"],
+      },
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.review?.additional_agents).toEqual([
+        "security-reviewer",
+        "security-reviewer",
+        "weft",
+        "warp",
+        "loom",
+      ])
+    }
+  })
+
+  it("accepts custom agent display_name used for reviewer labels", () => {
+    const result = WeaveConfigSchema.safeParse({
+      custom_agents: {
+        "sec-reviewer": {
+          prompt: "Review security changes.",
+          display_name: "Security Reviewer",
+        },
+      },
+      review: {
+        additional_agents: ["sec-reviewer"],
+      },
+    })
+    expect(result.success).toBe(true)
+  })
+
   it("parses continuation config with recovery and idle overrides", () => {
     const result = WeaveConfigSchema.safeParse({
       continuation: {

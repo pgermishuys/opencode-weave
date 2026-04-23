@@ -1,8 +1,8 @@
 {
   "id": "tapestry-disabled-reviewers-contract",
-  "title": "Tapestry removes delegated review when Weft and Warp are disabled",
+  "title": "Tapestry legacy fallback removes delegated review when all reviewers are disabled",
   "phase": "prompt",
-  "tags": ["prompt", "composer", "tapestry", "variants"],
+  "tags": ["prompt", "composer", "tapestry", "variants", "legacy", "review"],
   "target": {
     "kind": "builtin-agent-prompt",
     "agent": "tapestry",
@@ -15,7 +15,7 @@
   },
   "evaluators": [
     { "kind": "xml-sections-present", "sections": ["PostExecutionReview"] },
-    { "kind": "section-contains-all", "section": "PostExecutionReview", "patterns": ["Identify all changed files", "Report the summary of all changes to the user."] },
-    { "kind": "excludes-all", "patterns": ["subagent_type \"weft\"", "subagent_type \"warp\"", "Delegate to"] }
+    { "kind": "section-contains-all", "section": "PostExecutionReview", "patterns": ["This section applies only after ALL plan tasks are already checked off.", "Do not mention this section while any unchecked task remains.", "After ALL plan tasks are checked off:", "Identify all changed files", "Report the summary of all changes to the user."] },
+    { "kind": "excludes-all", "patterns": ["subagent_type \"weft\"", "subagent_type \"warp\"", "review.additional_agents", "Delegate to"] }
   ]
 }

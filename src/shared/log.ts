@@ -69,6 +69,10 @@ export function warn(message: string, data?: unknown): void {
   emit("WARN", message, data)
 }
 
+export function warnConfig(message: string, data?: unknown): void {
+  warn(`[config] ${message}`, data)
+}
+
 export function error(message: string, data?: unknown): void {
   emit("ERROR", message, data)
 }

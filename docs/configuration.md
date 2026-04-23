@@ -39,6 +39,7 @@ flowchart LR
 
 - **Nested objects** (agents, categories): deep merge — project keys override user keys recursively
 - **Arrays** (disabled_*): union with deduplication — both sets combined
+- **`review`**: deep merge, except `review.additional_agents` is **project-overrides-user** (no union) so projects can clear inherited reviewers with `[]`
 - **Scalars**: project value wins over user value
 
 ## Full Schema
@@ -124,9 +125,24 @@ The generated JSON Schema above is the authoritative contract for editor tooling
     "plugin_load_timeout_ms": 5000,
     "context_window_warning_threshold": 0.8,
     "context_window_critical_threshold": 0.95
+  },
+
+  // Additional reviewers for review flows.
+  // Values reference keys from `custom_agents`.
+  "review": {
+    "additional_agents": ["security-reviewer", "perf-reviewer"]
   }
 }
 ```
+
+### `review.additional_agents`
+
+- Type: `string[]`
+- Meaning: list of **custom agent names** (keys under `custom_agents`) that should be used as additional reviewers.
+- Default-safe behavior:
+  - If `review` is omitted: behavior is unchanged from today.
+  - If `review.additional_agents` is omitted: behavior is unchanged from today.
+  - If `review.additional_agents` is `[]`: project config intentionally disables inherited additional reviewers.
 
 ## Agent Names
 

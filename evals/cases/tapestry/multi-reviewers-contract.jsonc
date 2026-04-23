@@ -1,0 +1,45 @@
+{
+  "id": "tapestry-multi-reviewers-contract",
+  "title": "Tapestry PostExecutionReview runs Weft plus additional reviewers and Warp with structured synthesis",
+  "phase": "prompt",
+  "tags": ["prompt", "composer", "tapestry", "variants", "review"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry",
+    "variant": {
+      "additionalReviewers": [
+        {
+          "key": "review-custom",
+          "label": "Custom Reviewer",
+          "source": "custom"
+        }
+      ]
+    }
+  },
+  "executor": {
+    "kind": "prompt-render"
+  },
+  "evaluators": [
+    { "kind": "xml-sections-present", "sections": ["PostExecutionReview"] },
+    {
+      "kind": "section-contains-all",
+      "section": "PostExecutionReview",
+      "patterns": [
+        "Delegate to Weft",
+        "subagent_type \"weft\"",
+        "Delegate to Custom Reviewer",
+        "subagent_type \"review-custom\"",
+        "review.additional_agents",
+        "Delegate to Warp",
+        "subagent_type \"warp\"",
+        "independent reviewers MAY run as parallel Task calls",
+        "final sequential synthesis",
+        "Consensus",
+        "Discrepancies",
+        "Unique findings",
+        "Do NOT average results",
+        "Do NOT discard minority or isolated findings"
+      ]
+    }
+  ]
+}

@@ -118,6 +118,43 @@ describe("buildTapestryPostExecutionReviewSection", () => {
     const section = buildTapestryPostExecutionReviewSection(new Set())
     expect(section).toContain("user approval")
   })
+
+  it("requires collection/comparison plus structured synthesis for terminal reviewers", () => {
+    const section = buildTapestryPostExecutionReviewSection(new Set())
+    expect(section).toContain("Always collect every reviewer output before synthesis")
+    expect(section).toContain("Do NOT average results")
+    expect(section).toContain("Consensus")
+    expect(section).toContain("Discrepancies")
+    expect(section).toContain("Unique findings")
+  })
+
+  it("allows parallel task calls for independent reviewers but requires final sequential synthesis", () => {
+    const section = buildTapestryPostExecutionReviewSection(new Set())
+    expect(section).toContain("independent reviewers MAY run as parallel Task calls")
+    expect(section).toContain("final sequential synthesis")
+  })
+
+  it("includes additional reviewers in terminal review workflow when provided", () => {
+    const section = buildTapestryPostExecutionReviewSection(new Set(), [
+      { key: "review-custom", label: "Custom Reviewer", source: "custom", isValid: true },
+    ])
+
+    expect(section).toContain("Delegate to Weft")
+    expect(section).toContain("Delegate to Custom Reviewer")
+    expect(section).toContain('subagent_type "review-custom"')
+    expect(section).toContain("review.additional_agents")
+  })
+
+  it("still delegates terminal review when built-ins are disabled but additional reviewers are configured", () => {
+    const section = buildTapestryPostExecutionReviewSection(new Set(["weft", "warp"]), [
+      { key: "review-custom", label: "Custom Reviewer", source: "custom", isValid: true },
+    ])
+
+    expect(section).toContain("Task tool")
+    expect(section).toContain("Delegate to Custom Reviewer")
+    expect(section).not.toContain('subagent_type "weft"')
+    expect(section).not.toContain('subagent_type "warp"')
+  })
 })
 
 describe("individual tapestry section builders", () => {

@@ -120,4 +120,36 @@ describe("mergeConfigs", () => {
     const result = mergeConfigs({}, {})
     expect(result.custom_agents).toBeUndefined()
   })
+
+  it("uses user review.additional_agents when project review is absent", () => {
+    const result = mergeConfigs(
+      { review: { additional_agents: ["user-reviewer"] } },
+      {},
+    )
+    expect(result.review?.additional_agents).toEqual(["user-reviewer"])
+  })
+
+  it("project review.additional_agents overrides user values (no union)", () => {
+    const result = mergeConfigs(
+      { review: { additional_agents: ["user-reviewer"] } },
+      { review: { additional_agents: ["project-reviewer"] } },
+    )
+    expect(result.review?.additional_agents).toEqual(["project-reviewer"])
+  })
+
+  it("keeps inherited user reviewers when project.review exists without additional_agents", () => {
+    const result = mergeConfigs(
+      { review: { additional_agents: ["user-reviewer"] } },
+      { review: {} },
+    )
+    expect(result.review?.additional_agents).toEqual(["user-reviewer"])
+  })
+
+  it("allows project review.additional_agents [] to clear inherited user reviewers", () => {
+    const result = mergeConfigs(
+      { review: { additional_agents: ["user-reviewer"] } },
+      { review: { additional_agents: [] } },
+    )
+    expect(result.review?.additional_agents).toEqual([])
+  })
 })

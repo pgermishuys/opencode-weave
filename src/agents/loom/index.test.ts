@@ -55,8 +55,22 @@ describe("createLoomAgent", () => {
       prompt.indexOf("</PlanWorkflow>"),
     )
     expect(planWorkflow).toContain("REVIEW")
-    expect(planWorkflow).toContain("Weft")
+    expect(planWorkflow).toContain("Weft (primary reviewer)")
     expect(planWorkflow).toContain("Warp")
+  })
+
+  it("PlanWorkflow requires structured multi-review synthesis", () => {
+    const config = createLoomAgent("claude-opus-4")
+    const prompt = config.prompt as string
+    const planWorkflow = prompt.slice(
+      prompt.indexOf("<PlanWorkflow>"),
+      prompt.indexOf("</PlanWorkflow>"),
+    )
+    expect(planWorkflow).toContain("Collection phase")
+    expect(planWorkflow).toContain("Comparison phase")
+    expect(planWorkflow).toContain("consensus")
+    expect(planWorkflow).toContain("discrepancies")
+    expect(planWorkflow).toContain("unique findings")
   })
 
   it("ReviewWorkflow contains Warp mandatory language", () => {
@@ -134,6 +148,17 @@ describe("createLoomAgent", () => {
     expect(reviewWorkflow).toContain("Weft")
     expect(reviewWorkflow).not.toContain("Post-Plan")
   })
+
+  it("ReviewWorkflow forbids hiding minority findings", () => {
+    const config = createLoomAgent("claude-opus-4")
+    const prompt = config.prompt as string
+    const reviewWorkflow = prompt.slice(
+      prompt.indexOf("<ReviewWorkflow>"),
+      prompt.indexOf("</ReviewWorkflow>"),
+    )
+    expect(reviewWorkflow).toContain("Do not hide rejections or minority findings")
+    expect(reviewWorkflow).toContain("Escalate real reviewer disagreements to the user")
+  })
 })
 
 describe("createLoomAgentWithOptions", () => {
@@ -160,6 +185,30 @@ describe("createLoomAgentWithOptions", () => {
   it("returns default prompt with empty custom agents array", () => {
     const config = createLoomAgentWithOptions("claude-opus-4", undefined, null, [])
     expect(config.prompt).not.toContain("<CustomDelegation>")
+  })
+
+  it("preserves legacy prompt when additional reviewers are omitted or empty", () => {
+    const legacy = createLoomAgent("claude-opus-4")
+    const withoutReviewers = createLoomAgentWithOptions("claude-opus-4")
+    const withEmptyReviewers = createLoomAgentWithOptions("claude-opus-4", undefined, null, undefined, undefined, [])
+
+    expect(withoutReviewers.prompt).toBe(legacy.prompt)
+    expect(withEmptyReviewers.prompt).toBe(legacy.prompt)
+  })
+
+  it("includes additional reviewers when provided", () => {
+    const config = createLoomAgentWithOptions(
+      "claude-opus-4",
+      undefined,
+      null,
+      undefined,
+      undefined,
+      [{ key: "review-custom", label: "Custom Reviewer", source: "custom", isValid: true }],
+    )
+
+    expect(config.prompt).toContain("Weft (primary reviewer)")
+    expect(config.prompt).toContain("Custom Reviewer (subagent_type \"review-custom\")")
+    expect(config.prompt).toContain("Collection phase")
   })
 
   it("includes multiple custom agents in delegation table", () => {

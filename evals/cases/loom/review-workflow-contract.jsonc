@@ -1,6 +1,6 @@
 {
   "id": "loom-review-workflow-contract",
-  "title": "Loom review workflow remains mandatory when reviewers are enabled",
+  "title": "Loom legacy review workflow preserves ad-hoc synthesis and /start-work handoff",
   "phase": "prompt",
   "tags": ["prompt", "composer", "loom", "review"],
   "target": {
@@ -12,7 +12,8 @@
   },
   "evaluators": [
     { "kind": "xml-sections-present", "sections": ["ReviewWorkflow"] },
-    { "kind": "section-contains-all", "section": "ReviewWorkflow", "patterns": ["Warp is mandatory", "Ad-hoc review"] },
-    { "kind": "section-contains-all", "section": "PlanWorkflow", "patterns": ["Delegate to Pattern", "Delegate to Weft", "/start-work"] }
+    { "kind": "section-contains-all", "section": "ReviewWorkflow", "patterns": ["Ad-hoc review (outside of plan execution):", "Delegate to Weft", "Collection phase", "Comparison phase", "Synthesis phase", "consensus", "discrepancies", "unique findings", "Do not hide rejections or minority findings", "Escalate real reviewer disagreements to the user", "Warp is mandatory"] },
+    { "kind": "section-contains-all", "section": "PlanWorkflow", "patterns": ["Delegate to Pattern", "Delegate to Weft (primary reviewer)", "Collection phase", "Comparison phase", "Synthesis phase", "Tell the user to run `/start-work` — Tapestry handles execution", "`/start-work` also resumes interrupted work"] },
+    { "kind": "excludes-all", "patterns": ["review.additional_agents", "Delegate to Custom Reviewer", "subagent_type \"review-custom\""] }
   ]
 }

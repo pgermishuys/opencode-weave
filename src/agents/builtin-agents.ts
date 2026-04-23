@@ -16,6 +16,7 @@ import type { ResolveSkillsFn } from "./agent-builder"
 import type { ProjectFingerprint } from "../features/analytics/types"
 import type { AvailableAgent } from "./dynamic-prompt-builder"
 import { debug } from "../shared/log"
+import type { ResolvedReviewer } from "../review/reviewer-resolution"
 
 type AgentConfigWithOptions = AgentConfig & {
   options?: Record<string, unknown>
@@ -34,6 +35,8 @@ export interface CreateBuiltinAgentsOptions {
   fingerprint?: ProjectFingerprint | null
   /** Custom agent metadata for Loom's dynamic delegation prompt */
   customAgentMetadata?: AvailableAgent[]
+  /** Effective extra reviewers configured in review.additional_agents */
+  additionalReviewers?: ResolvedReviewer[]
   /** Resolved continuation config for prompt-aware agents */
   continuation?: ResolvedContinuationConfig
 }
@@ -189,6 +192,7 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     resolveSkills,
     fingerprint,
     customAgentMetadata,
+    additionalReviewers = [],
     continuation,
   } = options
 
@@ -221,9 +225,16 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     // so their prompts conditionally omit references to disabled agents
     let built: AgentConfigWithOptions
     if (name === "loom") {
-      built = createLoomAgentWithOptions(resolvedModel, disabledSet, fingerprint, customAgentMetadata, categories)
+      built = createLoomAgentWithOptions(
+        resolvedModel,
+        disabledSet,
+        fingerprint,
+        customAgentMetadata,
+        categories,
+        additionalReviewers,
+      )
     } else if (name === "tapestry") {
-      built = createTapestryAgentWithOptions(resolvedModel, disabledSet, continuation, categories)
+      built = createTapestryAgentWithOptions(resolvedModel, disabledSet, continuation, categories, additionalReviewers)
     } else {
       built = buildAgent(factory, resolvedModel, {
         categories,

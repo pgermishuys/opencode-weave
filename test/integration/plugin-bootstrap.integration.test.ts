@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { existsSync, readFileSync } from "fs"
 import { join } from "path"
 import WeavePlugin from "../../src/index"
@@ -179,5 +179,56 @@ describe("Integration: plugin bootstrap config", () => {
     expect(existsSync(join(fixture.directory, ANALYTICS_DIR))).toBe(true)
     expect(loomPrompt).not.toContain("spindle")
     expect(configObj.default_agent).toBe(loomDisplayName)
+  })
+
+  it("ignores invalid review.additional_agents references with warnings and preserves Weft/Warp safety path", async () => {
+    fixture.writeProjectConfig({
+      custom_agents: {
+        "review-custom": {
+          prompt: "Review with strict standards.",
+          display_name: "Review Sentinel",
+        },
+        "disabled-reviewer": {
+          prompt: "Should not run.",
+          display_name: "Disabled Reviewer",
+        },
+      },
+      disabled_agents: ["disabled-reviewer"],
+      review: {
+        additional_agents: [
+          "review-custom",
+          "review-custom",
+          "weft",
+          "warp",
+          "loom",
+          "missing-reviewer",
+          "disabled-reviewer",
+        ],
+      },
+    })
+
+    const warnSpy = spyOn(console, "error").mockImplementation(() => {})
+
+    const plugin = await WeavePlugin(makeMockCtx(fixture.directory))
+    const configObj: Record<string, unknown> = {}
+    await (plugin.config as (config: Record<string, unknown>) => Promise<void>)(configObj)
+
+    const agents = configObj.agent as Record<string, { prompt?: string }>
+    const tapestryPrompt = agents[getAgentDisplayName("tapestry")]?.prompt ?? ""
+
+    expect(tapestryPrompt).toContain('Delegate to Weft: subagent_type "weft"')
+    expect(tapestryPrompt).toContain('Delegate to Warp: subagent_type "warp"')
+    expect(tapestryPrompt).toContain('Delegate to Review Sentinel: subagent_type "review-custom"')
+    expect(tapestryPrompt).not.toContain('subagent_type "Review Sentinel"')
+    expect(tapestryPrompt).not.toContain('subagent_type "disabled-reviewer"')
+    expect(tapestryPrompt).not.toContain('subagent_type "missing-reviewer"')
+    expect(tapestryPrompt).not.toContain('subagent_type "loom"')
+
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("duplicate reviewer"))).toBe(true)
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("managed by built-in review flow"))).toBe(true)
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("only custom_agents keys are supported"))).toBe(true)
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("custom agent not found"))).toBe(true)
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("agent is disabled"))).toBe(true)
+    warnSpy.mockRestore()
   })
 })

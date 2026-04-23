@@ -68,6 +68,7 @@ describe("generateWeaveConfigJsonSchema", () => {
       "skill_directories",
       "background",
       "analytics",
+      "review",
       "continuation",
       "tmux",
       "experimental",
@@ -102,6 +103,7 @@ describe("generateWeaveConfigJsonSchema", () => {
     const { root } = getRootSchema()
     const agents = getProperty(root, "agents")
     const customAgents = getProperty(root, "custom_agents")
+    const review = getProperty(root, "review")
     const continuation = getProperty(root, "continuation")
     const tmux = getProperty(root, "tmux")
     const agentOverride = agents?.additionalProperties as JsonSchemaObject
@@ -114,6 +116,13 @@ describe("generateWeaveConfigJsonSchema", () => {
 
     expect(customAgents?.type).toBe("object")
     expect((customAgents?.additionalProperties as JsonSchemaObject)?.type).toBe("object")
+
+    expect(review?.type).toBe("object")
+    expect(getProperty(review as JsonSchemaObject, "additional_agents")?.type).toBe("array")
+    expect(
+      ((getProperty(review as JsonSchemaObject, "additional_agents") as JsonSchemaObject)
+        ?.items as JsonSchemaObject)?.type,
+    ).toBe("string")
 
     expect(getProperty(continuation as JsonSchemaObject, "idle")?.type).toBe("object")
     expect(getProperty(tmux as JsonSchemaObject, "layout")?.enum).toEqual([

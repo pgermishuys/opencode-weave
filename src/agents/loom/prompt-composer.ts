@@ -11,6 +11,7 @@ import { buildProjectContextSection, buildDelegationTable } from "../dynamic-pro
 import type { AvailableAgent } from "../dynamic-prompt-builder"
 import { isAgentEnabled } from "../prompt-utils"
 import type { CategoriesConfig } from "../../config/schema"
+import type { ResolvedReviewer } from "../../review/reviewer-resolution"
 
 export interface LoomPromptOptions {
   /** Set of disabled agent names (lowercase config keys) */
@@ -21,6 +22,16 @@ export interface LoomPromptOptions {
   customAgents?: AvailableAgent[]
   /** Categories config for category-aware shuttle routing */
   categories?: CategoriesConfig
+  /** Additional configured reviewers (Weft remains primary) */
+  additionalReviewers?: ResolvedReviewer[]
+}
+
+function formatAdditionalReviewers(additionalReviewers: ResolvedReviewer[]): string {
+  if (additionalReviewers.length === 0) return ""
+
+  return additionalReviewers
+    .map((reviewer) => `${reviewer.label} (subagent_type \"${reviewer.key}\")`)
+    .join(", ")
 }
 
 export function buildRoleSection(): string {
@@ -121,9 +132,13 @@ When delegating:
 </DelegationNarration>`
 }
 
-export function buildPlanWorkflowSection(disabled: Set<string>): string {
+export function buildPlanWorkflowSection(
+  disabled: Set<string>,
+  additionalReviewers: ResolvedReviewer[] = [],
+): string {
   const hasWeft = isAgentEnabled("weft", disabled)
   const hasWarp = isAgentEnabled("warp", disabled)
+  const hasAdditionalReviewers = additionalReviewers.length > 0
   const hasTapestry = isAgentEnabled("tapestry", disabled)
   const hasPattern = isAgentEnabled("pattern", disabled)
 
@@ -133,12 +148,30 @@ export function buildPlanWorkflowSection(disabled: Set<string>): string {
     steps.push(`1. PLAN: Delegate to Pattern → produces a plan at \`.weave/plans/{name}.md\``)
   }
 
-  if (hasWeft || hasWarp) {
+  if (hasWeft || hasWarp || hasAdditionalReviewers) {
     const stepNum = hasPattern ? 2 : 1
-    const reviewers: string[] = []
-    if (hasWeft) reviewers.push("Weft")
-    if (hasWarp) reviewers.push("Warp for security-relevant plans")
-    steps.push(`${stepNum}. REVIEW: Delegate to ${reviewers.join(", ")} to validate the plan`)
+    const additionalList = formatAdditionalReviewers(additionalReviewers)
+    const reviewerLine = hasWeft
+      ? additionalList.length > 0
+        ? `Delegate to Weft (primary reviewer) and also to: ${additionalList}`
+        : "Delegate to Weft (primary reviewer)"
+      : additionalList.length > 0
+        ? `Delegate to configured reviewers: ${additionalList}`
+        : "Run review checks"
+    const reviewDetails: string[] = [
+      `${stepNum}. REVIEW: ${reviewerLine} to validate the plan`,
+      "   - Collection phase: gather each reviewer result independently",
+      "   - Comparison phase: compare reviewer outcomes structurally",
+      "   - Synthesis phase: report all findings in mandatory buckets: consensus, discrepancies, unique findings",
+      "   - Do not hide rejections or minority findings",
+      "   - Escalate real reviewer disagreements to the user before execution",
+    ]
+
+    if (hasWarp) {
+      reviewDetails.push("   - Warp for security-relevant plans")
+    }
+
+    steps.push(reviewDetails.join("\n"))
   }
 
   if (hasTapestry) {
@@ -159,17 +192,30 @@ Skip it for quick fixes, single-file changes, and simple questions.
 </PlanWorkflow>`
 }
 
-export function buildReviewWorkflowSection(disabled: Set<string>): string {
+export function buildReviewWorkflowSection(
+  disabled: Set<string>,
+  additionalReviewers: ResolvedReviewer[] = [],
+): string {
   const hasWeft = isAgentEnabled("weft", disabled)
   const hasWarp = isAgentEnabled("warp", disabled)
+  const hasAdditionalReviewers = additionalReviewers.length > 0
 
-  if (!hasWeft && !hasWarp) return ""
+  if (!hasWeft && !hasWarp && !hasAdditionalReviewers) return ""
 
   const lines: string[] = []
 
   if (hasWeft) {
     lines.push("- Delegate to Weft after non-trivial changes (3+ files, or when quality matters)")
   }
+  const additionalList = formatAdditionalReviewers(additionalReviewers)
+  if (additionalList.length > 0) {
+    lines.push(`- Also delegate to configured additional reviewers: ${additionalList}`)
+  }
+  lines.push("- Collection phase: gather each reviewer result independently")
+  lines.push("- Comparison phase: compare reviewer outcomes structurally")
+  lines.push("- Synthesis phase: present mandatory buckets: consensus, discrepancies, unique findings")
+  lines.push("- Do not hide rejections or minority findings")
+  lines.push("- Escalate real reviewer disagreements to the user")
   if (hasWarp) {
     lines.push("- Warp is mandatory when changes touch auth, crypto, tokens, secrets, or input validation")
   }
@@ -273,6 +319,7 @@ export function composeLoomPrompt(options: LoomPromptOptions = {}): string {
   const fingerprint = options.fingerprint
   const customAgents = options.customAgents ?? []
   const categories = options.categories
+  const additionalReviewers = options.additionalReviewers ?? []
 
   const sections = [
     buildRoleSection(),
@@ -283,8 +330,8 @@ export function composeLoomPrompt(options: LoomPromptOptions = {}): string {
     buildDelegationNarrationSection(disabled),
     buildCategoryRoutingSection(categories, disabled),
     buildCustomAgentDelegationSection(customAgents, disabled),
-    buildPlanWorkflowSection(disabled),
-    buildReviewWorkflowSection(disabled),
+    buildPlanWorkflowSection(disabled, additionalReviewers),
+    buildReviewWorkflowSection(disabled, additionalReviewers),
     buildStyleSection(),
   ].filter((s) => s.length > 0)
 

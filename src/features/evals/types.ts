@@ -38,6 +38,11 @@ export type BuiltinEvalAgentName = WeaveAgentName
 export interface BuiltinAgentPromptVariant {
   disabledAgents?: string[]
   categories?: CategoriesConfig
+  additionalReviewers?: Array<{
+    key: string
+    label: string
+    source: "custom"
+  }>
 }
 
 export interface BuiltinAgentPromptTarget {

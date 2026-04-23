@@ -1,5 +1,5 @@
-import { describe, it, expect } from "bun:test"
-import { buildEnabledAgentKeys } from "./enabled-agent-keys"
+import { describe, it, expect, spyOn } from "bun:test"
+import { buildEnabledAgentKeys, buildEffectiveAdditionalReviewerKeys } from "./enabled-agent-keys"
 import type { WeaveConfig } from "../../config/schema"
 
 const BUILTINS = ["loom", "tapestry", "shuttle", "pattern", "thread", "spindle", "weft", "warp"]
@@ -117,5 +117,78 @@ describe("buildEnabledAgentKeys", () => {
     const result = buildEnabledAgentKeys({})
     const categoryShuttles = [...result].filter(k => k.startsWith("shuttle-"))
     expect(categoryShuttles).toHaveLength(0)
+  })
+})
+
+describe("buildEffectiveAdditionalReviewerKeys", () => {
+  it("returns only valid enabled custom reviewers", () => {
+    const config: WeaveConfig = {
+      custom_agents: {
+        "security-reviewer": { model: "gpt-4o", display_name: "Security Reviewer" },
+        "perf-reviewer": { model: "gpt-4o" },
+        "disabled-reviewer": { model: "gpt-4o" },
+      },
+      disabled_agents: ["disabled-reviewer"],
+      review: {
+        additional_agents: [
+          "security-reviewer",
+          "perf-reviewer",
+          "security-reviewer",
+          "disabled-reviewer",
+          "missing-reviewer",
+          "weft",
+          "warp",
+        ],
+      },
+    }
+
+    const metadata = [
+      {
+        name: "security-reviewer",
+        description: "Security checks",
+        metadata: { category: "advisor", cost: "EXPENSIVE", triggers: [] },
+      },
+      {
+        name: "perf-reviewer",
+        description: "Performance checks",
+        metadata: { category: "advisor", cost: "EXPENSIVE", triggers: [] },
+      },
+    ]
+
+    const result = buildEffectiveAdditionalReviewerKeys(config, metadata)
+    expect(result.has("security-reviewer")).toBe(true)
+    expect(result.has("perf-reviewer")).toBe(true)
+    expect(result.has("disabled-reviewer")).toBe(false)
+    expect(result.has("missing-reviewer")).toBe(false)
+    expect(result.has("weft")).toBe(false)
+    expect(result.has("warp")).toBe(false)
+    expect(result.size).toBe(2)
+  })
+
+  it("emits actionable warnings for ignored entries", () => {
+    const warnSpy = spyOn(console, "error").mockImplementation(() => {})
+    const config: WeaveConfig = {
+      custom_agents: {
+        reviewer: { model: "gpt-4o" },
+      },
+      review: {
+        additional_agents: ["reviewer", "reviewer", "missing", "weft"],
+      },
+    }
+
+    const metadata = [
+      {
+        name: "reviewer",
+        description: "Reviewer",
+        metadata: { category: "advisor", cost: "EXPENSIVE", triggers: [] },
+      },
+    ]
+
+    buildEffectiveAdditionalReviewerKeys(config, metadata)
+
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("duplicate reviewer"))).toBe(true)
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("custom agent not found"))).toBe(true)
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("managed by built-in review flow"))).toBe(true)
+    warnSpy.mockRestore()
   })
 })

@@ -26,6 +26,11 @@ export const EvalSuiteMetadataSchema = z.object({
 export const BuiltinAgentPromptVariantSchema = z.object({
   disabledAgents: z.array(NonEmptyString).optional(),
   categories: CategoriesConfigSchema.optional(),
+  additionalReviewers: z.array(z.object({
+    key: NonEmptyString,
+    label: NonEmptyString,
+    source: z.literal("custom"),
+  })).optional(),
 })
 
 export const BuiltinAgentPromptTargetSchema = z.object({

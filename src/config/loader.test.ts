@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, spyOn } from "bun:test"
 import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
-import { loadWeaveConfig } from "./loader"
+import { getLastConfigLoadResult, loadWeaveConfig } from "./loader"
 import { resolveContinuationConfig } from "./continuation"
 
 function createTmpDir(): string {
@@ -142,6 +142,44 @@ describe("loadWeaveConfig", () => {
     // Should not throw — should log and return defaults
     const config = loadWeaveConfig(testDir)
     expect(config).toBeDefined()
+  })
+
+  it("allows project review.additional_agents [] to clear inherited user reviewers", () => {
+    const userConfigDir = join(testDir, ".config", "opencode")
+    mkdirSync(userConfigDir, { recursive: true })
+    writeFileSync(
+      join(userConfigDir, "weave-opencode.json"),
+      JSON.stringify({ review: { additional_agents: ["user-reviewer"] } }),
+    )
+
+    const opencodeDir = join(testDir, ".opencode")
+    mkdirSync(opencodeDir, { recursive: true })
+    writeFileSync(
+      join(opencodeDir, "weave-opencode.json"),
+      JSON.stringify({ review: { additional_agents: [] } }),
+    )
+
+    const config = loadWeaveConfig(testDir, undefined, testDir)
+    expect(config.review?.additional_agents).toEqual([])
+  })
+
+  it("drops invalid review section but preserves valid agent overrides", () => {
+    const opencodeDir = join(testDir, ".opencode")
+    mkdirSync(opencodeDir, { recursive: true })
+    writeFileSync(
+      join(opencodeDir, "weave-opencode.json"),
+      JSON.stringify({
+        agents: { loom: { model: "preserved-model" } },
+        review: { additional_agents: ["security-reviewer", 42] },
+      }),
+    )
+
+    const config = loadWeaveConfig(testDir)
+    expect(config.agents?.loom?.model).toBe("preserved-model")
+    expect(config.review).toBeUndefined()
+
+    const last = getLastConfigLoadResult()
+    expect(last?.diagnostics.some((diag) => diag.section === "review")).toBe(true)
   })
 
   // Regression tests for issue #30:

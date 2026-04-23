@@ -340,6 +340,18 @@
           },
           "additionalProperties": false
         },
+        "review": {
+          "type": "object",
+          "properties": {
+            "additional_agents": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
         "continuation": {
           "type": "object",
           "properties": {

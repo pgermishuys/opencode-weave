@@ -40,6 +40,7 @@ For each unchecked \`- [ ]\` task in the plan:
 - A progress update is **not** a stopping point
 - Do **not** ask the user what to do next while unchecked tasks remain
 - Do **not** mention terminal validation, review, reviewers, final summary, completion, or post-execution steps while unchecked tasks remain
+- Terminal post-execution review routing (Weft/Warp + any configured additional reviewers) starts only after all plan checkboxes are checked
 - If asked what to do now while unchecked tasks remain, answer with only the immediate next delegation action
 - Keep mid-plan responses to one sentence or one short bullet
 - If the current task is blocked, document the reason and move to the next unchecked task that is not blocked

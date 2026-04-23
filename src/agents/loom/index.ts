@@ -3,6 +3,7 @@ import type { AgentFactory } from "../types"
 import type { AvailableAgent } from "../dynamic-prompt-builder"
 import type { ProjectFingerprint } from "../../features/analytics/types"
 import type { CategoriesConfig } from "../../config/schema"
+import type { ResolvedReviewer } from "../../review/reviewer-resolution"
 import { LOOM_DEFAULTS } from "./default"
 import { composeLoomPrompt } from "./prompt-composer"
 
@@ -18,13 +19,24 @@ export function createLoomAgentWithOptions(
   fingerprint?: ProjectFingerprint | null,
   customAgents?: AvailableAgent[],
   categories?: CategoriesConfig,
+  additionalReviewers: ResolvedReviewer[] = [],
 ): AgentConfig {
-  if ((!disabledAgents || disabledAgents.size === 0) && !fingerprint && (!customAgents || customAgents.length === 0) && !categories) {
+  const hasAdditionalReviewers = additionalReviewers.length > 0
+  if ((!disabledAgents || disabledAgents.size === 0) && !fingerprint && (!customAgents || customAgents.length === 0) && !categories && !hasAdditionalReviewers) {
     return { ...LOOM_DEFAULTS, model, mode: "primary" }
   }
+
+  const prompt = composeLoomPrompt({
+    disabledAgents,
+    fingerprint,
+    customAgents,
+    categories,
+    additionalReviewers,
+  })
+
   return {
     ...LOOM_DEFAULTS,
-    prompt: composeLoomPrompt({ disabledAgents, fingerprint, customAgents, categories }),
+    prompt,
     model,
     mode: "primary",
   }

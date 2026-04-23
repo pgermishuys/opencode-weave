@@ -61,6 +61,31 @@ describe("eval schemas", () => {
     })
   })
 
+  it("validates builtin Tapestry target variants with additional reviewers", () => {
+    const result = EvalCaseSchema.safeParse({
+      id: "tapestry-additional-reviewers-contract",
+      title: "Tapestry additional reviewers variant",
+      phase: "prompt",
+      target: {
+        kind: "builtin-agent-prompt",
+        agent: "tapestry",
+        variant: {
+          additionalReviewers: [
+            {
+              key: "review-custom",
+              label: "Custom Reviewer",
+              source: "custom",
+            },
+          ],
+        },
+      },
+      executor: { kind: "prompt-render" },
+      evaluators: [{ kind: "contains-all", patterns: ["<Role>"] }],
+    })
+
+    expect(result.success).toBe(true)
+  })
+
   it("rejects malformed builtin Tapestry target categories", () => {
     const result = EvalCaseSchema.safeParse({
       id: "tapestry-categories-invalid",

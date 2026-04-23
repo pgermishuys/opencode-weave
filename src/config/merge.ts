@@ -40,6 +40,22 @@ export function mergeConfigs(
   user: DeepPartial<WeaveConfig>,
   project: DeepPartial<WeaveConfig>,
 ): DeepPartial<WeaveConfig> {
+  const mergedReview =
+    user.review || project.review
+      ? (deepMergeObjects(
+          (user.review ?? {}) as Record<string, unknown>,
+          (project.review ?? {}) as Record<string, unknown>,
+        ) as DeepPartial<WeaveConfig>["review"])
+      : undefined
+
+  // Special-case merge semantics: review.additional_agents is project-overrides-user
+  // (not a union), so projects can intentionally clear inherited user reviewers
+  // via [] without carrying over user-level entries.
+  const mergedReviewAdditionalAgents =
+    project.review?.additional_agents !== undefined
+      ? project.review.additional_agents
+      : user.review?.additional_agents
+
   return {
     ...user,
     ...project,
@@ -69,6 +85,14 @@ export function mergeConfigs(
     disabled_agents: mergeStringArrays(user.disabled_agents, project.disabled_agents),
     disabled_skills: mergeStringArrays(user.disabled_skills, project.disabled_skills),
     background: project.background ?? user.background,
+    review: mergedReview
+      ? {
+          ...mergedReview,
+          ...(mergedReviewAdditionalAgents !== undefined
+            ? { additional_agents: mergedReviewAdditionalAgents }
+            : {}),
+        }
+      : undefined,
     tmux: project.tmux ?? user.tmux,
     experimental:
       user.experimental || project.experimental

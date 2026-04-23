@@ -16,10 +16,14 @@ function cloneTools(tools: Record<string, boolean> | undefined): Record<string, 
 
 export function resolveBuiltinAgentTarget(target: BuiltinAgentPromptTarget): ResolvedTarget {
   const disabledAgents = new Set(target.variant?.disabledAgents ?? [])
+  const additionalReviewers = (target.variant?.additionalReviewers ?? []).map((reviewer) => ({
+    ...reviewer,
+    isValid: true as const,
+  }))
 
   switch (target.agent) {
     case "loom": {
-      const renderedPrompt = composeLoomPrompt({ disabledAgents })
+      const renderedPrompt = composeLoomPrompt({ disabledAgents, additionalReviewers })
       return {
         target,
         artifacts: {
@@ -38,6 +42,7 @@ export function resolveBuiltinAgentTarget(target: BuiltinAgentPromptTarget): Res
       const renderedPrompt = composeTapestryPrompt({
         disabledAgents,
         categories: target.variant?.categories,
+        additionalReviewers,
       })
       return {
         target,

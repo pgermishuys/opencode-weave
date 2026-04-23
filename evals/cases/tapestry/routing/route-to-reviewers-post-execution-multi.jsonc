@@ -1,0 +1,33 @@
+{
+  "id": "route-to-reviewers-post-execution-multi",
+  "title": "Tapestry routes to Weft, opt-in reviewer, and Warp after completing all plan tasks",
+  "description": "Verifies that with additional reviewers configured, Tapestry routes terminal review through Weft, the configured reviewer, and Warp before any final completion message.",
+  "phase": "routing",
+  "tags": ["routing", "tapestry", "review", "post-execution", "multi-reviewer"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry",
+    "variant": {
+      "additionalReviewers": [
+        {
+          "key": "shuttle",
+          "label": "Shuttle Reviewer",
+          "source": "custom"
+        }
+      ]
+    }
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "openai/gpt-5.4",
+    "input": "All 5 plan tasks are now checked off (5/5 complete). The changed files from git diff are: src/auth/handler.ts, src/auth/middleware.ts, src/models/user.ts, src/routes/auth.ts, tests/auth.test.ts. What should I do now?"
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedContains": ["weft", "shuttle", "warp", "review"],
+      "forbiddenContains": ["plan execution is complete without review"]
+    }
+  ]
+}

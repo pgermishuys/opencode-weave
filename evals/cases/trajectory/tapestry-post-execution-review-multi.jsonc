@@ -1,0 +1,33 @@
+{
+  "id": "trajectory-tapestry-post-execution-review-multi",
+  "title": "Trajectory: Tapestry delegates to Weft, opt-in reviewer, and Warp for post-execution review",
+  "description": "Checks the post-execution review chain where Tapestry routes completed work through Weft, an opt-in configured reviewer, and Warp before reporting final review status.",
+  "phase": "trajectory",
+  "tags": ["trajectory", "tapestry", "weft", "shuttle", "warp", "delegation", "review", "multi-reviewer"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry",
+    "variant": {
+      "additionalReviewers": [
+        {
+          "key": "shuttle",
+          "label": "Shuttle Reviewer",
+          "source": "custom"
+        }
+      ]
+    }
+  },
+  "executor": {
+    "kind": "trajectory-run",
+    "scenarioRef": "evals/scenarios/tapestry-post-execution-review-multi.jsonc"
+  },
+  "evaluators": [
+    {
+      "kind": "trajectory-assertion",
+      "expectedSequence": ["tapestry", "weft", "tapestry", "shuttle", "tapestry", "warp", "tapestry"],
+      "requiredAgents": ["weft", "shuttle", "warp"],
+      "expectedDelegationTargets": ["weft", "shuttle", "warp"],
+      "minTurns": 8
+    }
+  ]
+}

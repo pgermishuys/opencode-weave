@@ -13,6 +13,7 @@ import { buildCustomAgent, buildCustomAgentMetadata } from "./agents/custom-agen
 import { updateBuiltinDisplayName } from "./shared/agent-display-names"
 import { addBuiltinNameVariant } from "./agents/agent-builder"
 import { debug } from "./shared/log"
+import { resolveEffectiveReviewers } from "./review/reviewer-resolution"
 
 export interface WeaveManagers {
   configHandler: ConfigHandler
@@ -47,6 +48,11 @@ export function createManagers(options: {
   }
 
   // Step 2: Build builtins WITH custom agent metadata for Loom's prompt
+  const reviewerResolution = resolveEffectiveReviewers({
+    pluginConfig,
+    customAgentMetadata,
+  })
+
   const agents = createBuiltinAgents({
     disabledAgents: pluginConfig.disabled_agents,
     agentOverrides: pluginConfig.agents,
@@ -54,6 +60,7 @@ export function createManagers(options: {
     resolveSkills,
     fingerprint,
     customAgentMetadata,
+    additionalReviewers: reviewerResolution.effectiveReviewers,
     continuation,
   })
 

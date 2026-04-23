@@ -1,0 +1,65 @@
+{
+  "id": "tapestry-post-execution-review-multi",
+  "title": "Tapestry delegates to Weft, Shuttle Reviewer, and Warp after completing all plan tasks",
+  "description": "Tapestry finishes all plan tasks, then delegates to Weft, a configured additional reviewer, and Warp as a mandatory terminal review gate before reporting final status.",
+  "agents": ["tapestry", "weft", "shuttle", "warp"],
+  "turns": [
+    {
+      "turn": 1,
+      "role": "user",
+      "content": "All plan tasks are now checked off. The changed files are: src/auth/handler.ts, src/auth/middleware.ts, src/models/user.ts, src/routes/auth.ts, tests/auth.test.ts."
+    },
+    {
+      "turn": 2,
+      "role": "assistant",
+      "agent": "tapestry",
+      "content": "All tasks complete. Running mandatory post-execution review with Weft, Shuttle Reviewer, and Warp.",
+      "expectedDelegation": "weft",
+      "mockResponse": "All 5 plan tasks are checked off. Running the mandatory post-execution review gate.\n\nChanged files identified:\n- src/auth/handler.ts\n- src/auth/middleware.ts\n- src/models/user.ts\n- src/routes/auth.ts\n- tests/auth.test.ts\n\n*Delegating to Weft for primary quality review...*"
+    },
+    {
+      "turn": 3,
+      "role": "assistant",
+      "agent": "weft",
+      "content": "Weft reviews the changes for code quality.",
+      "mockResponse": "## Code Quality Review\n\n**[APPROVE]**\n\n**Summary**: Changes are coherent and maintainable. Tests cover key flows and error handling."
+    },
+    {
+      "turn": 4,
+      "role": "assistant",
+      "agent": "tapestry",
+      "content": "Weft returned. Delegating independent additional review to Shuttle Reviewer.",
+      "expectedDelegation": "shuttle",
+      "mockResponse": "Received Weft output.\n\n*Delegating to Shuttle Reviewer for independent additional review...*"
+    },
+    {
+      "turn": 5,
+      "role": "assistant",
+      "agent": "shuttle",
+      "content": "Shuttle Reviewer performs an additional independent review.",
+      "mockResponse": "## Additional Reviewer (Shuttle)\n\n**[APPROVE]**\n\n**Summary**: No blocking implementation concerns found. Naming and boundaries are consistent with surrounding modules."
+    },
+    {
+      "turn": 6,
+      "role": "assistant",
+      "agent": "tapestry",
+      "content": "Additional reviewer returned. Delegating security audit to Warp.",
+      "expectedDelegation": "warp",
+      "mockResponse": "Received Shuttle Reviewer output.\n\n*Delegating to Warp for security audit...*"
+    },
+    {
+      "turn": 7,
+      "role": "assistant",
+      "agent": "warp",
+      "content": "Warp audits the security aspects of the changes.",
+      "mockResponse": "## Security Audit\n\n**[APPROVE]**\n\n**Summary**: Auth-related paths follow secure handling. No vulnerabilities detected in this diff scope."
+    },
+    {
+      "turn": 8,
+      "role": "assistant",
+      "agent": "tapestry",
+      "content": "All reviewers responded. Reporting final synthesis.",
+      "mockResponse": "Post-execution review complete:\n\n- **Weft**: APPROVED\n- **Shuttle Reviewer**: APPROVED\n- **Warp**: APPROVED\n\nConsensus: no blockers.\nDiscrepancies: none.\nUnique findings: none.\n\nAll tasks executed and reviewed successfully."
+    }
+  ]
+}

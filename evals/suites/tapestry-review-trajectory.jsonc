@@ -1,6 +1,6 @@
 {
   "id": "tapestry-review-trajectory",
-  "title": "Tapestry post-execution review trajectory",
+  "title": "Tapestry post-execution review trajectory (legacy + multi-reviewer)",
   "phase": "trajectory",
   "suiteMetadata": {
     "title": "Tapestry Review Trajectory",
@@ -12,6 +12,7 @@
   },
   "tags": ["trajectory", "tapestry", "review"],
   "caseFiles": [
-    "evals/cases/trajectory/tapestry-post-execution-review.jsonc"
+    "evals/cases/trajectory/tapestry-post-execution-review.jsonc",
+    "evals/cases/trajectory/tapestry-post-execution-review-multi.jsonc"
   ]
 }

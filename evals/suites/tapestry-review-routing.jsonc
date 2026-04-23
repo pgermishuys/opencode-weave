@@ -1,6 +1,6 @@
 {
   "id": "tapestry-review-routing",
-  "title": "Tapestry post-execution review routing",
+  "title": "Tapestry post-execution review routing (legacy + multi-reviewer)",
   "phase": "routing",
   "suiteMetadata": {
     "title": "Tapestry Review Routing",
@@ -12,6 +12,7 @@
   },
   "tags": ["routing", "tapestry", "review", "judge"],
   "caseFiles": [
-    "evals/cases/tapestry/routing/route-to-reviewers-post-execution.jsonc"
+    "evals/cases/tapestry/routing/route-to-reviewers-post-execution.jsonc",
+    "evals/cases/tapestry/routing/route-to-reviewers-post-execution-multi.jsonc"
   ]
 }

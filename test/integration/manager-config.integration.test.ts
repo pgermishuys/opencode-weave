@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { join } from "path"
 import { stripDisabledAgentReferences, resetNameVariants } from "../../src/agents/agent-builder"
 import { WeaveConfigSchema } from "../../src/config/schema"
@@ -173,5 +173,63 @@ describe("Integration: manager config", () => {
     expect(result).not.toContain("Data Validator")
     expect(result).toContain("Pipeline Lead")
     expect(result).toContain("Keep this line")
+  })
+
+  it("resolves effective additional reviewers with safe defaults and keeps Weft/Warp base review flow", () => {
+    const warnSpy = spyOn(console, "error").mockImplementation(() => {})
+    const config = WeaveConfigSchema.parse({
+      custom_agents: {
+        "security-reviewer": {
+          prompt: "Review security concerns.",
+          display_name: "Security Sentinel",
+        },
+        "perf-reviewer": {
+          prompt: "Review performance concerns.",
+          display_name: "Perf Reviewer",
+        },
+        "disabled-reviewer": {
+          prompt: "Should never run.",
+          display_name: "Disabled Reviewer",
+        },
+      },
+      disabled_agents: ["disabled-reviewer"],
+      review: {
+        additional_agents: [
+          "security-reviewer",
+          "perf-reviewer",
+          "security-reviewer",
+          "disabled-reviewer",
+          "missing-reviewer",
+          "weft",
+          "warp",
+          "loom",
+        ],
+      },
+    })
+
+    const managers = createManagers({
+      ctx: makeMockCtx(fixture.directory),
+      pluginConfig: config,
+    })
+
+    const tapestryPrompt = managers.agents["tapestry"]?.prompt ?? ""
+    expect(tapestryPrompt).toContain("Delegate to Weft")
+    expect(tapestryPrompt).toContain("Delegate to Warp")
+    expect(tapestryPrompt).toContain("Delegate to Security Sentinel")
+    expect(tapestryPrompt).toContain('subagent_type "security-reviewer"')
+    expect(tapestryPrompt).toContain('subagent_type "perf-reviewer"')
+    expect(tapestryPrompt).not.toContain('subagent_type "Security Sentinel"')
+    expect(tapestryPrompt).not.toContain('subagent_type "disabled-reviewer"')
+    expect(tapestryPrompt).not.toContain('subagent_type "missing-reviewer"')
+    expect(tapestryPrompt).not.toContain('subagent_type "loom"')
+    expect(tapestryPrompt).not.toContain('subagent_type "weft" — additional')
+    expect(tapestryPrompt).not.toContain('subagent_type "warp" — additional')
+
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("duplicate reviewer"))).toBe(true)
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("agent is disabled"))).toBe(true)
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("custom agent not found"))).toBe(true)
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("managed by built-in review flow"))).toBe(true)
+    expect(warnSpy.mock.calls.some((call) => String(call[0]).includes("only custom_agents keys are supported"))).toBe(true)
+    warnSpy.mockRestore()
   })
 })

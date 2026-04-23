@@ -95,4 +95,30 @@ describe("resolveBuiltinAgentTarget", () => {
     expect(delegationSection).not.toContain("shuttle-docs")
     expect(delegationSection).not.toContain("shuttle-{category}")
   })
+
+  it("passes additional reviewer variants into Tapestry prompt composition", () => {
+    const result = resolveBuiltinAgentTarget({
+      kind: "builtin-agent-prompt",
+      agent: "tapestry",
+      variant: {
+        additionalReviewers: [
+          {
+            key: "review-custom",
+            label: "Custom Reviewer",
+            source: "custom",
+          },
+        ],
+      },
+    })
+
+    const reviewSection = getSection(result.artifacts.renderedPrompt, "PostExecutionReview")
+    expect(reviewSection).not.toBeNull()
+    expect(reviewSection).toContain("Delegate to Weft")
+    expect(reviewSection).toContain("Delegate to Custom Reviewer")
+    expect(reviewSection).toContain('subagent_type "review-custom"')
+    expect(reviewSection).toContain("review.additional_agents")
+    expect(reviewSection).toContain("Consensus")
+    expect(reviewSection).toContain("Discrepancies")
+    expect(reviewSection).toContain("Unique findings")
+  })
 })
