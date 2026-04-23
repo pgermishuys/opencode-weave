@@ -1,0 +1,20 @@
+{
+  "id": "tapestry-delegation-trajectory",
+  "title": "Tapestry delegation trajectory evals",
+  "phase": "trajectory",
+  "suiteMetadata": {
+    "title": "Tapestry Delegation Trajectory",
+    "routingKind": "trajectory",
+    "familyId": "tapestry-execution",
+    "familyTitle": "Tapestry Execution",
+    "viewId": "delegation-trajectory",
+    "viewTitle": "Delegation Trajectory"
+  },
+  "tags": ["trajectory", "tapestry", "delegation", "shuttle", "categories"],
+  "caseFiles": [
+    "evals/cases/trajectory/tapestry-delegates-to-generic-shuttle.jsonc",
+    "evals/cases/trajectory/tapestry-delegates-to-categorized-shuttle.jsonc",
+    "evals/cases/trajectory/tapestry-overlapping-patterns-first-match.jsonc",
+    "evals/cases/trajectory/tapestry-no-pattern-category-explicit-only.jsonc"
+  ]
+}

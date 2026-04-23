@@ -151,6 +151,8 @@ Use the least brittle evaluator that proves the contract:
 - `llm-judge` for live single-turn routing or behavior intent
 - `trajectory-assertion` for multi-turn delegation order
 
+Trajectory suites are currently mock-backed replays. Delegation evidence inside a trajectory trace is derived from canned response text, not from runtime tool telemetry; use integration tests for proof of actual task-tool delegation.
+
 Prefer stable contract anchors over brittle paragraph equality. If a future prompt needs an eval-only boundary, use:
 
 ```html
@@ -192,6 +194,8 @@ Trajectory assertions currently support:
 | `forbiddenAgents` | Listed agents never appear |
 | `minTurns` | Completed turn count is at or above threshold |
 | `maxTurns` | Completed turn count is at or below threshold |
+
+`expectedDelegation` in scenario fixtures is a mock expectation anchor only. It helps document the intended delegation step for a canned turn, but runtime delegation proof still lives in integration tests rather than in the deterministic trajectory harness.
 
 ## Coverage
 

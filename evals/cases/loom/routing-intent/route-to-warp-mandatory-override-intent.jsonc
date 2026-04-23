@@ -1,0 +1,25 @@
+{
+  "id": "route-to-warp-mandatory-override-intent",
+  "title": "Intent: security-sensitive review asks still must route to Warp",
+  "description": "Accepts the expected mandatory-override behavior when the user frames the request as a Weft review, but the content is security-sensitive enough that Loom must route to Warp rather than treat it as an ordinary Weft review.",
+  "phase": "routing",
+  "tags": ["routing", "loom", "intent", "review", "security"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "openai/gpt-5.4",
+    "input": "Please send these OAuth callback validation, session token rotation, and API key storage changes to Weft for review before we merge. I'm asking for review, but these auth and credential-handling paths are security-critical."
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "rubricRef": "evals/rubrics/loom-routing-rubric.md",
+      "expectedAnyOf": ["warp", "security review", "security audit"],
+      "forbiddenContains": ["skip security review", "ordinary quality review", "I'll handle this myself"]
+    }
+  ]
+}

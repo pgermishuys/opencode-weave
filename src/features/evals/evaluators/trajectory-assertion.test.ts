@@ -7,6 +7,7 @@ function makeTrace(overrides: Partial<TrajectoryTrace> = {}): TrajectoryTrace {
     scenarioId: "test",
     turns: [],
     delegationSequence: ["loom", "pattern", "loom"],
+    delegationTargets: ["pattern"],
     totalTurns: 4,
     completedTurns: 4,
     ...overrides,
@@ -51,6 +52,45 @@ describe("runTrajectoryAssertionEvaluator", () => {
       const results = runTrajectoryAssertionEvaluator(spec, makeArtifacts(makeTrace()))
       expect(results).toHaveLength(1)
       expect(results[0].passed).toBe(false)
+    })
+  })
+
+  describe("expectedDelegationTargets", () => {
+    it("passes when delegation target sequence matches exactly", () => {
+      const spec: TrajectoryAssertionEvaluator = {
+        kind: "trajectory-assertion",
+        expectedDelegationTargets: ["pattern"],
+      }
+      const results = runTrajectoryAssertionEvaluator(spec, makeArtifacts(makeTrace()))
+      expect(results).toHaveLength(1)
+      expect(results[0].passed).toBe(true)
+      expect(results[0].message).toContain("targets match")
+    })
+
+    it("fails when delegation targets do not match even if acting-agent sequence matches", () => {
+      const spec: TrajectoryAssertionEvaluator = {
+        kind: "trajectory-assertion",
+        expectedSequence: ["loom", "pattern", "loom"],
+        expectedDelegationTargets: ["shuttle"],
+      }
+      const results = runTrajectoryAssertionEvaluator(spec, makeArtifacts(makeTrace()))
+      expect(results).toHaveLength(2)
+      expect(results[0].passed).toBe(true)
+      expect(results[1].passed).toBe(false)
+      expect(results[1].message).toContain("targets mismatch")
+    })
+
+    it("supports hyphenated delegation targets", () => {
+      const spec: TrajectoryAssertionEvaluator = {
+        kind: "trajectory-assertion",
+        expectedDelegationTargets: ["worker", "worker-ui"],
+      }
+      const results = runTrajectoryAssertionEvaluator(
+        spec,
+        makeArtifacts(makeTrace({ delegationTargets: ["worker", "worker-ui"] })),
+      )
+      expect(results).toHaveLength(1)
+      expect(results[0].passed).toBe(true)
     })
   })
 
@@ -109,6 +149,62 @@ describe("runTrajectoryAssertionEvaluator", () => {
       expect(results).toHaveLength(1)
       expect(results[0].passed).toBe(false)
       expect(results[0].message).toContain("Forbidden agent present")
+    })
+  })
+
+  describe("requiredDelegationTargets / forbiddenDelegationTargets", () => {
+    it("passes when required delegation targets include generic and hyphenated values", () => {
+      const spec: TrajectoryAssertionEvaluator = {
+        kind: "trajectory-assertion",
+        requiredDelegationTargets: ["worker", "worker-ui"],
+      }
+      const results = runTrajectoryAssertionEvaluator(
+        spec,
+        makeArtifacts(makeTrace({ delegationTargets: ["worker", "worker-ui"] })),
+      )
+      expect(results).toHaveLength(2)
+      expect(results.every((result) => result.passed)).toBe(true)
+    })
+
+    it("fails when a required delegation target is missing", () => {
+      const spec: TrajectoryAssertionEvaluator = {
+        kind: "trajectory-assertion",
+        requiredDelegationTargets: ["worker-ui"],
+      }
+      const results = runTrajectoryAssertionEvaluator(
+        spec,
+        makeArtifacts(makeTrace({ delegationTargets: ["worker"] })),
+      )
+      expect(results).toHaveLength(1)
+      expect(results[0].passed).toBe(false)
+      expect(results[0].message).toContain("missing")
+    })
+
+    it("passes when forbidden delegation targets are absent for explicit/manual-only behavior", () => {
+      const spec: TrajectoryAssertionEvaluator = {
+        kind: "trajectory-assertion",
+        forbiddenDelegationTargets: ["worker-manual-only"],
+      }
+      const results = runTrajectoryAssertionEvaluator(
+        spec,
+        makeArtifacts(makeTrace({ delegationTargets: ["worker"] })),
+      )
+      expect(results).toHaveLength(1)
+      expect(results[0].passed).toBe(true)
+    })
+
+    it("fails when a forbidden delegation target is present", () => {
+      const spec: TrajectoryAssertionEvaluator = {
+        kind: "trajectory-assertion",
+        forbiddenDelegationTargets: ["worker-ui"],
+      }
+      const results = runTrajectoryAssertionEvaluator(
+        spec,
+        makeArtifacts(makeTrace({ delegationTargets: ["worker", "worker-ui"] })),
+      )
+      expect(results).toHaveLength(1)
+      expect(results[0].passed).toBe(false)
+      expect(results[0].message).toContain("Forbidden delegation target present")
     })
   })
 
@@ -197,13 +293,15 @@ describe("runTrajectoryAssertionEvaluator", () => {
         kind: "trajectory-assertion",
         weight: 2,
         expectedSequence: ["loom", "pattern", "loom"],
+        expectedDelegationTargets: ["pattern"],
         minTurns: 4,
       }
       const results = runTrajectoryAssertionEvaluator(spec, makeArtifacts(makeTrace()))
-      // 2 assertion types: expectedSequence + minTurns, so weight 2 / 2 = 1 each
-      expect(results).toHaveLength(2)
-      expect(results[0].maxScore).toBe(1)
-      expect(results[1].maxScore).toBe(1)
+      // 3 assertion types: expectedSequence + expectedDelegationTargets + minTurns
+      expect(results).toHaveLength(3)
+      expect(results[0].maxScore).toBeCloseTo(2 / 3)
+      expect(results[1].maxScore).toBeCloseTo(2 / 3)
+      expect(results[2].maxScore).toBeCloseTo(2 / 3)
     })
   })
 })

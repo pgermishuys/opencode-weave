@@ -1,0 +1,35 @@
+{
+  "id": "tapestry-delegates-to-generic-shuttle",
+  "title": "Tapestry delegates to generic Shuttle when no categories are configured",
+  "description": "User requests implementation work without any category routing configured, so Tapestry falls back to the generic Shuttle agent instead of a category-specific shuttle.",
+  "agents": ["tapestry", "shuttle"],
+  "turns": [
+    {
+      "turn": 1,
+      "role": "user",
+      "content": "Please update the API handler and tests to support idempotent webhook retries."
+    },
+    {
+      "turn": 2,
+      "role": "assistant",
+      "agent": "tapestry",
+      "content": "No category routing is configured, so this should go to the generic Shuttle agent.",
+      "expectedDelegation": "shuttle",
+      "mockResponse": "This implementation task needs delegated execution. No category routing is configured for this eval, so I will delegate to shuttle for the work.\n\n*Delegating to shuttle...*"
+    },
+    {
+      "turn": 3,
+      "role": "assistant",
+      "agent": "shuttle",
+      "content": "Shuttle handles the implementation task.",
+      "mockResponse": "I updated the API handler and tests to support idempotent webhook retries and verified the behavior end-to-end."
+    },
+    {
+      "turn": 4,
+      "role": "assistant",
+      "agent": "tapestry",
+      "content": "Tapestry reports the delegated result back to the user.",
+      "mockResponse": "The work was completed by Shuttle. The API handler and tests now support idempotent webhook retries."
+    }
+  ]
+}

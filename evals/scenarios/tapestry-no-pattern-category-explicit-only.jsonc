@@ -1,0 +1,35 @@
+{
+  "id": "tapestry-no-pattern-category-explicit-only",
+  "title": "Tapestry does not auto-route to categories without patterns",
+  "description": "User requests implementation work whose files do not match any configured category patterns. Even though a category exists without patterns, Tapestry follows the routing contract and does not auto-route to that explicit/manual-only category.",
+  "agents": ["tapestry", "shuttle"],
+  "turns": [
+    {
+      "turn": 1,
+      "role": "user",
+      "content": "Please update the onboarding documentation and contributor notes. The changed files are docs/onboarding.md and CONTRIBUTING.md."
+    },
+    {
+      "turn": 2,
+      "role": "assistant",
+      "agent": "tapestry",
+      "content": "A category without patterns is explicit/manual-only, so file-pattern auto-routing should fall back to the generic Shuttle agent.",
+      "expectedDelegation": "shuttle",
+      "mockResponse": "This implementation task should be delegated. The files docs/onboarding.md and CONTRIBUTING.md do not match any configured category patterns. Although a docs category exists, it has no patterns configured, which makes it explicit/manual-only rather than eligible for file-pattern auto-routing. I will therefore delegate to the generic shuttle agent for the work.\n\n*Delegating to shuttle...*"
+    },
+    {
+      "turn": 3,
+      "role": "assistant",
+      "agent": "shuttle",
+      "content": "Shuttle handles the task because no auto-routing category matched.",
+      "mockResponse": "I updated the onboarding documentation and contributor notes, then verified the docs reflect the requested workflow changes."
+    },
+    {
+      "turn": 4,
+      "role": "assistant",
+      "agent": "tapestry",
+      "content": "Tapestry reports the delegated result back to the user.",
+      "mockResponse": "The work was completed by Shuttle. Because the configured docs category had no patterns, it was not auto-selected and the task fell back to the generic shuttle agent."
+    }
+  ]
+}

@@ -38,7 +38,7 @@ jobs:
         continue-on-error: true
 
   e2e:
-    name: CLI E2E — Plugin Loading
+    name: E2E
     runs-on: ubuntu-latest
 
     steps:
@@ -79,4 +79,4 @@ jobs:
       - name: Run CLI e2e tests
         run: |
           export PATH="$HOME/.opencode/bin:$PATH"
-          bun test ./test/e2e/plugin-loading.e2e.test.ts
+          bun test ./test/e2e/plugin-loading.e2e.test.ts ./test/e2e/tapestry-shuttle-delegation.e2e.test.ts

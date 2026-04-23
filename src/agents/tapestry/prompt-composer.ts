@@ -178,7 +178,7 @@ export function buildTapestryCategoryRoutingSection(categories: CategoriesConfig
     .map(([name, config]) => `  - shuttle-${name}: patterns [${config.patterns!.join(", ")}]`)
     .join("\n")
   const noPatternLines = withoutPatterns
-    .map(([name]) => `  - shuttle-${name}: (no file patterns — use by task domain)`)
+    .map(([name]) => `  - shuttle-${name}: (no file patterns — explicit/manual-use only; never auto-select from file matches)`)
     .join("\n")
 
   let agentListing: string
@@ -195,16 +195,19 @@ export function buildTapestryCategoryRoutingSection(categories: CategoriesConfig
       ? `
 ROUTING PRIORITY (apply in order):
 1. Explicit tag on task: \`[category: name]\` → use \`shuttle-{name}\`
-2. Match task's **Files** against category patterns → use first matching \`shuttle-{category}\`
+2. Match task's **Files** against category patterns in config declaration order → use the first matching \`shuttle-{category}\`
 3. No match → use generic \`shuttle\`
 
 RULES:
 - Use the category agent's name as subagent_type (e.g., subagent_type="shuttle-frontend")
+- If multiple categories match the same task's files, the earliest declared matching category wins; later matches do not override earlier ones
+- Categories without file patterns are explicit/manual-use only and are never eligible for file-pattern auto-routing
 - Tasks in different categories CAN run in parallel if their file sets are disjoint
 - Always fall back to generic \`shuttle\` if the named category agent is unavailable`
       : `
 RULES:
 - Use the category agent's name as subagent_type (e.g., subagent_type="shuttle-backend")
+- Categories without file patterns are explicit/manual-use only and are never eligible for file-pattern auto-routing
 - Always fall back to generic \`shuttle\` if the named category agent is unavailable`
 
   return `<CategoryRouting>

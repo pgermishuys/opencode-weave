@@ -1,0 +1,25 @@
+{
+  "id": "route-to-weft-review-intent",
+  "title": "Intent: honors a direct Weft quality-review ask",
+  "description": "Accepts the expected review-routing behavior when the user explicitly asks for a Weft-style quality review and Loom keeps the request on the ordinary Weft path instead of escalating it to Warp or reviewing directly.",
+  "phase": "routing",
+  "tags": ["routing", "loom", "intent", "review"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "openai/gpt-5.4",
+    "input": "I just refactored the logging and metrics modules across several files. Please send this to Weft for a code-quality review focused on readability, consistency, and maintainability before we merge."
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "rubricRef": "evals/rubrics/loom-routing-rubric.md",
+      "expectedAnyOf": ["weft", "quality review", "review"],
+      "forbiddenContains": ["warp", "security review", "I'll handle this myself"]
+    }
+  ]
+}

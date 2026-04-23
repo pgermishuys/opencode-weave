@@ -1,0 +1,31 @@
+{
+  "id": "trajectory-tapestry-delegates-to-categorized-shuttle",
+  "title": "Trajectory: Tapestry delegates to categorized Shuttle when category patterns match",
+  "description": "Checks that trajectory execution uses the supported builtin Tapestry target schema with variant.categories and delegates matching frontend work to shuttle-frontend.",
+  "phase": "trajectory",
+  "tags": ["trajectory", "tapestry", "shuttle", "delegation", "categories", "frontend"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry",
+    "variant": {
+      "categories": {
+        "frontend": {
+          "patterns": ["*.tsx", "*.css", "src/components/**"]
+        }
+      }
+    }
+  },
+  "executor": {
+    "kind": "trajectory-run",
+    "scenarioRef": "evals/scenarios/tapestry-delegates-to-categorized-shuttle.jsonc"
+  },
+  "evaluators": [
+    {
+      "kind": "trajectory-assertion",
+      "expectedSequence": ["tapestry", "shuttle-frontend", "tapestry"],
+      "requiredAgents": ["shuttle-frontend"],
+      "expectedDelegationTargets": ["shuttle-frontend"],
+      "minTurns": 4
+    }
+  ]
+}

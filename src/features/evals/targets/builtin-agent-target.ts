@@ -35,7 +35,10 @@ export function resolveBuiltinAgentTarget(target: BuiltinAgentPromptTarget): Res
       }
     }
     case "tapestry": {
-      const renderedPrompt = composeTapestryPrompt({ disabledAgents })
+      const renderedPrompt = composeTapestryPrompt({
+        disabledAgents,
+        categories: target.variant?.categories,
+      })
       return {
         target,
         artifacts: {

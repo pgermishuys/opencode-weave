@@ -1,4 +1,5 @@
 import type { WeaveAgentName } from "../../agents/types"
+import type { CategoriesConfig } from "../../config/schema"
 
 export const EVAL_PHASES = ["prompt", "routing", "trajectory", "experimental"] as const
 export type EvalPhase = (typeof EVAL_PHASES)[number]
@@ -36,6 +37,7 @@ export type BuiltinEvalAgentName = WeaveAgentName
 
 export interface BuiltinAgentPromptVariant {
   disabledAgents?: string[]
+  categories?: CategoriesConfig
 }
 
 export interface BuiltinAgentPromptTarget {
@@ -156,8 +158,11 @@ export interface TrajectoryAssertionEvaluator extends WeightedEvaluatorSpec {
   kind: "trajectory-assertion"
   assertionRef?: string
   expectedSequence?: string[]
+  expectedDelegationTargets?: string[]
   requiredAgents?: string[]
+  requiredDelegationTargets?: string[]
   forbiddenAgents?: string[]
+  forbiddenDelegationTargets?: string[]
   minTurns?: number
   maxTurns?: number
 }
@@ -379,6 +384,7 @@ export interface TrajectoryTrace {
   scenarioId: string
   turns: TrajectoryTurnResult[]
   delegationSequence: string[]
+  delegationTargets?: string[]
   totalTurns: number
   completedTurns: number
 }
@@ -390,6 +396,7 @@ export function isTrajectoryTrace(trace: unknown): trace is TrajectoryTrace {
     typeof t.scenarioId === "string" &&
     Array.isArray(t.turns) &&
     Array.isArray(t.delegationSequence) &&
+    (t.delegationTargets === undefined || Array.isArray(t.delegationTargets)) &&
     typeof t.totalTurns === "number" &&
     typeof t.completedTurns === "number"
   )

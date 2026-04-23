@@ -19,6 +19,9 @@ import { renderBuiltinCommandEnvelope, renderContinuationEnvelope } from "../run
 import { BUILTIN_COMMANDS } from "../features/builtin-commands/commands"
 import { createExecutionLeaseFsStore } from "../infrastructure/fs/execution-lease-fs-store"
 import { createExecutionLeaseState } from "../domain/session/execution-lease"
+import { readSessionSummaries } from "../features/analytics"
+import { createProjectFixture, type ProjectFixture } from "../../test/testkit/fixtures/project-fixture"
+import { FakeOpencodeHost } from "../../test/testkit/host/fake-opencode-host"
 
 const baseConfig: WeaveConfig = {}
 
@@ -1202,7 +1205,7 @@ describe("createPluginInterface", () => {
 })
 
 describe("delegation logging via tool hooks", () => {
-  it("tool.execute.before logs delegation:start with subagent_type when tool is 'task'", async () => {
+  it("tool.execute.before logs delegation:start for executed Thread, Weft, and Warp task tools", async () => {
     const spy = spyOn(sharedLog, "logDelegation")
 
     const iface = createPluginInterface({
@@ -1213,17 +1216,25 @@ describe("delegation logging via tool hooks", () => {
       agents: {},
     })
 
-    await iface["tool.execute.before"](
-      { tool: "task", sessionID: "s1", callID: "c1" },
-      { args: { subagent_type: "thread", description: "explore auth module", prompt: "look at auth" } },
-    )
+    const toolCalls = [
+      { agent: "thread", callID: "c1", description: "explore auth module", prompt: "look at auth" },
+      { agent: "weft", callID: "c2", description: "review auth module", prompt: "review auth" },
+      { agent: "warp", callID: "c3", description: "audit auth module", prompt: "audit auth" },
+    ] as const
 
-    expect(spy).toHaveBeenCalledTimes(1)
-    const event = spy.mock.calls[0][0]
-    expect(event.phase).toBe("start")
-    expect(event.agent).toBe("thread")
-    expect(event.sessionId).toBe("s1")
-    expect(event.toolCallId).toBe("c1")
+    for (const toolCall of toolCalls) {
+      await iface["tool.execute.before"](
+        { tool: "task", sessionID: "s1", callID: toolCall.callID },
+        { args: { subagent_type: toolCall.agent, description: toolCall.description, prompt: toolCall.prompt } },
+      )
+    }
+
+    expect(spy).toHaveBeenCalledTimes(3)
+    expect(spy.mock.calls.map(([event]) => event)).toEqual([
+      expect.objectContaining({ phase: "start", agent: "thread", sessionId: "s1", toolCallId: "c1" }),
+      expect.objectContaining({ phase: "start", agent: "weft", sessionId: "s1", toolCallId: "c2" }),
+      expect.objectContaining({ phase: "start", agent: "warp", sessionId: "s1", toolCallId: "c3" }),
+    ])
 
     spy.mockRestore()
   })
@@ -1252,7 +1263,7 @@ describe("delegation logging via tool hooks", () => {
     spy.mockRestore()
   })
 
-  it("tool.execute.before does not log delegation for non-task tools", async () => {
+  it("tool.execute.before does not log delegation for call_weave_agent because runtime delegation evidence is task-only", async () => {
     const spy = spyOn(sharedLog, "logDelegation")
 
     const iface = createPluginInterface({
@@ -1264,8 +1275,8 @@ describe("delegation logging via tool hooks", () => {
     })
 
     await iface["tool.execute.before"](
-      { tool: "read", sessionID: "s1", callID: "c2" },
-      { args: { file_path: "/some/file.ts" } },
+      { tool: "call_weave_agent", sessionID: "s1", callID: "c2" },
+      { args: { agent: "weft", prompt: "review these changes" } },
     )
 
     expect(spy).not.toHaveBeenCalled()
@@ -1273,7 +1284,7 @@ describe("delegation logging via tool hooks", () => {
     spy.mockRestore()
   })
 
-  it("tool.execute.after logs delegation:complete when tool is 'task'", async () => {
+  it("tool.execute.after logs delegation:complete for executed Thread, Weft, and Warp task tools", async () => {
     const spy = spyOn(sharedLog, "logDelegation")
 
     const iface = createPluginInterface({
@@ -1284,18 +1295,133 @@ describe("delegation logging via tool hooks", () => {
       agents: {},
     })
 
-    await iface["tool.execute.after"](
-      { tool: "task", sessionID: "s2", callID: "c3", args: { subagent_type: "thread", description: "explore auth", prompt: "look at auth" } } as Parameters<typeof iface["tool.execute.after"]>[0],
-      {},
-    )
+    const toolCalls = [
+      { agent: "thread", callID: "c3", description: "explore auth", prompt: "look at auth" },
+      { agent: "weft", callID: "c4", description: "review auth", prompt: "review auth" },
+      { agent: "warp", callID: "c5", description: "audit auth", prompt: "audit auth" },
+    ] as const
 
-    expect(spy).toHaveBeenCalledTimes(1)
-    const event = spy.mock.calls[0][0]
-    expect(event.phase).toBe("complete")
-    expect(event.agent).toBe("thread")
-    expect(event.sessionId).toBe("s2")
+    for (const toolCall of toolCalls) {
+      await iface["tool.execute.after"](
+        { tool: "task", sessionID: "s2", callID: toolCall.callID, args: { subagent_type: toolCall.agent, description: toolCall.description, prompt: toolCall.prompt } } as Parameters<typeof iface["tool.execute.after"]>[0],
+        {},
+      )
+    }
+
+    expect(spy).toHaveBeenCalledTimes(3)
+    expect(spy.mock.calls.map(([event]) => event)).toEqual([
+      expect.objectContaining({ phase: "complete", agent: "thread", sessionId: "s2", toolCallId: "c3" }),
+      expect.objectContaining({ phase: "complete", agent: "weft", sessionId: "s2", toolCallId: "c4" }),
+      expect.objectContaining({ phase: "complete", agent: "warp", sessionId: "s2", toolCallId: "c5" }),
+    ])
 
     spy.mockRestore()
+  })
+})
+
+describe("runtime delegation evidence via plugin interface", () => {
+  let fixture: ProjectFixture
+
+  beforeEach(() => {
+    fixture = createProjectFixture("weave-plugin-interface-delegation-")
+    fixture.writeProjectConfig({
+      analytics: {
+        enabled: true,
+      },
+    })
+  })
+
+  afterEach(() => {
+    fixture.cleanup()
+  })
+
+  it("counts only executed shuttle task delegations and preserves generic and categorized subagent_type args", async () => {
+    const host = await FakeOpencodeHost.boot({ directory: fixture.directory })
+    const sessionID = "sess-plugin-runtime-shuttle"
+
+    await host.sendUserMessage({
+      sessionID,
+      text: "You may mention shuttle and shuttle-frontend in prose, but only real task executions should count.",
+    })
+
+    await host.executeTool({
+      sessionID,
+      tool: "task",
+      callID: "call-shuttle-generic",
+      args: {
+        subagent_type: "shuttle",
+        description: "Inspect the shared runtime behavior",
+        prompt: "Inspect the shared runtime behavior and report concrete findings.",
+      },
+    })
+    await host.executeTool({
+      sessionID,
+      tool: "task",
+      callID: "call-shuttle-frontend",
+      args: {
+        subagent_type: "shuttle-frontend",
+        description: "Review the frontend delegation path",
+        prompt: "Review the frontend delegation path and report concrete findings.",
+      },
+    })
+
+    await host.emitSessionDeleted(sessionID)
+
+    expect(host.getExecutedToolCalls(sessionID)).toHaveLength(2)
+    expect(host.getDelegatedToolCalls(sessionID).map(call => call.args.subagent_type)).toEqual([
+      "shuttle",
+      "shuttle-frontend",
+    ])
+
+    const summaries = readSessionSummaries(fixture.directory)
+    expect(summaries).toHaveLength(1)
+    expect(summaries[0]).toEqual(
+      expect.objectContaining({
+        sessionId: sessionID,
+        totalToolCalls: 2,
+        totalDelegations: 2,
+        toolUsage: [{ tool: "task", count: 2 }],
+      }),
+    )
+    expect(summaries[0]?.delegations.map(({ agent, toolCallId }) => ({ agent, toolCallId }))).toEqual([
+      { agent: "shuttle", toolCallId: "call-shuttle-generic" },
+      { agent: "shuttle-frontend", toolCallId: "call-shuttle-frontend" },
+    ])
+  })
+
+  it("does not count prose-only shuttle mentions as delegation evidence", async () => {
+    const host = await FakeOpencodeHost.boot({ directory: fixture.directory })
+    const sessionID = "sess-plugin-runtime-shuttle-prose-only"
+
+    await host.sendUserMessage({
+      sessionID,
+      text: "Please ask shuttle to inspect the shared behavior and shuttle-frontend to review UI concerns later, but do not execute delegation tools.",
+    })
+    await host.emitMessageUpdated({
+      role: "assistant",
+      sessionID,
+      tokens: {
+        input: 8,
+        output: 4,
+      },
+    })
+
+    await host.emitSessionDeleted(sessionID)
+
+    expect(host.getExecutedToolCalls(sessionID)).toEqual([])
+    expect(host.getDelegatedToolCalls(sessionID)).toEqual([])
+
+    const summaries = readSessionSummaries(fixture.directory)
+    expect(summaries).toHaveLength(1)
+    expect(summaries[0]).toEqual(
+      expect.objectContaining({
+        sessionId: sessionID,
+        totalToolCalls: 0,
+        totalDelegations: 0,
+        toolUsage: [],
+        delegations: [],
+      }),
+    )
   })
 })
 

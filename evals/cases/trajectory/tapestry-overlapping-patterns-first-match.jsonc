@@ -1,0 +1,34 @@
+{
+  "id": "trajectory-tapestry-overlapping-patterns-first-match",
+  "title": "Trajectory: Tapestry uses first-match precedence for overlapping category patterns",
+  "description": "Checks that trajectory execution uses builtin Tapestry category routing and delegates overlapping file matches to the first matching category in config order rather than a later overlapping category.",
+  "phase": "trajectory",
+  "tags": ["trajectory", "tapestry", "shuttle", "delegation", "categories", "overlap", "precedence"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry",
+    "variant": {
+      "categories": {
+        "frontend": {
+          "patterns": ["*.tsx", "*.css", "src/components/**"]
+        },
+        "dashboard": {
+          "patterns": ["src/components/dashboard/**", "*.tsx"]
+        }
+      }
+    }
+  },
+  "executor": {
+    "kind": "trajectory-run",
+    "scenarioRef": "evals/scenarios/tapestry-overlapping-patterns-first-match.jsonc"
+  },
+  "evaluators": [
+    {
+      "kind": "trajectory-assertion",
+      "expectedSequence": ["tapestry", "shuttle-frontend", "tapestry"],
+      "requiredAgents": ["shuttle-frontend"],
+      "expectedDelegationTargets": ["shuttle-frontend"],
+      "minTurns": 4
+    }
+  ]
+}

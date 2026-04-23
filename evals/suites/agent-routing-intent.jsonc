@@ -14,7 +14,10 @@
   "caseFiles": [
     "evals/cases/loom/routing-intent/route-to-thread-exploration-intent.jsonc",
     "evals/cases/loom/routing-intent/route-to-pattern-planning-intent.jsonc",
+    "evals/cases/loom/routing-intent/route-to-weft-review-intent.jsonc",
     "evals/cases/loom/routing-intent/route-to-warp-security-intent.jsonc",
+    "evals/cases/loom/routing-intent/route-to-warp-mandatory-override-intent.jsonc",
+    "evals/cases/loom/routing-intent/route-to-warp-boundary-intent.jsonc",
     "evals/cases/loom/routing-intent/route-to-shuttle-domain-intent.jsonc",
     "evals/cases/loom/routing-intent/route-to-spindle-research-intent.jsonc",
     "evals/cases/loom/routing-intent/ambiguous-exploration-security-intent.jsonc",

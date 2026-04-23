@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { CategoriesConfigSchema } from "../../config/schema"
 import {
   EVAL_PHASES,
   EVAL_ROUTING_KINDS,
@@ -24,6 +25,7 @@ export const EvalSuiteMetadataSchema = z.object({
 
 export const BuiltinAgentPromptVariantSchema = z.object({
   disabledAgents: z.array(NonEmptyString).optional(),
+  categories: CategoriesConfigSchema.optional(),
 })
 
 export const BuiltinAgentPromptTargetSchema = z.object({
@@ -140,8 +142,11 @@ export const TrajectoryAssertionEvaluatorSchema = WeightedEvaluatorSchema.extend
   kind: z.literal("trajectory-assertion"),
   assertionRef: NonEmptyString.optional(),
   expectedSequence: z.array(NonEmptyString).optional(),
+  expectedDelegationTargets: z.array(NonEmptyString).optional(),
   requiredAgents: z.array(NonEmptyString).optional(),
+  requiredDelegationTargets: z.array(NonEmptyString).optional(),
   forbiddenAgents: z.array(NonEmptyString).optional(),
+  forbiddenDelegationTargets: z.array(NonEmptyString).optional(),
   minTurns: z.number().int().positive().optional(),
   maxTurns: z.number().int().positive().optional(),
 })
@@ -161,6 +166,25 @@ export const TrajectoryScenarioSchema = z.object({
   description: z.string().optional(),
   agents: z.array(NonEmptyString).min(1),
   turns: z.array(TrajectoryTurnSchema).min(2),
+})
+
+export const TrajectoryTurnResultSchema = z.object({
+  turn: z.number().int().positive(),
+  agent: NonEmptyString,
+  role: z.enum(["user", "assistant"]),
+  response: z.string(),
+  expectedDelegation: NonEmptyString.optional(),
+  observedDelegation: NonEmptyString.nullable().optional(),
+  durationMs: z.number().nonnegative(),
+})
+
+export const TrajectoryTraceSchema = z.object({
+  scenarioId: NonEmptyString,
+  turns: z.array(TrajectoryTurnResultSchema),
+  delegationSequence: z.array(NonEmptyString),
+  delegationTargets: z.array(NonEmptyString).optional(),
+  totalTurns: z.number().int().nonnegative(),
+  completedTurns: z.number().int().nonnegative(),
 })
 
 export const EvaluatorSpecSchema = z.discriminatedUnion("kind", [
@@ -219,7 +243,7 @@ export const EvalArtifactsSchema = z.object({
   promptLength: z.number().int().nonnegative().optional(),
   modelOutput: z.string().optional(),
   judgeOutput: z.string().optional(),
-  trace: z.unknown().optional(),
+  trace: TrajectoryTraceSchema.optional(),
   tokens: z.number().nonnegative().optional(),
   cost: z.number().nonnegative().optional(),
   baselineDelta: z.unknown().optional(),

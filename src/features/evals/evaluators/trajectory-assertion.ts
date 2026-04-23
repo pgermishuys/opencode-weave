@@ -17,8 +17,11 @@ function distributeWeight(totalWeight: number, count: number): number {
 function countAssertionTypes(spec: TrajectoryAssertionEvaluator): number {
   let count = 0
   if (spec.expectedSequence) count++
+  if (spec.expectedDelegationTargets) count++
   if (spec.requiredAgents) count++
+  if (spec.requiredDelegationTargets) count++
   if (spec.forbiddenAgents) count++
+  if (spec.forbiddenDelegationTargets) count++
   if (spec.minTurns !== undefined) count++
   if (spec.maxTurns !== undefined) count++
   return Math.max(count, 1)
@@ -45,6 +48,27 @@ function checkExpectedSequence(
   }
 }
 
+function checkExpectedDelegationTargets(
+  trace: TrajectoryTrace,
+  expectedDelegationTargets: string[],
+  weight: number,
+): AssertionResult {
+  const actual = trace.delegationTargets ?? []
+  const matches =
+    actual.length === expectedDelegationTargets.length &&
+    actual.every((target, i) => target === expectedDelegationTargets[i])
+
+  return {
+    evaluatorKind: "trajectory-assertion",
+    passed: matches,
+    score: matches ? weight : 0,
+    maxScore: weight,
+    message: matches
+      ? `Delegation targets match: [${expectedDelegationTargets.join(" → ")}]`
+      : `Delegation targets mismatch: expected [${expectedDelegationTargets.join(" → ")}], got [${actual.join(" → ")}]`,
+  }
+}
+
 function checkRequiredAgents(
   trace: TrajectoryTrace,
   requiredAgents: string[],
@@ -67,6 +91,28 @@ function checkRequiredAgents(
   })
 }
 
+function checkRequiredDelegationTargets(
+  trace: TrajectoryTrace,
+  requiredDelegationTargets: string[],
+  weight: number,
+): AssertionResult[] {
+  const observed = new Set(trace.delegationTargets ?? [])
+  const perTarget = distributeWeight(weight, requiredDelegationTargets.length)
+
+  return requiredDelegationTargets.map((target) => {
+    const passed = observed.has(target)
+    return {
+      evaluatorKind: "trajectory-assertion" as const,
+      passed,
+      score: passed ? perTarget : 0,
+      maxScore: perTarget,
+      message: passed
+        ? `Required delegation target present: ${target}`
+        : `Required delegation target missing: ${target} (observed: [${(trace.delegationTargets ?? []).join(", ")}])`,
+    }
+  })
+}
+
 function checkForbiddenAgents(
   trace: TrajectoryTrace,
   forbiddenAgents: string[],
@@ -85,6 +131,28 @@ function checkForbiddenAgents(
       message: passed
         ? `Forbidden agent correctly absent: ${agent}`
         : `Forbidden agent present: ${agent} (observed: [${trace.delegationSequence.join(", ")}])`,
+    }
+  })
+}
+
+function checkForbiddenDelegationTargets(
+  trace: TrajectoryTrace,
+  forbiddenDelegationTargets: string[],
+  weight: number,
+): AssertionResult[] {
+  const observed = new Set(trace.delegationTargets ?? [])
+  const perTarget = distributeWeight(weight, forbiddenDelegationTargets.length)
+
+  return forbiddenDelegationTargets.map((target) => {
+    const passed = !observed.has(target)
+    return {
+      evaluatorKind: "trajectory-assertion" as const,
+      passed,
+      score: passed ? perTarget : 0,
+      maxScore: perTarget,
+      message: passed
+        ? `Forbidden delegation target correctly absent: ${target}`
+        : `Forbidden delegation target present: ${target} (observed: [${(trace.delegationTargets ?? []).join(", ")}])`,
     }
   })
 }
@@ -141,12 +209,30 @@ export function runTrajectoryAssertionEvaluator(
     results.push(checkExpectedSequence(trace, spec.expectedSequence, perAssertion))
   }
 
+  if (spec.expectedDelegationTargets) {
+    results.push(
+      checkExpectedDelegationTargets(trace, spec.expectedDelegationTargets, perAssertion),
+    )
+  }
+
   if (spec.requiredAgents) {
     results.push(...checkRequiredAgents(trace, spec.requiredAgents, perAssertion))
   }
 
+  if (spec.requiredDelegationTargets) {
+    results.push(
+      ...checkRequiredDelegationTargets(trace, spec.requiredDelegationTargets, perAssertion),
+    )
+  }
+
   if (spec.forbiddenAgents) {
     results.push(...checkForbiddenAgents(trace, spec.forbiddenAgents, perAssertion))
+  }
+
+  if (spec.forbiddenDelegationTargets) {
+    results.push(
+      ...checkForbiddenDelegationTargets(trace, spec.forbiddenDelegationTargets, perAssertion),
+    )
   }
 
   if (spec.minTurns !== undefined) {

@@ -6,13 +6,16 @@
   "tags": ["experimental", "tapestry", "delegation-routing", "category", "mode1"],
   "target": {
     "kind": "builtin-agent-prompt",
-    "agent": "tapestry"
+    "agent": "tapestry",
+    "variant": {
+      "categories": {}
+    }
   },
   "executor": {
     "kind": "model-response",
     "provider": "openrouter",
-    "model": "anthropic/claude-opus-4-20250514",
-    "input": "You are executing /start-work. No category agents are configured — only the generic shuttle agent is available.\n\nThe plan has 2 unchecked tasks:\n\n- [ ] Task 1/2: Add UserCard component\n  **Files**: src/components/UserCard.tsx\n  **What**: Create a React component for displaying user info\n  **Acceptance**: UserCard renders name and email props\n\n- [ ] Task 2/2: Add user API endpoint\n  **Files**: src/api/users.go\n  **What**: Add GET /api/users/:id endpoint\n  **Acceptance**: Endpoint returns user JSON\n\nHow would you delegate these tasks?"
+    "model": "openai/gpt-5.4",
+    "input": "You are executing /start-work. The plan has 2 unchecked tasks:\n\n- [ ] Task 1/2: Add UserCard component\n  **Files**: src/components/UserCard.tsx\n  **What**: Create a React component for displaying user info\n  **Acceptance**: UserCard renders name and email props\n\n- [ ] Task 2/2: Add user API endpoint\n  **Files**: src/api/users.go\n  **What**: Add GET /api/users/:id endpoint\n  **Acceptance**: Endpoint returns user JSON\n\nHow would you delegate these tasks?"
   },
   "evaluators": [
     {

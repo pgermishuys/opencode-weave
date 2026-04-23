@@ -1,6 +1,23 @@
 import { describe, expect, it } from "bun:test"
 import { resolveBuiltinAgentTarget } from "./builtin-agent-target"
 
+function getSection(prompt: string | undefined, sectionName: string): string | null {
+  if (!prompt) {
+    return null
+  }
+
+  const startTag = `<${sectionName}>`
+  const endTag = `</${sectionName}>`
+  const startIndex = prompt.indexOf(startTag)
+  const endIndex = prompt.indexOf(endTag)
+
+  if (startIndex === -1 || endIndex === -1) {
+    return null
+  }
+
+  return prompt.slice(startIndex, endIndex + endTag.length)
+}
+
 describe("resolveBuiltinAgentTarget", () => {
   it("renders loom via composer", () => {
     const result = resolveBuiltinAgentTarget({ kind: "builtin-agent-prompt", agent: "loom" })
@@ -37,5 +54,45 @@ describe("resolveBuiltinAgentTarget", () => {
     expect(result.artifacts.renderedPrompt!.length).toBeGreaterThan(0)
     expect(result.artifacts.renderedPrompt).toContain("<Role>")
     expect(result.artifacts.renderedPrompt).toContain("Never spawn subagents")
+  })
+
+  it("passes categories variants into Tapestry prompt composition", () => {
+    const result = resolveBuiltinAgentTarget({
+      kind: "builtin-agent-prompt",
+      agent: "tapestry",
+      variant: {
+        categories: {
+          frontend: { patterns: ["src/**"] },
+          backend: { patterns: ["src/**/*.ts"] },
+          docs: {},
+        },
+      },
+    })
+
+    const categoryRoutingSection = getSection(result.artifacts.renderedPrompt, "CategoryRouting")
+    const delegationSection = getSection(result.artifacts.renderedPrompt, "Delegation")
+
+    expect(result.artifacts.agentMetadata?.sourceKind).toBe("composer")
+    expect(categoryRoutingSection).not.toBeNull()
+    expect(categoryRoutingSection).toContain("<CategoryRouting>")
+    expect(categoryRoutingSection).toContain("shuttle-frontend: patterns [src/**]")
+    expect(categoryRoutingSection).toContain("shuttle-backend: patterns [src/**/*.ts]")
+    expect(categoryRoutingSection).toContain(
+      "shuttle-docs: (no file patterns — explicit/manual-use only; never auto-select from file matches)",
+    )
+    expect(categoryRoutingSection).toContain(
+      "Match task's **Files** against category patterns in config declaration order → use the first matching `shuttle-{category}`",
+    )
+    expect(categoryRoutingSection).toContain(
+      "If multiple categories match the same task's files, the earliest declared matching category wins; later matches do not override earlier ones",
+    )
+    expect(categoryRoutingSection).toContain("No match → use generic `shuttle`")
+    expect(categoryRoutingSection).toContain("Always fall back to generic `shuttle` if the named category agent is unavailable")
+
+    expect(delegationSection).not.toBeNull()
+    expect(delegationSection).toContain("shuttle-frontend")
+    expect(delegationSection).toContain("shuttle-backend")
+    expect(delegationSection).not.toContain("shuttle-docs")
+    expect(delegationSection).not.toContain("shuttle-{category}")
   })
 })

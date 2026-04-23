@@ -15,6 +15,8 @@
     "evals/cases/tapestry/delegation-routing/explicit-tag-override.jsonc",
     "evals/cases/tapestry/delegation-routing/fallback-to-generic.jsonc",
     "evals/cases/tapestry/delegation-routing/mixed-category-parallel-batch.jsonc",
+    "evals/cases/tapestry/delegation-routing/overlapping-patterns-first-match.jsonc",
+    "evals/cases/tapestry/delegation-routing/no-pattern-category-explicit-only.jsonc",
     "evals/cases/tapestry/delegation-routing/no-categories-graceful-degradation.jsonc"
   ]
 }

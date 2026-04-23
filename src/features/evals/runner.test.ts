@@ -194,10 +194,12 @@ describe("runEvalSuite", () => {
         const trace = caseResult.artifacts.trace as {
           scenarioId: string
           delegationSequence: string[]
+          delegationTargets?: string[]
           completedTurns: number
         }
         expect(trace.scenarioId).toBe("loom-delegates-to-pattern")
         expect(trace.delegationSequence).toEqual(["loom", "pattern", "loom"])
+        expect(trace.delegationTargets).toEqual(["pattern"])
         expect(trace.completedTurns).toBe(4)
       } finally {
         rmSync(dir, { recursive: true, force: true })
@@ -221,10 +223,12 @@ describe("runEvalSuite", () => {
         const trace = caseResult.artifacts.trace as {
           scenarioId: string
           delegationSequence: string[]
+          delegationTargets?: string[]
           completedTurns: number
         }
         expect(trace.scenarioId).toBe("loom-self-handle-simple")
         expect(trace.delegationSequence).toEqual(["loom"])
+        expect(trace.delegationTargets).toEqual([])
         expect(trace.completedTurns).toBe(2)
       } finally {
         rmSync(dir, { recursive: true, force: true })

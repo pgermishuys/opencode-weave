@@ -1,10 +1,12 @@
 import { describe, expect, it } from "bun:test"
 import {
   EvalCaseSchema,
+  EvalCaseResultSchema,
   EvalSuiteMetadataSchema,
   EvalSuiteManifestSchema,
   EvalRunResultSchema,
   TrajectoryScenarioSchema,
+  TrajectoryTraceSchema,
   TrajectoryTurnSchema,
   TrajectoryAssertionEvaluatorSchema,
 } from "./schema"
@@ -20,6 +22,66 @@ describe("eval schemas", () => {
       evaluators: [{ kind: "contains-all", patterns: ["<Role>"] }],
     })
     expect(result.success).toBe(true)
+  })
+
+  it("validates builtin Tapestry target variants with categories", () => {
+    const result = EvalCaseSchema.safeParse({
+      id: "tapestry-categories-contract",
+      title: "Tapestry categories variant",
+      phase: "prompt",
+      target: {
+        kind: "builtin-agent-prompt",
+        agent: "tapestry",
+        variant: {
+          disabledAgents: ["pattern"],
+          categories: {
+            frontend: {
+              patterns: ["src/**/*.tsx"],
+            },
+          },
+        },
+      },
+      executor: { kind: "prompt-render" },
+      evaluators: [{ kind: "contains-all", patterns: ["<Role>"] }],
+    })
+    expect(result.success).toBe(true)
+    if (!result.success) return
+
+    expect(result.data.target).toEqual({
+      kind: "builtin-agent-prompt",
+      agent: "tapestry",
+      variant: {
+        disabledAgents: ["pattern"],
+        categories: {
+          frontend: {
+            patterns: ["src/**/*.tsx"],
+          },
+        },
+      },
+    })
+  })
+
+  it("rejects malformed builtin Tapestry target categories", () => {
+    const result = EvalCaseSchema.safeParse({
+      id: "tapestry-categories-invalid",
+      title: "Invalid Tapestry categories variant",
+      phase: "prompt",
+      target: {
+        kind: "builtin-agent-prompt",
+        agent: "tapestry",
+        variant: {
+          categories: {
+            frontend: {
+              patterns: [123],
+            },
+          },
+        },
+      },
+      executor: { kind: "prompt-render" },
+      evaluators: [{ kind: "contains-all", patterns: ["<Role>"] }],
+    })
+
+    expect(result.success).toBe(false)
   })
 
   it("rejects unknown kind values", () => {
@@ -293,6 +355,70 @@ describe("eval schemas", () => {
       expect(result.success).toBe(false)
     })
 
+    it("validates trajectory traces with delegation targets", () => {
+      const result = TrajectoryTraceSchema.safeParse({
+        scenarioId: "loom-delegates-to-pattern",
+        turns: [
+          {
+            turn: 1,
+            agent: "user",
+            role: "user",
+            response: "Build a feature",
+            durationMs: 1,
+          },
+          {
+            turn: 2,
+            agent: "loom",
+            role: "assistant",
+            response: "Delegating to pattern",
+            expectedDelegation: "pattern",
+            observedDelegation: "pattern",
+            durationMs: 2,
+          },
+        ],
+        delegationSequence: ["loom", "pattern", "loom"],
+        delegationTargets: ["pattern"],
+        totalTurns: 4,
+        completedTurns: 2,
+      })
+
+      expect(result.success).toBe(true)
+    })
+
+    it("rejects trajectory traces with malformed delegation targets", () => {
+      const result = EvalCaseResultSchema.safeParse({
+        caseId: "trajectory-test",
+        status: "passed",
+        score: 1,
+        normalizedScore: 1,
+        maxScore: 1,
+        durationMs: 5,
+        artifacts: {
+          trace: {
+            scenarioId: "loom-delegates-to-pattern",
+            turns: [
+              {
+                turn: 1,
+                agent: "loom",
+                role: "assistant",
+                response: "Delegating to pattern",
+                observedDelegation: "pattern",
+                durationMs: 2,
+              },
+            ],
+            delegationSequence: ["loom", "pattern"],
+            delegationTargets: ["pattern", 42],
+            totalTurns: 2,
+            completedTurns: 1,
+          },
+        },
+        assertionResults: [],
+        errors: [],
+      })
+
+      expect(result.success).toBe(false)
+    })
+
     it("rejects trajectory scenario with fewer than 2 turns", () => {
       const result = TrajectoryScenarioSchema.safeParse({
         id: "too-short",
@@ -319,13 +445,24 @@ describe("eval schemas", () => {
       const result = TrajectoryAssertionEvaluatorSchema.safeParse({
         kind: "trajectory-assertion",
         expectedSequence: ["loom", "pattern", "loom"],
+        expectedDelegationTargets: ["shuttle", "shuttle-frontend"],
         requiredAgents: ["pattern"],
+        requiredDelegationTargets: ["shuttle"],
         forbiddenAgents: ["spindle"],
+        forbiddenDelegationTargets: ["shuttle-manual-only"],
         minTurns: 3,
         maxTurns: 10,
         weight: 2,
       })
       expect(result.success).toBe(true)
+    })
+
+    it("rejects trajectory-assertion with invalid delegation targets", () => {
+      const result = TrajectoryAssertionEvaluatorSchema.safeParse({
+        kind: "trajectory-assertion",
+        expectedDelegationTargets: ["shuttle", 42],
+      })
+      expect(result.success).toBe(false)
     })
 
     it("validates trajectory-assertion evaluator with only kind", () => {

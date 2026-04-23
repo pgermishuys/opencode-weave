@@ -76,21 +76,29 @@ describe("SessionTracker", () => {
       expect(session.inFlight.c1).toBeUndefined()
     })
 
-    it("records delegation for task tool calls", () => {
+    it("records delegation for executed Thread, Weft, and Warp task tool calls", () => {
       tracker.trackToolStart("s1", "task", "c1", "thread")
       tracker.trackToolEnd("s1", "task", "c1", "thread")
+      tracker.trackToolStart("s1", "task", "c2", "weft")
+      tracker.trackToolEnd("s1", "task", "c2", "weft")
+      tracker.trackToolStart("s1", "task", "c3", "warp")
+      tracker.trackToolEnd("s1", "task", "c3", "warp")
 
       const session = tracker.getSession("s1")!
-      expect(session.delegations.length).toBe(1)
-      expect(session.delegations[0].agent).toBe("thread")
-      expect(session.delegations[0].toolCallId).toBe("c1")
-      expect(session.delegations[0].durationMs).toBeDefined()
-      expect(session.delegations[0].durationMs!).toBeGreaterThanOrEqual(0)
+      expect(session.delegations.map(({ agent, toolCallId }) => ({ agent, toolCallId }))).toEqual([
+        { agent: "thread", toolCallId: "c1" },
+        { agent: "weft", toolCallId: "c2" },
+        { agent: "warp", toolCallId: "c3" },
+      ])
+      for (const delegation of session.delegations) {
+        expect(delegation.durationMs).toBeDefined()
+        expect(delegation.durationMs!).toBeGreaterThanOrEqual(0)
+      }
     })
 
-    it("does not record delegation for non-task tools", () => {
-      tracker.trackToolStart("s1", "read", "c1")
-      tracker.trackToolEnd("s1", "read", "c1")
+    it("does not record delegation for call_weave_agent because runtime delegation evidence is task-only", () => {
+      tracker.trackToolStart("s1", "call_weave_agent", "c1", "weft")
+      tracker.trackToolEnd("s1", "call_weave_agent", "c1", "weft")
 
       const session = tracker.getSession("s1")!
       expect(session.delegations.length).toBe(0)

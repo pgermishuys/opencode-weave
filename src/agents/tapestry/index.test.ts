@@ -1,6 +1,19 @@
 import { describe, it, expect } from "bun:test"
 import { createTapestryAgent, createTapestryAgentWithOptions } from "./index"
 
+function getSection(prompt: string, tagName: string): string | null {
+  const startTag = `<${tagName}>`
+  const endTag = `</${tagName}>`
+  const startIndex = prompt.indexOf(startTag)
+
+  if (startIndex === -1) {
+    return null
+  }
+
+  const endIndex = prompt.indexOf(endTag, startIndex)
+  return prompt.slice(startIndex, endIndex + endTag.length)
+}
+
 describe("createTapestryAgent", () => {
   it("is a callable factory", () => {
     expect(typeof createTapestryAgent).toBe("function")
@@ -127,14 +140,77 @@ describe("createTapestryAgent", () => {
     expect(config.prompt).not.toContain("<CategoryRouting>")
   })
 
-  it("createTapestryAgentWithOptions omits CategoryRouting section when categories have no patterns", () => {
+  it("createTapestryAgentWithOptions includes manual-only CategoryRouting when categories have no patterns", () => {
     const config = createTapestryAgentWithOptions(
       "claude-sonnet-4",
       new Set(),
       undefined,
       { backend: { model: "claude-opus-4" } },
     )
-    expect(config.prompt).not.toContain("<CategoryRouting>")
+    expect(config.prompt).toContain("<CategoryRouting>")
+    expect(config.prompt).toContain("shuttle-backend")
+    expect(config.prompt).toContain("explicit/manual-use only")
+
+    const categoryRoutingSection = getSection(config.prompt as string, "CategoryRouting")
+    const delegationSection = getSection(config.prompt as string, "Delegation")
+
+    expect(categoryRoutingSection).not.toBeNull()
+    expect(categoryRoutingSection).not.toContain("Match task's **Files** against category patterns in config declaration order")
+    expect(delegationSection).not.toBeNull()
+    expect(delegationSection).toContain('subagent_type="shuttle"')
+    expect(delegationSection).not.toContain("shuttle-backend")
+    expect(delegationSection).not.toContain("shuttle-{category}")
+  })
+
+  it("createTapestryAgentWithOptions marks no-pattern categories as manual-only and never auto-routed from files", () => {
+    const config = createTapestryAgentWithOptions(
+      "claude-sonnet-4",
+      new Set(),
+      undefined,
+      {
+        frontend: { patterns: ["*.tsx"], model: "fast-model" },
+        backend: { model: "claude-opus-4" },
+      },
+    )
+
+    expect(config.prompt).toContain("<CategoryRouting>")
+    expect(config.prompt).toContain(
+      "shuttle-backend: (no file patterns — explicit/manual-use only; never auto-select from file matches)",
+    )
+    expect(config.prompt).toContain(
+      "Categories without file patterns are explicit/manual-use only and are never eligible for file-pattern auto-routing",
+    )
+
+    const delegationSection = getSection(config.prompt as string, "Delegation")
+
+    expect(delegationSection).not.toBeNull()
+    expect(delegationSection).toContain("shuttle-frontend")
+    expect(delegationSection).not.toContain("shuttle-backend")
+    expect(delegationSection).not.toContain("shuttle-{category}")
+  })
+
+  it("createTapestryAgentWithOptions preserves config-order precedence for overlapping category patterns", () => {
+    const config = createTapestryAgentWithOptions(
+      "claude-sonnet-4",
+      new Set(),
+      undefined,
+      {
+        frontend: { patterns: ["src/**"], model: "fast-model" },
+        backend: { patterns: ["src/**/*.ts"], model: "claude-opus-4" },
+      },
+    )
+
+    const categoryRoutingSection = getSection(config.prompt as string, "CategoryRouting")
+
+    expect(categoryRoutingSection).not.toBeNull()
+    expect(categoryRoutingSection).toContain(
+      "If multiple categories match the same task's files, the earliest declared matching category wins; later matches do not override earlier ones",
+    )
+
+    const frontendIdx = categoryRoutingSection!.indexOf("shuttle-frontend: patterns [src/**]")
+    const backendIdx = categoryRoutingSection!.indexOf("shuttle-backend: patterns [src/**/*.ts]")
+    expect(frontendIdx).toBeGreaterThan(-1)
+    expect(frontendIdx).toBeLessThan(backendIdx)
   })
 
   it("verification protocol does NOT mention security-sensitive flagging (removed)", () => {

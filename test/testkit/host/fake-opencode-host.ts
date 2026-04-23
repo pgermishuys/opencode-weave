@@ -4,7 +4,7 @@ import type { BuiltinCommandName } from "../../../src/features/builtin-commands/
 import type { PluginInterface } from "../../../src/plugin/types"
 import { getAgentDisplayName } from "../../../src/shared/agent-display-names"
 import { makePluginContext } from "../plugin-context"
-import { FakePluginClient } from "./fake-plugin-client"
+import { FakePluginClient, type FakeDelegatedToolCall, type FakeExecutedToolCall } from "./fake-plugin-client"
 
 export interface HostOutputPart {
   type: string
@@ -168,6 +168,14 @@ export class FakeOpencodeHost {
   }
 
   async executeTool(args: ToolExecutionInput): Promise<void> {
+    this.client.recordExecutedToolCall({
+      sessionID: args.sessionID,
+      tool: args.tool,
+      callID: args.callID,
+      ...(args.agent ? { agent: args.agent } : {}),
+      ...(args.args ? { args: args.args } : {}),
+    })
+
     await this.plugin["tool.execute.before"](
       {
         sessionID: args.sessionID,
@@ -235,6 +243,30 @@ export class FakeOpencodeHost {
     return (this.getOutput(sessionID)?.parts ?? [])
       .filter(part => part.type === "text" && typeof part.text === "string")
       .map(part => part.text as string)
+  }
+
+  getExecutedToolCalls(sessionID?: string): FakeExecutedToolCall[] {
+    return this.client.executedToolCalls
+      .filter(call => sessionID === undefined || call.sessionID === sessionID)
+      .map(call => ({
+        sessionID: call.sessionID,
+        tool: call.tool,
+        callID: call.callID,
+        ...(typeof call.agent === "string" ? { agent: call.agent } : {}),
+        ...(call.args ? { args: structuredClone(call.args) } : {}),
+      }))
+  }
+
+  getDelegatedToolCalls(sessionID?: string): FakeDelegatedToolCall[] {
+    return this.client.delegatedToolCalls
+      .filter(call => sessionID === undefined || call.sessionID === sessionID)
+      .map(call => ({
+        sessionID: call.sessionID,
+        tool: call.tool,
+        callID: call.callID,
+        ...(typeof call.agent === "string" ? { agent: call.agent } : {}),
+        args: structuredClone(call.args),
+      }))
   }
 
   private async emitEvent(event: unknown): Promise<void> {

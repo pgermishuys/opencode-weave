@@ -1,0 +1,32 @@
+{
+  "id": "trajectory-tapestry-no-pattern-category-explicit-only",
+  "title": "Trajectory: Tapestry treats no-pattern categories as explicit/manual-only",
+  "description": "Checks that trajectory execution uses builtin Tapestry category routing and does not auto-route work to a configured category that has no patterns, falling back to the generic shuttle target instead.",
+  "phase": "trajectory",
+  "tags": ["trajectory", "tapestry", "shuttle", "delegation", "categories", "manual-only"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry",
+    "variant": {
+      "categories": {
+        "docs": {},
+        "frontend": {
+          "patterns": ["*.tsx", "*.css", "src/components/**"]
+        }
+      }
+    }
+  },
+  "executor": {
+    "kind": "trajectory-run",
+    "scenarioRef": "evals/scenarios/tapestry-no-pattern-category-explicit-only.jsonc"
+  },
+  "evaluators": [
+    {
+      "kind": "trajectory-assertion",
+      "expectedSequence": ["tapestry", "shuttle", "tapestry"],
+      "requiredAgents": ["shuttle"],
+      "expectedDelegationTargets": ["shuttle"],
+      "minTurns": 4
+    }
+  ]
+}

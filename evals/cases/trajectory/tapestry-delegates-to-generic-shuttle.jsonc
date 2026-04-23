@@ -1,0 +1,27 @@
+{
+  "id": "trajectory-tapestry-delegates-to-generic-shuttle",
+  "title": "Trajectory: Tapestry delegates to generic Shuttle when no categories are configured",
+  "description": "Checks that trajectory execution still uses the supported builtin Tapestry target variant schema with empty categories and that delegation falls back to the generic shuttle target.",
+  "phase": "trajectory",
+  "tags": ["trajectory", "tapestry", "shuttle", "delegation", "categories"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry",
+    "variant": {
+      "categories": {}
+    }
+  },
+  "executor": {
+    "kind": "trajectory-run",
+    "scenarioRef": "evals/scenarios/tapestry-delegates-to-generic-shuttle.jsonc"
+  },
+  "evaluators": [
+    {
+      "kind": "trajectory-assertion",
+      "expectedSequence": ["tapestry", "shuttle", "tapestry"],
+      "requiredAgents": ["shuttle"],
+      "expectedDelegationTargets": ["shuttle"],
+      "minTurns": 4
+    }
+  ]
+}

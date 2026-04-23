@@ -69,6 +69,19 @@ describe("composeTapestryPrompt", () => {
   })
 })
 
+function getSection(prompt: string, tagName: string): string | null {
+  const startTag = `<${tagName}>`
+  const endTag = `</${tagName}>`
+  const startIndex = prompt.indexOf(startTag)
+
+  if (startIndex === -1) {
+    return null
+  }
+
+  const endIndex = prompt.indexOf(endTag, startIndex)
+  return prompt.slice(startIndex, endIndex + endTag.length)
+}
+
 describe("buildTapestryPostExecutionReviewSection", () => {
   it("includes both Weft and Warp by default", () => {
     const section = buildTapestryPostExecutionReviewSection(new Set())
@@ -222,6 +235,8 @@ describe("buildTapestryCategoryRoutingSection", () => {
     const section = buildTapestryCategoryRoutingSection({ backend: { model: "claude-opus-4" } })
     expect(section).not.toBeNull()
     expect(section).toContain("shuttle-backend")
+    expect(section).toContain("explicit/manual-use only")
+    expect(section).toContain("never auto-select from file matches")
   })
 
   it("returns a section when at least one category has patterns", () => {
@@ -232,7 +247,7 @@ describe("buildTapestryCategoryRoutingSection", () => {
     expect(section).toContain("<CategoryRouting>")
   })
 
-  it("includes shuttle-{category} agent name for each category with patterns", () => {
+  it("lists concrete shuttle category agent names for each category with patterns", () => {
     const section = buildTapestryCategoryRoutingSection({
       frontend: { patterns: ["*.tsx"] },
       backend: { patterns: ["*.go"] },
@@ -261,6 +276,21 @@ describe("buildTapestryCategoryRoutingSection", () => {
     expect(section).toContain("[category:")
   })
 
+  it("states overlapping file-pattern matches use the first category in config order", () => {
+    const section = buildTapestryCategoryRoutingSection({
+      frontend: { patterns: ["src/**"] },
+      backend: { patterns: ["src/**/*.ts"] },
+    })
+
+    expect(section).not.toBeNull()
+    expect(section).toContain(
+      "Match task's **Files** against category patterns in config declaration order → use the first matching `shuttle-{category}`",
+    )
+    expect(section).toContain(
+      "If multiple categories match the same task's files, the earliest declared matching category wins; later matches do not override earlier ones",
+    )
+  })
+
   it("includes fallback to generic shuttle", () => {
     const section = buildTapestryCategoryRoutingSection({
       frontend: { patterns: ["*.tsx"] },
@@ -268,6 +298,32 @@ describe("buildTapestryCategoryRoutingSection", () => {
     expect(section).not.toBeNull()
     expect(section).toContain("shuttle")
     expect(section).toContain("fallback")
+  })
+
+  it("marks categories without patterns as manual-only even when other categories have patterns", () => {
+    const section = buildTapestryCategoryRoutingSection({
+      frontend: { patterns: ["*.tsx"] },
+      backend: { model: "claude-opus-4" },
+    })
+    expect(section).not.toBeNull()
+    expect(section).toContain("shuttle-frontend: patterns [*.tsx]")
+    expect(section).toContain(
+      "shuttle-backend: (no file patterns — explicit/manual-use only; never auto-select from file matches)",
+    )
+    expect(section).toContain(
+      "Categories without file patterns are explicit/manual-use only and are never eligible for file-pattern auto-routing",
+    )
+  })
+
+  it("omits file-pattern routing steps when all categories are manual-only", () => {
+    const section = buildTapestryCategoryRoutingSection({
+      backend: { model: "claude-opus-4" },
+    })
+
+    expect(section).not.toBeNull()
+    expect(section).toContain("shuttle-backend")
+    expect(section).toContain("explicit/manual-use only")
+    expect(section).not.toContain("Match task's **Files** against category patterns in config declaration order")
   })
 })
 
@@ -291,21 +347,55 @@ describe("composeTapestryPrompt with categories", () => {
     })
     expect(prompt).toContain("<CategoryRouting>")
     expect(prompt).toContain("shuttle-backend")
+    expect(prompt).toContain("explicit/manual-use only")
+    expect(prompt).toContain("never eligible for file-pattern auto-routing")
+  })
+
+  it("keeps no-pattern categories out of delegation auto-routing examples", () => {
+    const prompt = composeTapestryPrompt({
+      categories: {
+        frontend: { patterns: ["*.tsx"] },
+        backend: { model: "claude-opus-4" },
+      },
+    })
+    const delegationSection = getSection(prompt, "Delegation")
+    expect(delegationSection).not.toBeNull()
+    expect(delegationSection).toContain("shuttle-frontend")
+    expect(delegationSection).not.toContain("shuttle-backend")
+    expect(delegationSection).not.toContain("shuttle-{category}")
   })
 
   it("delegation section uses concrete category agent names when categories present", () => {
     const prompt = composeTapestryPrompt({
       categories: { frontend: { patterns: ["*.tsx"] } },
     })
-    const delegationSection = prompt.slice(prompt.indexOf("<Delegation>"), prompt.indexOf("</Delegation>"))
+    const delegationSection = getSection(prompt, "Delegation")
+    expect(delegationSection).not.toBeNull()
     expect(delegationSection).toContain("shuttle-frontend")
     expect(delegationSection).not.toContain("shuttle-{category}")
   })
 
   it("delegation section uses plain shuttle when no categories", () => {
     const prompt = composeTapestryPrompt()
-    const delegationSection = prompt.slice(prompt.indexOf("<Delegation>"), prompt.indexOf("</Delegation>"))
+    const delegationSection = getSection(prompt, "Delegation")
+    expect(delegationSection).not.toBeNull()
     expect(delegationSection).toContain('subagent_type="shuttle"')
+    expect(delegationSection).not.toContain("shuttle-{category}")
+  })
+
+  it("manual-only categories keep plain shuttle delegation without placeholder names", () => {
+    const prompt = composeTapestryPrompt({
+      categories: { backend: { model: "claude-opus-4" } },
+    })
+    const categoryRoutingSection = getSection(prompt, "CategoryRouting")
+    const delegationSection = getSection(prompt, "Delegation")
+
+    expect(categoryRoutingSection).not.toBeNull()
+    expect(categoryRoutingSection).toContain("shuttle-backend")
+    expect(categoryRoutingSection).not.toContain("Match task's **Files** against category patterns in config declaration order")
+    expect(delegationSection).not.toBeNull()
+    expect(delegationSection).toContain('subagent_type="shuttle"')
+    expect(delegationSection).not.toContain("shuttle-backend")
     expect(delegationSection).not.toContain("shuttle-{category}")
   })
 })

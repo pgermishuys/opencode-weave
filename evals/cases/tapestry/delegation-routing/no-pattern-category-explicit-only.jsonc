@@ -1,0 +1,32 @@
+{
+  "id": "tapestry-delegation-routing-no-pattern-category-explicit-only",
+  "title": "Tapestry treats categories without patterns as explicit/manual-only",
+  "description": "Checks that when a configured category has no patterns, Tapestry does not auto-route matching-by-intent work to that category and instead falls back to the generic shuttle unless an explicit category tag is present.",
+  "phase": "experimental",
+  "tags": ["experimental", "tapestry", "delegation-routing", "category", "manual-only"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry",
+    "variant": {
+      "categories": {
+        "docs": {},
+        "frontend": {
+          "patterns": ["*.tsx", "*.css", "src/components/**"]
+        }
+      }
+    }
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "openai/gpt-5.4",
+    "input": "You are executing /start-work. The plan has one unchecked task:\n\n- [ ] Task 4/6: Update onboarding documentation\n  **Files**: docs/onboarding.md, CONTRIBUTING.md\n  **What**: Refresh the onboarding and contributor documentation\n  **Acceptance**: The onboarding flow and contributor notes are updated consistently.\n\nA docs category exists in config but has no patterns. There is no explicit category tag on the task, and you may not add or change task metadata. Which shuttle agent would you use to delegate this task and why? Answer in one sentence, name only the chosen shuttle agent, and do not mention any other shuttle agents by name."
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "expectedAnyOf": ["generic shuttle", "plain shuttle", "fallback to the generic shuttle", "docs category has no patterns", "explicit/manual-only", "manual-only", "not auto-route", "no category match", "shuttle"],
+      "forbiddenContains": ["shuttle-docs", "route to shuttle-docs", "auto-route to docs", "docs category should handle it automatically", "shuttle-frontend"]
+    }
+  ]
+}

@@ -90,10 +90,16 @@ jobs:
             "evals/suites/agent-routing-intent.jsonc",
             "evals/suites/agent-trajectory.jsonc",
             "evals/suites/tapestry-review-trajectory.jsonc",
+            "evals/suites/tapestry-delegation-routing.jsonc",
+            "evals/suites/tapestry-delegation-trajectory.jsonc",
             "evals/cases/loom/**/*.jsonc",
             "evals/cases/trajectory/**/*.jsonc",
+            "evals/cases/tapestry/delegation-routing/**/*.jsonc",
             "evals/scenarios/loom-*.jsonc",
             "evals/scenarios/tapestry-post-execution-review.jsonc",
+            "evals/scenarios/tapestry-delegates-to-*.jsonc",
+            "evals/scenarios/tapestry-overlapping-patterns-first-match.jsonc",
+            "evals/scenarios/tapestry-no-pattern-category-explicit-only.jsonc",
             "evals/rubrics/*.md",
             "src/features/evals/**/*.ts",
             "script/eval.ts",
@@ -220,6 +226,8 @@ jobs:
           - id: agent-routing-intent
           - id: agent-trajectory
           - id: tapestry-review-trajectory
+          - id: tapestry-delegation-routing
+          - id: tapestry-delegation-trajectory
         target:
           - name: OpenRouter / openai/gpt-4o-mini
             provider: openrouter
@@ -311,6 +319,8 @@ jobs:
             'agent-routing-intent': results_dir / 'agent-routing-intent.jsonl',
             'agent-trajectory': results_dir / 'agent-trajectory.jsonl',
             'tapestry-review-trajectory': results_dir / 'tapestry-review-trajectory.jsonl',
+            'tapestry-delegation-routing': results_dir / 'tapestry-delegation-routing.jsonl',
+            'tapestry-delegation-trajectory': results_dir / 'tapestry-delegation-trajectory.jsonl',
           }
 
           runs_by_suite = {suite_id: {} for suite_id in suite_paths}
@@ -385,7 +395,7 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
-          for suite in agent-routing-identity agent-routing-intent agent-trajectory tapestry-review-trajectory; do
+          for suite in agent-routing-identity agent-routing-intent agent-trajectory tapestry-review-trajectory tapestry-delegation-routing tapestry-delegation-trajectory; do
             bun run script/eval-trend-report.ts --suite "$suite" --model-key openrouter/openai/gpt-4o-mini --check --threshold 0.80
             bun run script/eval-trend-report.ts --suite "$suite" --model-key openrouter/openai/gpt-5.4 --check --threshold 0.80
             bun run script/eval-trend-report.ts --suite "$suite" --model-key openrouter/anthropic/claude-opus-4.6 --check --threshold 0.80
@@ -394,7 +404,7 @@ jobs:
       - name: Commit canonical behavioral history
         if: github.ref == 'refs/heads/main' && always()
         run: |
-          git add evals/results/agent-routing-identity.jsonl evals/results/agent-routing-intent.jsonl evals/results/agent-trajectory.jsonl evals/results/agent-routing.jsonl evals/results/tapestry-review-trajectory.jsonl
+          git add evals/results/agent-routing-identity.jsonl evals/results/agent-routing-intent.jsonl evals/results/agent-trajectory.jsonl evals/results/agent-routing.jsonl evals/results/tapestry-review-trajectory.jsonl evals/results/tapestry-delegation-routing.jsonl evals/results/tapestry-delegation-trajectory.jsonl
           if git diff --cached --quiet; then
             echo "No behavioral history changes to commit"
             exit 0
@@ -415,6 +425,8 @@ jobs:
             evals/results/agent-trajectory.jsonl
             evals/results/agent-routing.jsonl
             evals/results/tapestry-review-trajectory.jsonl
+            evals/results/tapestry-delegation-routing.jsonl
+            evals/results/tapestry-delegation-trajectory.jsonl
           if-no-files-found: ignore
 
   tapestry-execution-contracts:

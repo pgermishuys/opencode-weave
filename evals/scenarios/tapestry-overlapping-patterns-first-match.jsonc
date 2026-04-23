@@ -1,0 +1,35 @@
+{
+  "id": "tapestry-overlapping-patterns-first-match",
+  "title": "Tapestry uses first-match config order when category patterns overlap",
+  "description": "User requests implementation work whose files match multiple configured category pattern sets, so Tapestry follows the routing contract and delegates to the first matching category in config order.",
+  "agents": ["tapestry", "shuttle-frontend"],
+  "turns": [
+    {
+      "turn": 1,
+      "role": "user",
+      "content": "Please update the dashboard widget implementation and styles. The changed files are src/components/dashboard/Widget.tsx and src/components/dashboard/Widget.css."
+    },
+    {
+      "turn": 2,
+      "role": "assistant",
+      "agent": "tapestry",
+      "content": "The task files match multiple categories, so the first matching configured category should win.",
+      "expectedDelegation": "shuttle-frontend",
+      "mockResponse": "This implementation task should be delegated. The files src/components/dashboard/Widget.tsx and src/components/dashboard/Widget.css match both the configured frontend and dashboard categories, and the routing contract says overlapping matches use the first category in config order. Since frontend is declared first, I will delegate to shuttle-frontend for the work.\n\n*Delegating to shuttle-frontend...*"
+    },
+    {
+      "turn": 3,
+      "role": "assistant",
+      "agent": "shuttle-frontend",
+      "content": "Shuttle frontend handles the overlapping-pattern task.",
+      "mockResponse": "I updated the dashboard widget component and styles, then verified the UI behavior after applying the frontend-routed changes."
+    },
+    {
+      "turn": 4,
+      "role": "assistant",
+      "agent": "tapestry",
+      "content": "Tapestry reports the delegated result back to the user.",
+      "mockResponse": "The work was completed by shuttle-frontend. Because frontend was the first matching configured category, it handled the overlapping-pattern dashboard widget update."
+    }
+  ]
+}

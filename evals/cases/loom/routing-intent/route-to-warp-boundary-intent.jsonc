@@ -1,0 +1,25 @@
+{
+  "id": "route-to-warp-boundary-intent",
+  "title": "Intent: ordinary quality review does not over-route to Warp",
+  "description": "Accepts the expected boundary behavior when Loom keeps a non-security review ask on the Weft path instead of over-escalating it to Warp.",
+  "phase": "routing",
+  "tags": ["routing", "loom", "intent", "review", "boundary"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "openai/gpt-5.4",
+    "input": "Please review this multi-file logging cleanup for readability and consistency before merge. There are no auth, token, secret, or other security-sensitive changes involved."
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "rubricRef": "evals/rubrics/loom-routing-rubric.md",
+      "expectedAnyOf": ["weft", "quality review", "review"],
+      "forbiddenContains": ["warp", "security review", "security audit"]
+    }
+  ]
+}

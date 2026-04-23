@@ -1,0 +1,35 @@
+{
+  "id": "tapestry-delegates-to-categorized-shuttle",
+  "title": "Tapestry delegates to categorized Shuttle when category patterns match",
+  "description": "User requests frontend implementation work whose files match the configured frontend category patterns, so Tapestry delegates to shuttle-frontend instead of the generic Shuttle agent.",
+  "agents": ["tapestry", "shuttle-frontend"],
+  "turns": [
+    {
+      "turn": 1,
+      "role": "user",
+      "content": "Please add a UserCard component and styles for the dashboard. The changed files are src/components/UserCard.tsx and src/components/UserCard.css."
+    },
+    {
+      "turn": 2,
+      "role": "assistant",
+      "agent": "tapestry",
+      "content": "The task files match the frontend category, so this should go to shuttle-frontend.",
+      "expectedDelegation": "shuttle-frontend",
+      "mockResponse": "This implementation task should be delegated. The files src/components/UserCard.tsx and src/components/UserCard.css match the configured frontend category patterns, so I will delegate to shuttle-frontend for the work.\n\n*Delegating to shuttle-frontend...*"
+    },
+    {
+      "turn": 3,
+      "role": "assistant",
+      "agent": "shuttle-frontend",
+      "content": "Shuttle frontend handles the implementation task.",
+      "mockResponse": "I implemented the UserCard frontend component and styles, then verified the dashboard UI behavior."
+    },
+    {
+      "turn": 4,
+      "role": "assistant",
+      "agent": "tapestry",
+      "content": "Tapestry reports the delegated result back to the user.",
+      "mockResponse": "The work was completed by shuttle-frontend. The UserCard component and styles are now implemented for the dashboard."
+    }
+  ]
+}

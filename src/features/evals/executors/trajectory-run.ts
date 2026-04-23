@@ -8,13 +8,17 @@ import type {
   TrajectoryTurnResult,
 } from "../types"
 
+// Trajectory evals are intentionally mock-backed and text-based for now.
+// They replay canned assistant responses and derive delegation intent from those
+// responses only; runtime proof of actual delegation remains owned by
+// integration tests that inspect task-tool activity.
 const DELEGATION_PATTERNS = [
-  /\[delegates?\s+to\s+(\w+)\]/i,
-  /delegating\s+to\s+(\w+)/i,
-  /delegate\s+to\s+(\w+)/i,
-  /use\s+(\w+)\s+(?:for|to)/i,
-  /route\s+to\s+(\w+)/i,
-  /routing\s+to\s+(\w+)/i,
+  /\[delegates?\s+to\s+([\w]+(?:-[\w]+)*)\]/i,
+  /delegating\s+to\s+([\w]+(?:-[\w]+)*)/i,
+  /delegate\s+to\s+([\w]+(?:-[\w]+)*)/i,
+  /use\s+([\w]+(?:-[\w]+)*)\s+(?:for|to)/i,
+  /route\s+to\s+([\w]+(?:-[\w]+)*)/i,
+  /routing\s+to\s+([\w]+(?:-[\w]+)*)/i,
 ]
 
 export function detectDelegation(response: string): string | null {
@@ -36,6 +40,7 @@ export async function executeTrajectoryRun(
 
   const turnResults: TrajectoryTurnResult[] = []
   const delegationSequence: string[] = []
+  const delegationTargets: string[] = []
   const assistantResponses: string[] = []
 
   for (const turn of scenario.turns) {
@@ -59,6 +64,9 @@ export async function executeTrajectoryRun(
     response = turn.mockResponse ?? turn.content
 
     const observedDelegation = detectDelegation(response)
+    if (observedDelegation) {
+      delegationTargets.push(observedDelegation)
+    }
 
     // The delegation sequence tracks acting agents (who produced each turn),
     // not delegation targets. The turn.agent field identifies the acting agent.
@@ -83,6 +91,7 @@ export async function executeTrajectoryRun(
     scenarioId: scenario.id,
     turns: turnResults,
     delegationSequence,
+    delegationTargets,
     totalTurns: scenario.turns.length,
     completedTurns: turnResults.length,
   }
