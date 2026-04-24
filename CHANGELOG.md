@@ -5,13 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.6] - 2026-04-14
+## [0.8.0] - 2026-04-24
+
+### Added
+
+- Generate a JSON Schema for Weave config so editors and tooling can validate configuration files more reliably ([07bd805](https://github.com/pgermishuys/opencode-weave/commit/07bd805))
 
 ### Changed
 
-- Tighten Tapestry in-progress execution updates so they stay focused on the immediate next action instead of mentioning later review or completion steps
-- Clarify terminal-state review behavior so post-execution review only triggers once all plan tasks are complete
-- Refresh evaluation baselines and test assertions to match the refined Tapestry execution contract
+- **Transform Tapestry into a coordinator that delegates implementation work to Shuttle agents** — clarifies the planner/coordinator/worker split and moves task execution to delegated workers ([e2ba168](https://github.com/pgermishuys/opencode-weave/commit/e2ba168))
+- Restore Categories as a Shuttle routing feature with test coverage so category-based delegation works again ([81cd32d](https://github.com/pgermishuys/opencode-weave/commit/81cd32d))
+
+### Fixed
+
+- Forward `modelOptions` into runtime agent options so configured model settings are honored during execution ([88fa662](https://github.com/pgermishuys/opencode-weave/commit/88fa662))
+
+## [0.7.6] - 2026-04-14
 
 ## [0.7.5] - 2026-04-05
 
@@ -162,6 +171,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove Tapestry→Loom agent-switch hacks and mandatory post-execution review gate ([da184b3](https://github.com/pgermishuys/opencode-weave/commit/da184b3))
 - Clear `state.json` on plan completion so `session.idle` takes fast exit path ([13df42e](https://github.com/pgermishuys/opencode-weave/commit/13df42e))
 
+[0.8.0]: https://github.com/pgermishuys/opencode-weave/compare/v0.7.6...v0.8.0
 [0.7.4]: https://github.com/pgermishuys/opencode-weave/compare/v0.7.3...v0.7.4
 [0.7.6]: https://github.com/pgermishuys/opencode-weave/compare/v0.7.5...v0.7.6
 [0.7.5]: https://github.com/pgermishuys/opencode-weave/compare/v0.7.4...v0.7.5

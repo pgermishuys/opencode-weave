@@ -54,12 +54,12 @@ checks.push(
   ])
 )
 
-// 7. 7-agents
+// 7. 8-agents
 checks.push(
-  runCheck("7-agents", [
+  runCheck("8-agents", [
     "bun",
     "-e",
-    "import { createBuiltinAgents } from './src/agents/builtin-agents.ts'; const a = createBuiltinAgents(); process.exit(Object.keys(a).length === 7 ? 0 : 1)",
+    "import { createBuiltinAgents } from './src/agents/builtin-agents.ts'; const a = createBuiltinAgents(); process.exit(Object.keys(a).length === 8 ? 0 : 1)",
   ])
 )
 

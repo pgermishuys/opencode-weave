@@ -1,0 +1,22 @@
+{
+  // Copy this file into your project as `.opencode/weave-opencode.jsonc`.
+  // Tapestry stays the coordinator and delegates implementation to Shuttle.
+  // In category mode, it can route work to `shuttle-backend` or `shuttle-frontend`.
+
+  "$schema": "https://raw.githubusercontent.com/pgermishuys/opencode-weave/main/schema/weave-config.schema.json",
+
+  "categories": {
+    "backend": {
+      "description": "Backend APIs, services, persistence, and server-side integrations",
+      "model": "anthropic/claude-sonnet-4.5",
+      "patterns": ["src/api/**", "src/server/**", "src/db/**", "**/*.go", "**/*.cs"],
+      "prompt_append": "Focus on API contracts, data integrity, backwards compatibility, and server-side verification."
+    },
+    "frontend": {
+      "description": "Frontend UI, styling, accessibility, and client-side interactions",
+      "model": "openai/gpt-5",
+      "patterns": ["src/components/**", "src/pages/**", "src/app/**/*.tsx", "**/*.tsx", "**/*.css", "**/*.vue"],
+      "prompt_append": "Preserve accessibility, responsive behavior, and design-system consistency while keeping UI diffs small."
+    }
+  }
+}

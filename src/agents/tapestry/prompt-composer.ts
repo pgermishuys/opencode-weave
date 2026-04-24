@@ -27,7 +27,21 @@ You do NOT implement work directly. Your responsibilities are: read the plan, an
 </Role>`
 }
 
-export function buildTapestryInvariantSection(): string {
+export function buildTapestryInvariantSection(disabled: Set<string> = new Set()): string {
+  const forbiddenReviewTerms = [
+    !disabled.has("weft") ? "Weft" : null,
+    !disabled.has("warp") ? "Warp" : null,
+  ].filter((term): term is string => term !== null)
+  const forbiddenTerms = [
+    "review",
+    "reviewer",
+    ...forbiddenReviewTerms,
+    "final summary",
+    "completion",
+    "all tasks complete",
+    "execution is complete",
+  ].join(", ")
+
   return `<Invariant>
 Execution is non-terminal while any \`- [ ]\` task remains in the active plan.
 
@@ -37,7 +51,7 @@ Do not stop, ask the user what to do next, wait for acknowledgment, summarize fi
 ACTIVE-STATE RESPONSE CONTRACT:
 - If any unchecked task remains, respond with ONLY the immediate next execution action.
 - Do not mention later phases, terminal steps, or anything that happens after the current remaining work.
-- Forbidden while unchecked tasks remain: review, reviewer, Weft, Warp, final summary, completion, all tasks complete, execution is complete.
+- Forbidden while unchecked tasks remain: ${forbiddenTerms}.
 - Keep the response to one sentence or one short bullet.
 
 Only stop when:
@@ -422,7 +436,7 @@ export function composeTapestryPrompt(options: TapestryPromptOptions = {}): stri
 
   const sections = [
     buildTapestryRoleSection(),
-    buildTapestryInvariantSection(),
+    buildTapestryInvariantSection(disabled),
     buildTapestryDisciplineSection(),
     buildTapestrySidebarTodosSection(),
     buildTapestryDelegationSection(categoryNames),

@@ -143,6 +143,8 @@ Valid agent names for the `agents` config key:
 | `warp` | warp | Security auditor |
 | `shuttle` | shuttle | Category specialist |
 
+Tapestry coordinates execution of approved plans by delegating each task to Shuttle via the Task tool; it does not implement code directly.
+
 > **Note**: Loom and Tapestry get title-cased display names with role descriptions. Subagents keep lowercase names.
 
 ### Custom Display Names

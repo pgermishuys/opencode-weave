@@ -48,8 +48,8 @@ graph TD
 | Loom | Warp | Security-relevant changes need auditing |
 | Loom | Shuttle | Domain-specific task with category config |
 | Loom | Tapestry | *(indirect)* User runs `/start-work` to begin plan execution |
-| Tapestry | *(none)* | Tapestry never delegates — executes directly |
-| Pattern | *(none)* | Pattern only writes `.md` plans, never delegates |
+| Tapestry | Shuttle | Delegates each plan task via Task tool |
+| Pattern | *(none)* | Planning-only agent that researches and writes `.md` plans |
 | Thread | *(none)* | Read-only exploration, no delegation |
 | Spindle | *(none)* | Read-only research, no delegation |
 | Weft | *(none)* | Read-only review, no delegation |
@@ -67,6 +67,7 @@ sequenceDiagram
     participant Pattern
     participant Weft
     participant Tapestry
+    participant Shuttle
 
     User->>Loom: "Build an OAuth2 login system"
 
@@ -93,10 +94,13 @@ sequenceDiagram
 
     Note over Tapestry: start-work hook fires:<br/>1. Find plan file<br/>2. Create .weave/state.json<br/>3. Switch agent to Tapestry
 
-    loop For each unchecked task
+    loop For each unchecked task or safe parallel batch
         Tapestry->>Tapestry: Read task + acceptance criteria
-        Tapestry->>Tapestry: Execute (write code, create files)
-        Tapestry->>Tapestry: Verify (run tests, read output)
+        Tapestry->>Tapestry: Analyse dependencies + file overlap
+        Tapestry->>Shuttle: Delegate task via Task tool
+        Shuttle->>Shuttle: Implement requested changes
+        Shuttle-->>Tapestry: Files changed, commands run, test results
+        Tapestry->>Tapestry: Verify output against acceptance criteria
         Tapestry->>Tapestry: Mark checkbox: - [ ] → - [x]
         Tapestry-->>User: Progress: 3/5 tasks complete
     end
@@ -190,6 +194,41 @@ sequenceDiagram
     Shuttle->>Shuttle: Implement dark mode toggle
     Shuttle-->>Loom: Component created, styles applied
     Loom-->>User: Dark mode toggle added ✓
+```
+
+## Workflow F: Tapestry Delegation
+
+When Tapestry executes a plan, it delegates every task to Shuttle via the Task tool.
+
+```mermaid
+sequenceDiagram
+    participant Tapestry
+    participant Shuttle
+    participant ShuttleFrontend as Shuttle frontend
+    participant ShuttleBackend as Shuttle backend manual
+
+    alt Mode 1: Uncategorized (no categories configured)
+        Tapestry->>Tapestry: Read unchecked task from plan
+        Tapestry->>Shuttle: Task tool with subagent_type="shuttle"
+        Shuttle-->>Tapestry: Implementation result + verification evidence
+    else Mode 2: Categorized (categories configured)
+        Tapestry->>Tapestry: Check explicit [category:name] tag first
+        alt Explicit category tag present
+            Tapestry->>ShuttleFrontend: Task tool with subagent_type="shuttle-frontend"
+            ShuttleFrontend-->>Tapestry: Category-specific result
+        else Files match first declared category pattern
+            Tapestry->>ShuttleFrontend: Task tool with subagent_type="shuttle-frontend"
+            ShuttleFrontend-->>Tapestry: Category-specific result
+        else Manual-only category (no patterns)
+            Tapestry->>ShuttleBackend: Task tool with subagent_type="shuttle-backend"
+            ShuttleBackend-->>Tapestry: Manual-only category result
+        else No category match
+            Tapestry->>Shuttle: Task tool with fallback subagent_type="shuttle"
+            Shuttle-->>Tapestry: Fallback result
+        end
+    end
+
+    Tapestry->>Tapestry: Verify result, record learnings, mark task complete
 ```
 
 ## Hook Interactions During a Request
@@ -290,7 +329,7 @@ stateDiagram-v2
 ```
                  Read  Write  Edit  Task  WebFetch  Glob  Grep  Bash
 Loom              ✓     ✓      ✓     ✓      ✓       ✓     ✓     ✓
-Tapestry          ✓     ✓      ✓     ✗      ✓       ✓     ✓     ✓
+Tapestry          ✓     ✓      ✓     ✓      ✓       ✓     ✓     ✓
 Pattern           ✓    .md*   .md*   ✗      ✓       ✓     ✓     ✓
 Thread            ✓     ✗      ✗     ✗      ✓       ✓     ✓     ✓
 Spindle           ✓     ✗      ✗     ✗      ✓       ✓     ✓     ✓

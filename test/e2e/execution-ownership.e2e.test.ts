@@ -335,7 +335,8 @@ describe("E2E: execution ownership", () => {
     host.client.clearEffects()
     await host.emitSessionIdle("sess-plan-complete")
 
-    expect(host.client.promptAsyncCalls).toHaveLength(0)
+    expect(host.client.promptAsyncCalls).toHaveLength(1)
+    expect(host.client.promptAsyncCalls[0]?.body.parts[0]?.text).toContain("## Verification Required")
     expect(executionLeaseRepository.readExecutionLease(fixture.directory)).toBeNull()
     expect(executionLeaseRepository.readSessionRuntime(fixture.directory, "sess-plan-complete")).toMatchObject({
       foreground_agent: "tapestry",

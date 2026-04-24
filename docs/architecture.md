@@ -98,9 +98,9 @@ Weave defines **8 specialized agents**, each with a distinct role and set of con
 
 | Agent | Role | Mode | Cost | Tool Access |
 |-------|------|------|------|-------------|
-| **Loom** | Main orchestrator — plans tasks, delegates work | primary | expensive | Full |
-| **Tapestry** | Execution engine — works through plan checkboxes | primary | expensive | Full (no subagents) |
-| **Shuttle** | Category specialist — domain-specific work | all | cheap | Full |
+| **Loom** | Main orchestrator — plans tasks and delegates across the agent system | primary | expensive | Full |
+| **Tapestry** | Plan execution coordinator — delegates each plan task to Shuttle, verifies results, and advances checkboxes | primary | expensive | Full |
+| **Shuttle** | Task executor / category specialist — performs delegated implementation work | all | cheap | Full |
 | **Pattern** | Strategic planner — creates `.md` plan files | subagent | expensive | Guarded (`.weave/` only) |
 | **Thread** | Codebase explorer — fast search & analysis | subagent | free | Read-only |
 | **Spindle** | External researcher — docs & web lookup | subagent | free | Read-only |
@@ -126,10 +126,10 @@ Weave defines **8 specialized agents**, each with a distinct role and set of con
 ### Key Invariants
 
 - **Pattern** can only write `.md` files inside `.weave/` (enforced by hook)
-- **Tapestry** never spawns subagents — executes tasks directly
+- **Tapestry** executes plans by delegating each task to **Shuttle**, then verifying the result before marking progress
 - **Thread / Spindle / Weft / Warp** are read-only (write/edit tools disabled)
 - **Warp** has a skeptical security bias (rejects by default on security patterns)
-- **Loom** is the only agent that delegates to all others
+- **Loom** is the only agent that delegates broadly across the full agent set; **Tapestry** delegates only to **Shuttle**
 
 ## The Hook System
 

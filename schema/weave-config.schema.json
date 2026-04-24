@@ -452,5 +452,5 @@
   "$id": "https://raw.githubusercontent.com/pgermishuys/opencode-weave/main/schema/weave-config.schema.json",
   "title": "Weave Config",
   "description": "Configuration for the @opencode_weave/weave OpenCode plugin. Runtime loading accepts JSONC, while the generated schema artifact is plain JSON Schema.",
-  "x-weave-version": "0.7.6"
+  "x-weave-version": "0.8.0"
 }
