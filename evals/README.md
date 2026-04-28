@@ -115,6 +115,7 @@ OPENROUTER_API_KEY=or_xxx bun run eval --suite tapestry-review-routing --provide
 
 # Tapestry execution-contract experiments (run separately for provider comparison)
 OPENROUTER_API_KEY=or_xxx bun run eval --suite tapestry-execution-contracts --provider openrouter --model openai/gpt-5.4
+OPENROUTER_API_KEY=or_xxx bun run eval --suite tapestry-execution-contracts --provider openrouter --model moonshotai/kimi-k2.6
 OPENROUTER_API_KEY=or_xxx bun run eval --suite tapestry-execution-contracts --provider openrouter --model anthropic/claude-sonnet-4.6
 ```
 
@@ -215,7 +216,7 @@ bun run eval:coverage
   - `agent-trajectory`
   - `tapestry-review-trajectory`
 - The live behavioral matrix currently standardizes on `openrouter` in CI
-- `tapestry-execution-contracts` runs in its own non-blocking CI lane with a dedicated model set (`openai/gpt-5.4`, `anthropic/claude-sonnet-4.6`)
+- `tapestry-execution-contracts` runs in its own non-blocking CI lane with a dedicated model set (`openai/gpt-5.4`, `moonshotai/kimi-k2.6`, `anthropic/claude-sonnet-4.6`)
 - the fan-in job also preserves `evals/results/agent-routing.jsonl` as a legacy compatibility feed backed by the split Loom identity stream
 - Targeted suites such as `tapestry-review-routing` and `tapestry-execution-contracts` stay isolated so they can use different model sets without changing Loom routing coverage
 

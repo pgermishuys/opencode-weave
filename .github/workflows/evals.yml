@@ -239,6 +239,11 @@ jobs:
             model: openai/gpt-5.4
             model_key: openrouter/openai/gpt-5.4
             artifact_name: openrouter-openai-gpt-5-4
+          - name: OpenRouter / moonshotai/kimi-k2.6
+            provider: openrouter
+            model: moonshotai/kimi-k2.6
+            model_key: openrouter/moonshotai/kimi-k2.6
+            artifact_name: openrouter-moonshotai-kimi-k2-6
           - name: OpenRouter / anthropic/claude-opus-4.6
             provider: openrouter
             model: anthropic/claude-opus-4.6
@@ -398,6 +403,7 @@ jobs:
           for suite in agent-routing-identity agent-routing-intent agent-trajectory tapestry-review-trajectory tapestry-delegation-routing tapestry-delegation-trajectory; do
             bun run script/eval-trend-report.ts --suite "$suite" --model-key openrouter/openai/gpt-4o-mini --check --threshold 0.80
             bun run script/eval-trend-report.ts --suite "$suite" --model-key openrouter/openai/gpt-5.4 --check --threshold 0.80
+            bun run script/eval-trend-report.ts --suite "$suite" --model-key openrouter/moonshotai/kimi-k2.6 --check --threshold 0.80
             bun run script/eval-trend-report.ts --suite "$suite" --model-key openrouter/anthropic/claude-opus-4.6 --check --threshold 0.80
           done
 
@@ -454,6 +460,11 @@ jobs:
             model: openai/gpt-5.4
             model_key: openrouter/openai/gpt-5.4
             artifact_name: openrouter-openai-gpt-5-4
+          - name: OpenRouter / moonshotai/kimi-k2.6
+            provider: openrouter
+            model: moonshotai/kimi-k2.6
+            model_key: openrouter/moonshotai/kimi-k2.6
+            artifact_name: openrouter-moonshotai-kimi-k2-6
           - name: OpenRouter / anthropic/claude-sonnet-4.6
             provider: openrouter
             model: anthropic/claude-sonnet-4.6
@@ -562,6 +573,7 @@ jobs:
         continue-on-error: true
         run: |
           bun run script/eval-trend-report.ts --suite tapestry-execution-contracts --model-key openrouter/openai/gpt-5.4 --check --threshold 0.80
+          bun run script/eval-trend-report.ts --suite tapestry-execution-contracts --model-key openrouter/moonshotai/kimi-k2.6 --check --threshold 0.80
           bun run script/eval-trend-report.ts --suite tapestry-execution-contracts --model-key openrouter/anthropic/claude-sonnet-4.6 --check --threshold 0.80
 
       - name: Commit Tapestry execution history
