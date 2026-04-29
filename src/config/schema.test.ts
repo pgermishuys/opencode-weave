@@ -17,6 +17,41 @@ describe("WeaveConfigSchema", () => {
     }
   })
 
+  it("parses provider-qualified review_models entries", () => {
+    const result = WeaveConfigSchema.safeParse({
+      agents: {
+        loom: {
+          review_models: ["anthropic/claude-sonnet-4", "openai/gpt-4o"],
+        },
+      },
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.agents?.loom?.review_models).toEqual([
+        "anthropic/claude-sonnet-4",
+        "openai/gpt-4o",
+      ])
+    }
+  })
+
+  it("rejects non-provider-qualified review_models entries", () => {
+    const result = WeaveConfigSchema.safeParse({
+      agents: {
+        loom: {
+          review_models: ["claude-sonnet-4"],
+        },
+      },
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toBe(
+        "review_models entries must be provider-qualified (e.g., 'anthropic/claude-sonnet-4')",
+      )
+    }
+  })
+
   it("parses agent override modelOptions passthrough", () => {
     const result = WeaveConfigSchema.safeParse({
       agents: {

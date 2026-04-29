@@ -40,7 +40,7 @@ export function createPluginInterface(args: {
     },
     event: async (input) => adapter.handleEvent({ event: input.event as never }),
     "tool.execute.before": async (input, output) => adapter.handleToolExecuteBefore(input as never, output as never),
-    "tool.execute.after": async (input, _output) => adapter.handleToolExecuteAfter(input as never),
+    "tool.execute.after": async (input, output) => adapter.handleToolExecuteAfter(input as never, output as never),
     "command.execute.before": async (input, output) => adapter.handleCommandExecuteBefore(input as never, output as never),
     "tool.definition": async (input, output) => adapter.handleToolDefinition(input as never, output as never),
     "experimental.session.compacting": async (input) => adapter.handleSessionCompacting(input as never),

@@ -65,6 +65,69 @@ function makeMockConfigHandler(): ConfigHandler & { callCount: number } {
   return handler
 }
 
+function makeMockReviewClient(args?: {
+  reviewerOutputs?: Record<string, string>
+  failingReviewModels?: string[]
+  collatedOutput?: string
+  failCollation?: boolean
+}) {
+  const reviewerOutputs = args?.reviewerOutputs ?? {}
+  const failingReviewModels = new Set(args?.failingReviewModels ?? [])
+  const collatedOutput = args?.collatedOutput ?? "Collated review output"
+  const failCollation = args?.failCollation ?? false
+  let nextSessionId = 1
+  const reviewerModelsBySessionId = new Map<string, string>()
+  const state = {
+    createCalls: [] as Array<Record<string, unknown>>,
+    promptCalls: [] as Array<Record<string, unknown>>,
+    collatePrompts: [] as string[],
+  }
+
+  const client = {
+    session: {
+      create: async (input: Record<string, unknown>) => {
+        state.createCalls.push(input)
+        return { data: { id: `review-session-${nextSessionId++}` } }
+      },
+      promptAsync: async (_input: Record<string, unknown>) => {
+      },
+      prompt: async (input: Record<string, unknown>) => {
+        state.promptCalls.push(input)
+        const sessionId =
+          ((input.path as { id?: string } | undefined)?.id)
+          ?? (input.sessionID as string | undefined)
+          ?? ""
+        const modelOverride = input.body && typeof input.body === "object"
+          ? ((input.body as { model?: { providerID?: string; modelID?: string } }).model)
+          : undefined
+        const model = modelOverride?.providerID && modelOverride.modelID
+          ? `${modelOverride.providerID}/${modelOverride.modelID}`
+          : ""
+
+        reviewerModelsBySessionId.set(sessionId, model)
+
+        if (failingReviewModels.has(model)) {
+          throw new Error(`Reviewer failed: ${model}`)
+        }
+
+        const body = input.body as { parts?: Array<{ type?: string; text?: string }> } | undefined
+        const promptText = body?.parts?.find((part) => part.type === "text")?.text ?? ""
+        if (promptText.includes("You are collating multiple AI review outputs into a single consolidated review.")) {
+          state.collatePrompts.push(promptText)
+          if (failCollation) {
+            throw new Error("Collation failed")
+          }
+          return { data: { output: collatedOutput } }
+        }
+
+        return { data: { output: reviewerOutputs[model] ?? "" } }
+      },
+    },
+  } as NonNullable<Parameters<typeof createPluginInterface>[0]["client"]>
+
+  return { client, state }
+}
+
 async function primeBuiltinCommand(
   iface: PluginInterface,
   input: { command: "start-work" | "run-workflow" | "metrics" | "token-report" | "weave-health"; sessionID: string; arguments?: string },
@@ -1316,6 +1379,349 @@ describe("delegation logging via tool hooks", () => {
     ])
 
     spy.mockRestore()
+  })
+})
+
+describe("call_weave_agent review orchestration via tool.execute.after", () => {
+  it("leaves output unchanged when target agent has no review_models configured", async () => {
+    const { client, state } = makeMockReviewClient()
+    const iface = createPluginInterface({
+      pluginConfig: {
+        agents: {
+          warp: { model: "anthropic/claude-3-5-sonnet" },
+        },
+      },
+      hooks: makeHooks(),
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+      client,
+    })
+
+    const output = {
+      title: "Warp Review",
+      output: "Primary warp review",
+    }
+
+    await iface["tool.execute.after"](
+      {
+        tool: "call_weave_agent",
+        sessionID: "sess-no-review-models",
+        callID: "call-no-review-models",
+        args: { agent: "warp", prompt: "Review this change" },
+      } as Parameters<typeof iface["tool.execute.after"]>[0],
+      output,
+    )
+
+    expect(output).toEqual({
+      title: "Warp Review",
+      output: "Primary warp review",
+    })
+    expect(state.createCalls).toHaveLength(0)
+    expect(state.promptCalls).toHaveLength(0)
+  })
+
+  it("replaces output with collated review and updates title when review_models are configured", async () => {
+    const { client, state } = makeMockReviewClient({
+      reviewerOutputs: {
+        "openai/gpt-4o": "Additional reviewer found one more issue.",
+      },
+      collatedOutput: "Collated multi-model review",
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: {
+        agents: {
+          weft: {
+            model: "anthropic/claude-3-5-sonnet",
+            review_models: ["openai/gpt-4o"],
+          },
+        },
+      },
+      hooks: makeHooks(),
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+      client,
+    })
+
+    const output = {
+      title: "Weft",
+      output: "Primary weft review",
+    }
+
+    await iface["tool.execute.after"](
+      {
+        tool: "call_weave_agent",
+        sessionID: "sess-review-models",
+        callID: "call-review-models",
+        args: { agent: "weft", prompt: "Review this patch" },
+      } as Parameters<typeof iface["tool.execute.after"]>[0],
+      output,
+    )
+
+    expect(output.output).toBe("Collated multi-model review")
+    expect(output.title).toBe("weft Review (2 models)")
+    expect(state.createCalls).toHaveLength(2)
+    expect(state.promptCalls).toHaveLength(2)
+    expect(state.collatePrompts[0]).toContain("## Primary reviewer: anthropic/claude-3-5-sonnet")
+    expect(state.collatePrompts[0]).toContain("Primary weft review")
+    expect(state.collatePrompts[0]).toContain("Additional reviewer found one more issue.")
+    const collateCall = state.promptCalls[1] as { body?: { agent?: string } }
+    expect(collateCall.body?.agent).toBe("weft")
+  })
+
+  it("skips review orchestration when tracked client is unavailable", async () => {
+    const iface = createPluginInterface({
+      pluginConfig: {
+        agents: {
+          weft: {
+            model: "anthropic/claude-3-5-sonnet",
+            review_models: ["openai/gpt-4o"],
+          },
+        },
+      },
+      hooks: makeHooks(),
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+    })
+
+    const output = {
+      title: "Weft",
+      output: "Primary weft review",
+    }
+
+    await iface["tool.execute.after"](
+      {
+        tool: "call_weave_agent",
+        sessionID: "sess-no-client",
+        callID: "call-no-client",
+        args: { agent: "weft", prompt: "Review this patch" },
+      } as Parameters<typeof iface["tool.execute.after"]>[0],
+      output,
+    )
+
+    expect(output).toEqual({
+      title: "Weft",
+      output: "Primary weft review",
+    })
+  })
+
+  it("uses default fallback model for collation when no explicit agent model is configured", async () => {
+    const { client, state } = makeMockReviewClient({
+      reviewerOutputs: {
+        "openai/gpt-4o": "Additional reviewer found one more issue.",
+      },
+      collatedOutput: "Collated multi-model review",
+    })
+
+    const debugSpy = spyOn(sharedLog, "debug").mockImplementation(() => {})
+
+    try {
+      const iface = createPluginInterface({
+        pluginConfig: {
+          agents: {
+            weft: {
+              review_models: ["openai/gpt-4o"],
+            },
+          },
+        },
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client,
+      })
+
+      const output = {
+        title: "Weft",
+        output: "Primary weft review",
+      }
+
+      await iface["tool.execute.after"](
+        {
+          tool: "call_weave_agent",
+          sessionID: "sess-review-default-model",
+          callID: "call-review-default-model",
+          args: { agent: "weft", prompt: "Review this patch" },
+        } as Parameters<typeof iface["tool.execute.after"]>[0],
+        output,
+      )
+
+      expect(output.output).toBe("Collated multi-model review")
+      expect(state.collatePrompts[0]).toContain("## Primary reviewer: github-copilot/claude-sonnet-4.6")
+      expect(debugSpy).toHaveBeenCalledWith(
+        "[review-orchestration] No explicit model override — using default for collation",
+        { agent: "weft", model: "github-copilot/claude-sonnet-4.6" },
+      )
+    } finally {
+      debugSpy.mockRestore()
+    }
+  })
+
+  it("prepends a warning when one additional reviewer fails", async () => {
+    const { client, state } = makeMockReviewClient({
+      reviewerOutputs: {
+        "openai/gpt-4o": "Successful reviewer findings",
+      },
+      failingReviewModels: ["anthropic/claude-3-5-sonnet"],
+      collatedOutput: "Collated review with surviving reviewers",
+    })
+
+    const iface = createPluginInterface({
+      pluginConfig: {
+        agents: {
+          weft: {
+            model: "anthropic/claude-3-7-sonnet",
+            review_models: ["openai/gpt-4o", "anthropic/claude-3-5-sonnet"],
+          },
+        },
+      },
+      hooks: makeHooks(),
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+      client,
+    })
+
+    const output = {
+      title: "Weft",
+      output: "Primary weft review",
+    }
+
+    await iface["tool.execute.after"](
+      {
+        tool: "call_weave_agent",
+        sessionID: "sess-review-failure",
+        callID: "call-review-failure",
+        args: { agent: "weft", prompt: "Review this patch with backups" },
+      } as Parameters<typeof iface["tool.execute.after"]>[0],
+      output,
+    )
+
+    expect(output.output).toStartWith("⚠️ 1 of 2 additional review models did not respond. Results based on 2 models (including primary).")
+    expect(output.output).toContain("Collated review with surviving reviewers")
+    expect(output.title).toBe("weft Review (2 models)")
+    expect(state.createCalls).toHaveLength(3)
+    expect(state.promptCalls).toHaveLength(3)
+  })
+
+  it("preserves primary output with warning when collation fails", async () => {
+    const { client, state } = makeMockReviewClient({
+      reviewerOutputs: {
+        "openai/gpt-4o": "Additional reviewer found one more issue.",
+      },
+      failCollation: true,
+    })
+
+    const debugSpy = spyOn(sharedLog, "debug").mockImplementation(() => {})
+
+    try {
+      const iface = createPluginInterface({
+        pluginConfig: {
+          agents: {
+            weft: {
+              model: "anthropic/claude-3-5-sonnet",
+              review_models: ["openai/gpt-4o"],
+            },
+          },
+        },
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client,
+      })
+
+      const output = {
+        title: "Weft",
+        output: "Primary weft review",
+      }
+
+      await iface["tool.execute.after"](
+        {
+          tool: "call_weave_agent",
+          sessionID: "sess-review-collation-failure",
+          callID: "call-review-collation-failure",
+          args: { agent: "weft", prompt: "Review this patch" },
+        } as Parameters<typeof iface["tool.execute.after"]>[0],
+        output,
+      )
+
+      expect(output.output).toBe("⚠️ Review collation failed. Showing primary model review only.\n\nPrimary weft review")
+      expect(output.title).toBe("weft Review (1 model)")
+      expect(state.createCalls).toHaveLength(2)
+      expect(state.promptCalls).toHaveLength(2)
+      expect(debugSpy).toHaveBeenCalledWith(
+        "[review-orchestration] Collation failed; preserving primary output",
+        expect.objectContaining({
+          agent: "weft",
+          primaryModel: "anthropic/claude-3-5-sonnet",
+          error: "Collation failed",
+        }),
+      )
+    } finally {
+      debugSpy.mockRestore()
+    }
+  })
+
+  it("preserves primary output with warning when primary model is unqualified", async () => {
+    const { client, state } = makeMockReviewClient({
+      reviewerOutputs: {
+        "openai/gpt-4o": "Additional reviewer found one more issue.",
+      },
+    })
+
+    const debugSpy = spyOn(sharedLog, "debug").mockImplementation(() => {})
+
+    try {
+      const iface = createPluginInterface({
+        pluginConfig: {
+          agents: {
+            weft: {
+              model: "claude-opus-4",
+              review_models: ["openai/gpt-4o"],
+            },
+          },
+        },
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client,
+      })
+
+      const output = {
+        title: "Weft",
+        output: "Primary weft review",
+      }
+
+      await iface["tool.execute.after"](
+        {
+          tool: "call_weave_agent",
+          sessionID: "sess-review-unqualified-model",
+          callID: "call-review-unqualified-model",
+          args: { agent: "weft", prompt: "Review this patch" },
+        } as Parameters<typeof iface["tool.execute.after"]>[0],
+        output,
+      )
+
+      expect(output.output).toBe("⚠️ Review collation failed. Showing primary model review only.\n\nPrimary weft review")
+      expect(output.title).toBe("weft Review (1 model)")
+      expect(state.createCalls).toHaveLength(2)
+      expect(state.promptCalls).toHaveLength(1)
+      expect(debugSpy).toHaveBeenCalledWith(
+        "[review-orchestration] Collation failed; preserving primary output",
+        expect.objectContaining({
+          agent: "weft",
+          primaryModel: "claude-opus-4",
+          error: "Model must be provider-qualified: claude-opus-4",
+        }),
+      )
+    } finally {
+      debugSpy.mockRestore()
+    }
   })
 })
 
