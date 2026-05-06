@@ -115,6 +115,8 @@ describe("buildTapestryPostExecutionReviewSection", () => {
     expect(section).toContain('subagent_type "weft-review-opencode-go-kimi-k2-6"')
     expect(section).toContain("visible additional Weft code-quality review using opencode-go/kimi-k2.6")
     expect(section).toContain("weft-review-* variants are code-quality Weft reviewers only")
+    expect(section).toContain("issue ALL validator Task calls above in the same assistant turn")
+    expect(section).toContain("do not run only the first reviewer and stop")
   })
 
   it("omits review delegation when both disabled", () => {

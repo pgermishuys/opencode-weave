@@ -393,6 +393,9 @@ After ALL plan tasks are checked off:
   const boundaryLine = weftVariants.length > 0
     ? `   - Boundary rule: weft-review-* variants are code-quality Weft reviewers only. Never label or use them as Warp/security audits; security audits must use subagent_type "warp" or configured warp-review-* variants.`
     : null
+  const parallelLine = reviewerLines.length > 1
+    ? `   - Parallel rule: issue ALL validator Task calls above in the same assistant turn before waiting for any result; do not run only the first reviewer and stop.`
+    : null
 
   const reviewerNames = [
     hasWeft && "Weft",
@@ -414,7 +417,7 @@ When all plan tasks are checked off:
 2. Run the required terminal validation workflow using the Task tool:
 ${reviewerLines.join("\n")}
    - Include the list of changed files in your prompt to each terminal validator
-${boundaryLine ? boundaryLine + "\n" : ""}3. Report the terminal results to the user:
+${parallelLine ? parallelLine + "\n" : ""}${boundaryLine ? boundaryLine + "\n" : ""}3. Report the terminal results to the user:
    - Summarize ${reviewerNames}'s findings (APPROVE or REJECT with details)
    - If either validator REJECTS, present the blocking issues to the user for decision — do NOT attempt to fix them yourself
    - Tapestry follows the plan; terminal findings require user approval before any further changes

@@ -197,12 +197,14 @@ export function buildReviewWorkflowSection(disabled: Set<string>, reviewModelVar
     if (weftVariants.length > 0) {
       lines.push(`- Also delegate visible Weft code-quality variants: ${formatReviewVariantList(weftVariants)}`)
       lines.push("- Never label or use weft-review-* variants as Warp/security audits")
+      lines.push("- Multi-review batch rule: when delegating to Weft plus variants, issue all Weft Task calls in the same assistant turn before waiting for any result; do not run only the first reviewer and stop")
     }
   }
   if (hasWarp) {
     lines.push("- Warp is mandatory when changes touch auth, crypto, tokens, secrets, or input validation; use subagent_type \"warp\" unless warp-review-* variants are configured")
     if (warpVariants.length > 0) {
       lines.push(`- Also delegate visible Warp model variants: ${formatReviewVariantList(warpVariants)}`)
+      lines.push("- Multi-review batch rule: when delegating to Warp plus variants, issue all Warp Task calls in the same assistant turn before waiting for any result")
     }
   }
 

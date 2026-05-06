@@ -254,6 +254,27 @@ describe("buildReviewWorkflowSection", () => {
       expect(section).toContain(trigger)
     }
   })
+
+  it("requires parallel batch delegation for visible Weft variants", () => {
+    const section = buildReviewWorkflowSection(new Set(), [
+      {
+        baseAgent: "weft" as const,
+        key: "weft-review-opencode-go-kimi-k2-6",
+        model: "opencode-go/kimi-k2.6",
+        label: "weft @ opencode-go/kimi-k2.6",
+      },
+      {
+        baseAgent: "weft" as const,
+        key: "weft-review-opencode-go-glm-5-1",
+        model: "opencode-go/glm-5.1",
+        label: "weft @ opencode-go/glm-5.1",
+      },
+    ])
+
+    expect(section).toContain("Multi-review batch rule")
+    expect(section).toContain("issue all Weft Task calls in the same assistant turn")
+    expect(section).toContain("do not run only the first reviewer and stop")
+  })
 })
 
 describe("individual section builders", () => {
