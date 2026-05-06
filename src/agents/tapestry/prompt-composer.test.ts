@@ -102,6 +102,21 @@ describe("buildTapestryPostExecutionReviewSection", () => {
     expect(section).toContain("Warp")
   })
 
+  it("includes visible review model variants as task delegates", () => {
+    const section = buildTapestryPostExecutionReviewSection(new Set(), [
+      {
+        baseAgent: "weft" as const,
+        key: "weft-review-opencode-go-kimi-k2-6",
+        model: "opencode-go/kimi-k2.6",
+        label: "weft @ opencode-go/kimi-k2.6",
+      },
+    ])
+
+    expect(section).toContain('subagent_type "weft-review-opencode-go-kimi-k2-6"')
+    expect(section).toContain("visible additional Weft code-quality review using opencode-go/kimi-k2.6")
+    expect(section).toContain("weft-review-* variants are code-quality Weft reviewers only")
+  })
+
   it("omits review delegation when both disabled", () => {
     const section = buildTapestryPostExecutionReviewSection(new Set(["weft", "warp"]))
     expect(section).not.toContain("Delegate to")

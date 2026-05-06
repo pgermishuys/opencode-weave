@@ -9,6 +9,8 @@
 import { isAgentEnabled } from "../prompt-utils"
 import type { ResolvedContinuationConfig } from "../../config/continuation"
 import type { CategoriesConfig } from "../../config/schema"
+import type { ReviewModelVariant } from "../review-model-variants"
+import { reviewVariantsFor } from "../review-model-variants"
 
 export interface TapestryPromptOptions {
   /** Set of disabled agent names (lowercase config keys) */
@@ -17,6 +19,8 @@ export interface TapestryPromptOptions {
   continuation?: ResolvedContinuationConfig
   /** Categories config for dynamic category routing section */
   categories?: CategoriesConfig
+  /** Visible review model variants generated from agents.weft/warp.review_models */
+  reviewModelVariants?: ReviewModelVariant[]
 }
 
 export function buildTapestryRoleSection(): string {
@@ -347,11 +351,16 @@ After Shuttle completes a task — BEFORE marking \`- [ ]\` → \`- [x]\`:
 </Verification>`
 }
 
-export function buildTapestryPostExecutionReviewSection(disabled: Set<string>): string {
+export function buildTapestryPostExecutionReviewSection(
+  disabled: Set<string>,
+  reviewModelVariants: ReviewModelVariant[] = [],
+): string {
   const hasWeft = isAgentEnabled("weft", disabled)
   const hasWarp = isAgentEnabled("warp", disabled)
+  const weftVariants = reviewVariantsFor(reviewModelVariants, "weft")
+  const warpVariants = reviewVariantsFor(reviewModelVariants, "warp")
 
-  if (!hasWeft && !hasWarp) {
+  if (!hasWeft && !hasWarp && weftVariants.length === 0 && warpVariants.length === 0) {
     return `<PostExecutionReview>
 This section applies only after ALL plan tasks are already checked off.
 
@@ -370,13 +379,27 @@ After ALL plan tasks are checked off:
   if (hasWeft) {
     reviewerLines.push(`   - Delegate to Weft: subagent_type "weft" — reviews code quality`)
   }
+  for (const variant of weftVariants) {
+    reviewerLines.push(`   - Delegate to ${variant.label}: subagent_type "${variant.key}" — visible additional Weft code-quality review using ${variant.model}; NOT a Warp/security audit`)
+  }
   if (hasWarp) {
     reviewerLines.push(
       `   - Delegate to Warp: subagent_type "warp" — audits security (self-triages; fast-exits with APPROVE if no security-relevant changes)`,
     )
   }
+  for (const variant of warpVariants) {
+    reviewerLines.push(`   - Delegate to ${variant.label}: subagent_type "${variant.key}" — visible additional Warp security review using ${variant.model}`)
+  }
+  const boundaryLine = weftVariants.length > 0
+    ? `   - Boundary rule: weft-review-* variants are code-quality Weft reviewers only. Never label or use them as Warp/security audits; security audits must use subagent_type "warp" or configured warp-review-* variants.`
+    : null
 
-  const reviewerNames = [hasWeft && "Weft", hasWarp && "Warp"].filter(Boolean).join(" and ")
+  const reviewerNames = [
+    hasWeft && "Weft",
+    ...weftVariants.map((variant) => variant.label),
+    hasWarp && "Warp",
+    ...warpVariants.map((variant) => variant.label),
+  ].filter(Boolean).join(" and ")
 
   return `<PostExecutionReview>
 This section applies only when no unchecked plan tasks remain.
@@ -391,7 +414,7 @@ When all plan tasks are checked off:
 2. Run the required terminal validation workflow using the Task tool:
 ${reviewerLines.join("\n")}
    - Include the list of changed files in your prompt to each terminal validator
-3. Report the terminal results to the user:
+${boundaryLine ? boundaryLine + "\n" : ""}3. Report the terminal results to the user:
    - Summarize ${reviewerNames}'s findings (APPROVE or REJECT with details)
    - If either validator REJECTS, present the blocking issues to the user for decision — do NOT attempt to fix them yourself
    - Tapestry follows the plan; terminal findings require user approval before any further changes
@@ -446,7 +469,7 @@ export function composeTapestryPrompt(options: TapestryPromptOptions = {}): stri
     continuationHint,
     buildTapestryVerificationSection(),
     buildTapestryErrorHandlingSection(),
-    buildTapestryPostExecutionReviewSection(disabled),
+    buildTapestryPostExecutionReviewSection(disabled, options.reviewModelVariants ?? []),
     buildTapestryExecutionSection(),
     buildTapestryStyleSection(),
   ].filter((section): section is string => Boolean(section))

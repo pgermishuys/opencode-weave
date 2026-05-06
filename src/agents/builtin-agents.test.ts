@@ -70,6 +70,43 @@ describe("createBuiltinAgents", () => {
     })
   })
 
+  it("generates visible review model variants from review_models", () => {
+    const agents = createBuiltinAgents({
+      agentOverrides: {
+        weft: {
+          model: "openai/gpt-5.5",
+          modelOptions: { reasoningEffort: "xhigh" },
+          review_models: ["opencode-go/kimi-k2.6", "opencode-go/glm-5.1"],
+        },
+      },
+    })
+
+    const kimi = agents["weft-review-opencode-go-kimi-k2-6"] as (typeof agents["weft"] & { options?: Record<string, unknown> }) | undefined
+    const glm = agents["weft-review-opencode-go-glm-5-1"]
+
+    expect(kimi).toBeDefined()
+    expect(kimi?.model).toBe("opencode-go/kimi-k2.6")
+    expect(kimi?.mode).toBe("subagent")
+    expect(kimi?.description).toContain("weft @ opencode-go/kimi-k2.6")
+    expect(kimi?.prompt).toContain("visible independent WEFT review variant")
+    expect(kimi?.options).toBeUndefined()
+
+    expect(glm).toBeDefined()
+    expect(glm?.model).toBe("opencode-go/glm-5.1")
+  })
+
+  it("omits visible review variants when their base agent is disabled", () => {
+    const agents = createBuiltinAgents({
+      disabledAgents: ["weft"],
+      agentOverrides: {
+        weft: { review_models: ["opencode-go/kimi-k2.6"] },
+      },
+    })
+
+    expect(agents["weft"]).toBeUndefined()
+    expect(agents["weft-review-opencode-go-kimi-k2-6"]).toBeUndefined()
+  })
+
   it("resolves override skills and prepends them to the agent prompt", () => {
     const agents = createBuiltinAgents({
       agentOverrides: { pattern: { skills: ["test-skill"] } },

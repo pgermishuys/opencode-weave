@@ -26,6 +26,7 @@ export interface CollateReviewsInput {
 export interface BuildFailureWarningInput {
   totalAdditional: number
   failedCount: number
+  failedResults?: ReviewResult[]
 }
 
 type ReviewClient = {
@@ -85,12 +86,22 @@ export async function collateReviews(input: CollateReviewsInput): Promise<string
 
 export function buildFailureWarning(input: BuildFailureWarningInput): string {
   const { totalAdditional, failedCount } = input
+  const details = formatFailureDetails(input.failedResults)
 
   if (totalAdditional > 0 && failedCount >= totalAdditional) {
-    return `⚠️ All ${totalAdditional} additional review models failed. Showing primary model review only.`
+    const headline = `⚠️ All ${totalAdditional} additional review models failed. Showing primary model review only.`
+    return details ? `${headline}\n\nFailed reviewers:\n${details}` : headline
   }
 
-  return `⚠️ ${failedCount} of ${totalAdditional} additional review models did not respond. Results based on ${totalAdditional - failedCount + 1} models (including primary).`
+  const headline = `⚠️ ${failedCount} of ${totalAdditional} additional review models did not respond. Results based on ${totalAdditional - failedCount + 1} models (including primary).`
+  return details ? `${headline}\n\nFailed reviewers:\n${details}` : headline
+}
+
+function formatFailureDetails(results: ReviewResult[] | undefined): string {
+  const failures = results?.filter((result) => !result.success) ?? []
+  return failures
+    .map((result) => `- ${result.model}: ${result.error ?? "No response received."}`)
+    .join("\n")
 }
 
 async function runSingleReviewer(input: {

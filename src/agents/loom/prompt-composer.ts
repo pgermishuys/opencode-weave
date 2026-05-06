@@ -11,6 +11,8 @@ import { buildProjectContextSection, buildDelegationTable } from "../dynamic-pro
 import type { AvailableAgent } from "../dynamic-prompt-builder"
 import { isAgentEnabled } from "../prompt-utils"
 import type { CategoriesConfig } from "../../config/schema"
+import type { ReviewModelVariant } from "../review-model-variants"
+import { formatReviewVariantList, reviewVariantsFor } from "../review-model-variants"
 
 export interface LoomPromptOptions {
   /** Set of disabled agent names (lowercase config keys) */
@@ -21,6 +23,8 @@ export interface LoomPromptOptions {
   customAgents?: AvailableAgent[]
   /** Categories config for category-aware shuttle routing */
   categories?: CategoriesConfig
+  /** Visible review model variants generated from agents.weft/warp.review_models */
+  reviewModelVariants?: ReviewModelVariant[]
 }
 
 export function buildRoleSection(): string {
@@ -62,8 +66,10 @@ The user sees a Todo sidebar (~35 char width). Use todowrite to keep it current:
 </SidebarTodos>`
 }
 
-export function buildDelegationSection(disabled: Set<string>): string {
+export function buildDelegationSection(disabled: Set<string>, reviewModelVariants: ReviewModelVariant[] = []): string {
   const lines: string[] = []
+  const weftVariants = reviewVariantsFor(reviewModelVariants, "weft")
+  const warpVariants = reviewVariantsFor(reviewModelVariants, "warp")
 
   if (isAgentEnabled("thread", disabled)) {
     lines.push("- Use thread for fast codebase exploration (read-only, cheap)")
@@ -86,16 +92,24 @@ export function buildDelegationSection(disabled: Set<string>): string {
   }
   if (isAgentEnabled("weft", disabled)) {
     let weftLine = "- Use Weft for reviewing completed work or validating plans before execution"
+    if (weftVariants.length > 0) {
+      weftLine += `; also delegate visible Weft code-quality variants: ${formatReviewVariantList(weftVariants)}. These are Weft reviewers only — never label or use weft-review-* variants as Warp/security audits.`
+    }
     if (isAgentEnabled("warp", disabled)) {
       weftLine +=
-        "\n  - MUST use Warp for security audits when changes touch auth, crypto, certificates, tokens, signatures, input validation, secrets, passwords, sessions, CORS, CSP, .env files, or OAuth/OIDC/SAML flows — not optional. When in doubt, invoke Warp — false positives (fast APPROVE) are cheap."
+        "\n  - MUST use Warp for security audits when changes touch auth, crypto, certificates, tokens, signatures, input validation, secrets, passwords, sessions, CORS, CSP, .env files, or OAuth/OIDC/SAML flows — not optional. Use subagent_type \"warp\" for security unless warp-review-* variants are explicitly listed. Never substitute a weft-review-* variant for Warp."
+      if (warpVariants.length > 0) {
+        weftLine += ` Also delegate visible Warp model variants: ${formatReviewVariantList(warpVariants)}.`
+      }
     }
     lines.push(weftLine)
   } else if (isAgentEnabled("warp", disabled)) {
     // Warp without Weft — still mention Warp
-    lines.push(
-      "- MUST use Warp for security audits when changes touch auth, crypto, certificates, tokens, signatures, input validation, secrets, passwords, sessions, CORS, CSP, .env files, or OAuth/OIDC/SAML flows — not optional.",
-    )
+    let warpLine = "- MUST use Warp for security audits when changes touch auth, crypto, tokens, signatures, input validation, secrets, passwords, sessions, CORS, CSP, .env files, or OAuth/OIDC/SAML flows — not optional."
+    if (warpVariants.length > 0) {
+      warpLine += ` Also delegate visible Warp model variants: ${formatReviewVariantList(warpVariants)}.`
+    }
+    lines.push(warpLine)
   }
   lines.push("- Delegate aggressively to keep your context lean")
 
@@ -121,11 +135,13 @@ When delegating:
 </DelegationNarration>`
 }
 
-export function buildPlanWorkflowSection(disabled: Set<string>): string {
+export function buildPlanWorkflowSection(disabled: Set<string>, reviewModelVariants: ReviewModelVariant[] = []): string {
   const hasWeft = isAgentEnabled("weft", disabled)
   const hasWarp = isAgentEnabled("warp", disabled)
   const hasTapestry = isAgentEnabled("tapestry", disabled)
   const hasPattern = isAgentEnabled("pattern", disabled)
+  const weftVariants = reviewVariantsFor(reviewModelVariants, "weft")
+  const warpVariants = reviewVariantsFor(reviewModelVariants, "warp")
 
   const steps: string[] = []
 
@@ -136,9 +152,16 @@ export function buildPlanWorkflowSection(disabled: Set<string>): string {
   if (hasWeft || hasWarp) {
     const stepNum = hasPattern ? 2 : 1
     const reviewers: string[] = []
-    if (hasWeft) reviewers.push("Weft")
-    if (hasWarp) reviewers.push("Warp for security-relevant plans")
-    steps.push(`${stepNum}. REVIEW: Delegate to ${reviewers.join(", ")} to validate the plan`)
+    if (hasWeft) {
+      reviewers.push(weftVariants.length > 0 ? `Weft plus ${formatReviewVariantList(weftVariants)} for code-quality/plan review only` : "Weft")
+    }
+    if (hasWarp) {
+      reviewers.push(warpVariants.length > 0 ? `Warp plus ${formatReviewVariantList(warpVariants)} for security-relevant plans` : "Warp for security-relevant plans")
+    }
+    const boundary = weftVariants.length > 0
+      ? " Do not use weft-review-* variants as Warp/security reviewers."
+      : ""
+    steps.push(`${stepNum}. REVIEW: Delegate to ${reviewers.join(", ")} to validate the plan.${boundary}`)
   }
 
   if (hasTapestry) {
@@ -159,9 +182,11 @@ Skip it for quick fixes, single-file changes, and simple questions.
 </PlanWorkflow>`
 }
 
-export function buildReviewWorkflowSection(disabled: Set<string>): string {
+export function buildReviewWorkflowSection(disabled: Set<string>, reviewModelVariants: ReviewModelVariant[] = []): string {
   const hasWeft = isAgentEnabled("weft", disabled)
   const hasWarp = isAgentEnabled("warp", disabled)
+  const weftVariants = reviewVariantsFor(reviewModelVariants, "weft")
+  const warpVariants = reviewVariantsFor(reviewModelVariants, "warp")
 
   if (!hasWeft && !hasWarp) return ""
 
@@ -169,9 +194,16 @@ export function buildReviewWorkflowSection(disabled: Set<string>): string {
 
   if (hasWeft) {
     lines.push("- Delegate to Weft after non-trivial changes (3+ files, or when quality matters)")
+    if (weftVariants.length > 0) {
+      lines.push(`- Also delegate visible Weft code-quality variants: ${formatReviewVariantList(weftVariants)}`)
+      lines.push("- Never label or use weft-review-* variants as Warp/security audits")
+    }
   }
   if (hasWarp) {
-    lines.push("- Warp is mandatory when changes touch auth, crypto, tokens, secrets, or input validation")
+    lines.push("- Warp is mandatory when changes touch auth, crypto, tokens, secrets, or input validation; use subagent_type \"warp\" unless warp-review-* variants are configured")
+    if (warpVariants.length > 0) {
+      lines.push(`- Also delegate visible Warp model variants: ${formatReviewVariantList(warpVariants)}`)
+    }
   }
 
   return `<ReviewWorkflow>
@@ -273,18 +305,19 @@ export function composeLoomPrompt(options: LoomPromptOptions = {}): string {
   const fingerprint = options.fingerprint
   const customAgents = options.customAgents ?? []
   const categories = options.categories
+  const reviewModelVariants = options.reviewModelVariants ?? []
 
   const sections = [
     buildRoleSection(),
     buildProjectContextSection(fingerprint),
     buildDisciplineSection(),
     buildSidebarTodosSection(),
-    buildDelegationSection(disabled),
+    buildDelegationSection(disabled, reviewModelVariants),
     buildDelegationNarrationSection(disabled),
     buildCategoryRoutingSection(categories, disabled),
     buildCustomAgentDelegationSection(customAgents, disabled),
-    buildPlanWorkflowSection(disabled),
-    buildReviewWorkflowSection(disabled),
+    buildPlanWorkflowSection(disabled, reviewModelVariants),
+    buildReviewWorkflowSection(disabled, reviewModelVariants),
     buildStyleSection(),
   ].filter((s) => s.length > 0)
 

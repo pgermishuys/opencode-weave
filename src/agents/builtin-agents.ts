@@ -15,6 +15,7 @@ import type { ResolvedContinuationConfig } from "../config/continuation"
 import type { ResolveSkillsFn } from "./agent-builder"
 import type { ProjectFingerprint } from "../features/analytics/types"
 import type { AvailableAgent } from "./dynamic-prompt-builder"
+import { buildReviewModelVariantAgent, buildReviewModelVariants } from "./review-model-variants"
 import { debug } from "../shared/log"
 
 type AgentConfigWithOptions = AgentConfig & {
@@ -193,6 +194,7 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
   } = options
 
   const disabledSet = new Set(disabledAgents)
+  const reviewModelVariants = buildReviewModelVariants(agentOverrides, disabledSet)
 
   const result: Record<string, AgentConfig> = {}
 
@@ -221,9 +223,9 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
     // so their prompts conditionally omit references to disabled agents
     let built: AgentConfigWithOptions
     if (name === "loom") {
-      built = createLoomAgentWithOptions(resolvedModel, disabledSet, fingerprint, customAgentMetadata, categories)
+      built = createLoomAgentWithOptions(resolvedModel, disabledSet, fingerprint, customAgentMetadata, categories, reviewModelVariants)
     } else if (name === "tapestry") {
-      built = createTapestryAgentWithOptions(resolvedModel, disabledSet, continuation, categories)
+      built = createTapestryAgentWithOptions(resolvedModel, disabledSet, continuation, categories, reviewModelVariants)
     } else {
       built = buildAgent(factory, resolvedModel, {
         categories,
@@ -301,6 +303,24 @@ export function createBuiltinAgents(options: CreateBuiltinAgentsOptions = {}): R
         patterns: categoryConfig.patterns,
       })
     }
+  }
+
+  for (const variant of reviewModelVariants) {
+    const baseAgent = result[variant.baseAgent]
+    if (!baseAgent) continue
+    if (result[variant.key]) {
+      debug(`Review model variant "${variant.key}" collides with an existing agent — skipping`, {
+        baseAgent: variant.baseAgent,
+        model: variant.model,
+      })
+      continue
+    }
+
+    result[variant.key] = buildReviewModelVariantAgent(baseAgent, variant)
+    debug(`Registered visible review model variant "${variant.key}"`, {
+      baseAgent: variant.baseAgent,
+      model: variant.model,
+    })
   }
 
   return result

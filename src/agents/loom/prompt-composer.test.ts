@@ -136,6 +136,21 @@ describe("buildDelegationSection", () => {
     const section = buildDelegationSection(new Set(["thread", "spindle", "pattern", "tapestry", "shuttle", "weft", "warp"]))
     expect(section).toContain("Delegate aggressively")
   })
+
+  it("mentions visible Weft review variants when configured", () => {
+    const section = buildDelegationSection(new Set(), [
+      {
+        baseAgent: "weft" as const,
+        key: "weft-review-opencode-go-kimi-k2-6",
+        model: "opencode-go/kimi-k2.6",
+        label: "weft @ opencode-go/kimi-k2.6",
+      },
+    ])
+
+    expect(section).toContain("visible Weft code-quality variants")
+    expect(section).toContain('subagent_type "weft-review-opencode-go-kimi-k2-6"')
+    expect(section).toContain("never label or use weft-review-* variants as Warp/security audits")
+  })
 })
 
 describe("buildPlanWorkflowSection", () => {
@@ -173,6 +188,21 @@ describe("buildPlanWorkflowSection", () => {
   it("includes Warp in review step for security-relevant plans", () => {
     const section = buildPlanWorkflowSection(new Set())
     expect(section).toContain("Warp for security-relevant plans")
+  })
+
+  it("includes visible review variants in plan review", () => {
+    const section = buildPlanWorkflowSection(new Set(), [
+      {
+        baseAgent: "weft" as const,
+        key: "weft-review-opencode-go-glm-5-1",
+        model: "opencode-go/glm-5.1",
+        label: "weft @ opencode-go/glm-5.1",
+      },
+    ])
+
+    expect(section).toContain("Weft plus weft @ opencode-go/glm-5.1")
+    expect(section).toContain('subagent_type "weft-review-opencode-go-glm-5-1"')
+    expect(section).toContain("Do not use weft-review-* variants as Warp/security reviewers")
   })
 
   it("omits Warp from review when warp disabled", () => {

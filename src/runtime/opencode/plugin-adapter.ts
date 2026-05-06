@@ -13,16 +13,12 @@ import { setContextLimit } from "../../hooks"
 import type { RuntimeEffect } from "./effects"
 import { createRuntimeLifecyclePolicySurface } from "../../application/orchestration/session-runtime"
 import type { RuntimePolicyFlags } from "../../application/orchestration/session-runtime"
-import { buildFailureWarning, collateReviews, runAdditionalReviewers } from "../../agents/review-orchestrator"
-import { AGENT_MODEL_REQUIREMENTS } from "../../agents/model-resolution"
 import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
-import { getAgentConfigKey, getAgentDisplayName } from "../../shared/agent-display-names"
+import { getAgentConfigKey } from "../../shared/agent-display-names"
 import { projectExecutionTransition } from "../../domain/session/execution-lease"
 import { createTrustedMessageState } from "./trusted-message-state"
 import type { BuiltinCommandEnvelopeName } from "./protocol"
 import { buildEnabledAgentKeys } from "./enabled-agent-keys"
-
-const ReviewCollationFailureWarning = "⚠️ Review collation failed. Showing primary model review only."
 
 export function createPluginAdapter(args: {
   pluginConfig: WeaveConfig
@@ -40,13 +36,8 @@ export function createPluginAdapter(args: {
   const lifecyclePolicy = createRuntimeLifecyclePolicySurface({ hooks, client: trackedClient })
   const executionLeaseRepository = createExecutionLeaseFsStore()
   const enabledAgents = buildEnabledAgentKeys(pluginConfig)
-  const reviewModelsMap: Record<string, string[]> = {}
-  for (const [agentName, override] of Object.entries(pluginConfig.agents ?? {})) {
-    if (override.review_models && override.review_models.length > 0) {
-      reviewModelsMap[agentName] = override.review_models
-    }
-  }
 
+  const pendingToolArgs = new Map<string, Record<string, unknown>>()
   const lastAssistantMessageText = new Map<string, string>()
   const lastUserMessageText = new Map<string, string>()
 
@@ -229,6 +220,9 @@ export function createPluginAdapter(args: {
 
     handleToolExecuteBefore: async (input: { sessionID: string; tool: string; callID: string; agent?: string }, output: { args?: Record<string, unknown> | null }) => {
       const toolArgs = output.args as Record<string, unknown> | null | undefined
+      if (toolArgs) {
+        pendingToolArgs.set(toolArgsKey(input.sessionID, input.callID), toolArgs)
+      }
 
       if (input.tool === "task" && toolArgs) {
         const agentArg = (toolArgs.subagent_type as string | undefined) ?? (toolArgs.description as string | undefined) ?? "unknown"
@@ -261,69 +255,14 @@ export function createPluginAdapter(args: {
       input: { sessionID: string; tool: string; callID: string; args?: Record<string, unknown> },
       output: { title?: string; output?: string; metadata?: unknown },
     ) => {
+      const pendingArgsKey = toolArgsKey(input.sessionID, input.callID)
+      const effectiveArgs = input.args ?? pendingToolArgs.get(pendingArgsKey)
+      pendingToolArgs.delete(pendingArgsKey)
+
       if (input.tool === "task") {
-        const inputArgs = input.args
+        const inputArgs = effectiveArgs
         const agentArg = (inputArgs?.subagent_type as string | undefined) ?? (inputArgs?.description as string | undefined) ?? "unknown"
         logDelegation({ phase: "complete", agent: agentArg, sessionId: input.sessionID, toolCallId: input.callID })
-      }
-
-      if (input.tool === "call_weave_agent" && trackedClient) {
-        const targetAgent = (input.args?.agent as string | undefined) ?? ""
-        const reviewModels = reviewModelsMap[targetAgent] ?? []
-        if (reviewModels.length > 0 && output.output) {
-          const primaryOutput = output.output
-          const originalContext = (input.args?.prompt as string | undefined) ?? ""
-          const configModel = pluginConfig.agents?.[targetAgent]?.model
-          let primaryModel = configModel ?? ""
-          if (!primaryModel) {
-            const requirement = AGENT_MODEL_REQUIREMENTS[targetAgent as keyof typeof AGENT_MODEL_REQUIREMENTS]
-            if (requirement?.fallbackChain[0]) {
-              const entry = requirement.fallbackChain[0]
-              primaryModel = `${entry.providers[0]}/${entry.model}`
-              debug("[review-orchestration] No explicit model override — using default for collation", { agent: targetAgent, model: primaryModel })
-            }
-          }
-
-          try {
-            const additionalResults = await runAdditionalReviewers({
-              agentName: targetAgent,
-              reviewModels,
-              prompt: originalContext,
-              client: trackedClient,
-            })
-
-            const failedCount = additionalResults.filter((result) => !result.success).length
-            const allFailed = failedCount >= additionalResults.length
-
-            if (allFailed) {
-              output.output = buildFailureWarning({ totalAdditional: reviewModels.length, failedCount }) + "\n\n" + primaryOutput
-            } else {
-              const collated = await collateReviews({
-                agentName: targetAgent,
-                primaryModel,
-                primaryOutput,
-                additionalResults,
-                originalContext,
-                client: trackedClient,
-              })
-              const warning = failedCount > 0
-                ? buildFailureWarning({ totalAdditional: reviewModels.length, failedCount }) + "\n\n"
-                : ""
-              output.output = warning + collated
-            }
-
-            const modelCount = reviewModels.length - failedCount + 1
-            output.title = `${getAgentDisplayName(targetAgent)} Review (${modelCount} model${modelCount !== 1 ? "s" : ""})`
-          } catch (error) {
-            debug("[review-orchestration] Collation failed; preserving primary output", {
-              agent: targetAgent,
-              primaryModel,
-              error: error instanceof Error ? error.message : String(error),
-            })
-            output.output = `${ReviewCollationFailureWarning}\n\n${primaryOutput}`
-            output.title = `${getAgentDisplayName(targetAgent)} Review (1 model)`
-          }
-        }
       }
 
       const effects: RuntimeEffect[] = []
@@ -333,10 +272,10 @@ export function createPluginAdapter(args: {
         tool: input.tool,
         callId: input.callID,
         hooks: policyFlags,
-        toolArgs: input.args,
+        toolArgs: effectiveArgs,
       })))
       if (tracker && hooks.analyticsEnabled) {
-        const inputArgs = input.args
+        const inputArgs = effectiveArgs
         const agentArg = input.tool === "task"
           ? ((inputArgs?.subagent_type as string | undefined) ?? (inputArgs?.description as string | undefined) ?? "unknown")
           : undefined
@@ -390,6 +329,10 @@ function isBuiltinChatCommand(command: string): command is BuiltinCommandEnvelop
     || command === "metrics"
     || command === "token-report"
     || command === "weave-health"
+}
+
+function toolArgsKey(sessionId: string, callId: string): string {
+  return `${sessionId}:${callId}`
 }
 
 function wrapClientWithTrustedPromptTracking(
