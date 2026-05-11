@@ -19,13 +19,6 @@ export function createTapestryAgentWithOptions(
   categories?: CategoriesConfig,
   reviewModelVariants?: ReviewModelVariant[],
 ): AgentConfig {
-  const hasDisabled = disabledAgents && disabledAgents.size > 0
-  const needsCustomPrompt = hasDisabled || continuation || categories || (reviewModelVariants && reviewModelVariants.length > 0)
-
-  if (!needsCustomPrompt) {
-    return { ...TAPESTRY_DEFAULTS, tools: { ...TAPESTRY_DEFAULTS.tools }, model, mode: "primary" }
-  }
-
   return {
     ...TAPESTRY_DEFAULTS,
     tools: { ...TAPESTRY_DEFAULTS.tools },

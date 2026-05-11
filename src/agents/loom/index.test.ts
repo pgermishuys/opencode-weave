@@ -152,14 +152,16 @@ describe("createLoomAgentWithOptions", () => {
     expect(config.prompt).toContain("Code Review")
   })
 
-  it("returns default prompt when no custom agents, disabled, or fingerprint", () => {
+  it("returns composed default prompt when no custom agents, disabled, or fingerprint", () => {
     const config = createLoomAgentWithOptions("claude-opus-4")
     expect(config.prompt).not.toContain("<CustomDelegation>")
+    expect(config.prompt).toContain("Runtime fan-out is owned by Weave for direct `@weft`/`@warp` calls")
   })
 
   it("returns default prompt with empty custom agents array", () => {
     const config = createLoomAgentWithOptions("claude-opus-4", undefined, null, [])
     expect(config.prompt).not.toContain("<CustomDelegation>")
+    expect(config.prompt).toContain("Runtime fan-out is owned by Weave for direct `@weft`/`@warp` calls")
   })
 
   it("includes multiple custom agents in delegation table", () => {

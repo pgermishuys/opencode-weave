@@ -1,0 +1,32 @@
+{
+  "id": "boundary-weft-variants-do-not-swap-warp-intent",
+  "title": "Intent boundary: Weft variants do not replace Warp routing",
+  "description": "Accepts the expected boundary behavior when a security-sensitive request must still route to Warp even if Weft review variants are configured.",
+  "phase": "routing",
+  "tags": ["routing", "loom", "intent", "boundary", "review", "security"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom",
+    "variant": {
+      "agentOverrides": {
+        "weft": {
+          "review_models": ["opencode-go/kimi-k2.6", "opencode-go/glm-5.1"]
+        }
+      }
+    }
+  },
+  "executor": {
+    "kind": "model-response",
+    "provider": "openrouter",
+    "model": "openai/gpt-5.4",
+    "input": "I changed JWT verification and session token handling. Route this for mandatory security review and do not treat Weft variants as a Warp replacement."
+  },
+  "evaluators": [
+    {
+      "kind": "llm-judge",
+      "rubricRef": "evals/rubrics/loom-routing-rubric.md",
+      "expectedContains": ["warp"],
+      "forbiddenContains": ["weft-review-", "weft @ "]
+    }
+  ]
+}

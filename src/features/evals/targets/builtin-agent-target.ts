@@ -8,6 +8,7 @@ import { SPINDLE_DEFAULTS } from "../../../agents/spindle/default"
 import { WEFT_DEFAULTS } from "../../../agents/weft/default"
 import { WARP_DEFAULTS } from "../../../agents/warp/default"
 import { SHUTTLE_DEFAULTS } from "../../../agents/shuttle/default"
+import { buildReviewModelVariants } from "../../../agents/review-model-variants"
 import type { BuiltinAgentPromptTarget, ResolvedTarget } from "../types"
 
 function cloneTools(tools: Record<string, boolean> | undefined): Record<string, boolean> {
@@ -16,10 +17,16 @@ function cloneTools(tools: Record<string, boolean> | undefined): Record<string, 
 
 export function resolveBuiltinAgentTarget(target: BuiltinAgentPromptTarget): ResolvedTarget {
   const disabledAgents = new Set(target.variant?.disabledAgents ?? [])
+  const agentOverrides = target.variant?.agentOverrides
+  const reviewModelVariants = buildReviewModelVariants(agentOverrides, disabledAgents)
 
   switch (target.agent) {
     case "loom": {
-      const renderedPrompt = composeLoomPrompt({ disabledAgents })
+      const renderedPrompt = composeLoomPrompt({
+        disabledAgents,
+        agentOverrides,
+        reviewModelVariants,
+      } as Parameters<typeof composeLoomPrompt>[0])
       return {
         target,
         artifacts: {
@@ -38,7 +45,9 @@ export function resolveBuiltinAgentTarget(target: BuiltinAgentPromptTarget): Res
       const renderedPrompt = composeTapestryPrompt({
         disabledAgents,
         categories: target.variant?.categories,
-      })
+        agentOverrides,
+        reviewModelVariants,
+      } as Parameters<typeof composeTapestryPrompt>[0])
       return {
         target,
         artifacts: {

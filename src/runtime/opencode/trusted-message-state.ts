@@ -8,9 +8,22 @@ interface PendingBuiltinCommand {
   issuedAt: number
 }
 
+export type TrustedInjectedPromptKind = "generic" | "reviewer-fanout"
+
+export interface TrustedInjectedPromptMetadata {
+  kind: TrustedInjectedPromptKind
+  nonce?: string
+}
+
+interface PendingInjectedPrompt {
+  text: string
+  metadata: TrustedInjectedPromptMetadata
+}
+
 export interface TrustedMessageState {
   registerBuiltinCommand(sessionId: string, command: BuiltinCommandEnvelopeName, argumentsText: string): void
-  registerInjectedPrompt(sessionId: string, text: string): void
+  registerInjectedPrompt(sessionId: string, text: string, metadata?: TrustedInjectedPromptMetadata): void
+  consumeInjectedPrompt(sessionId: string, promptText: string): TrustedInjectedPromptMetadata | null
   clearSession(sessionId: string): void
   clearPendingBuiltin(sessionId: string): void
   consumeTrustedEnvelope(sessionId: string, promptText: string): ParsedCommandEnvelope | null
@@ -18,7 +31,7 @@ export interface TrustedMessageState {
 
 export function createTrustedMessageState(): TrustedMessageState {
   const pendingBuiltinCommands = new Map<string, PendingBuiltinCommand[]>()
-  const pendingInjectedPrompts = new Map<string, string[]>()
+  const pendingInjectedPrompts = new Map<string, PendingInjectedPrompt[]>()
 
   return {
     registerBuiltinCommand(sessionId, command, argumentsText) {
@@ -26,8 +39,22 @@ export function createTrustedMessageState(): TrustedMessageState {
       current.push({ command, argumentsText: normalize(argumentsText), issuedAt: Date.now() })
       pendingBuiltinCommands.set(sessionId, current)
     },
-    registerInjectedPrompt(sessionId, text) {
-      addTrustedText(pendingInjectedPrompts, sessionId, text)
+    registerInjectedPrompt(sessionId, text, metadata) {
+      addTrustedText(pendingInjectedPrompts, sessionId, text, metadata)
+    },
+    consumeInjectedPrompt(sessionId, promptText) {
+      const current = pendingInjectedPrompts.get(sessionId) ?? []
+      const matchedIndex = current.findIndex((candidate) => candidate.text === promptText)
+      if (matchedIndex < 0) {
+        return null
+      }
+
+      const [matched] = current.splice(matchedIndex, 1)
+      if (current.length === 0) {
+        pendingInjectedPrompts.delete(sessionId)
+      }
+
+      return matched?.metadata ?? null
     },
     clearSession(sessionId) {
       pendingBuiltinCommands.delete(sessionId)
@@ -63,15 +90,9 @@ export function createTrustedMessageState(): TrustedMessageState {
         return parsedEnvelope
       }
 
-      const current = pendingInjectedPrompts.get(sessionId) ?? []
-      const matchedIndex = current.findIndex((candidate) => candidate === promptText)
-      if (matchedIndex < 0) {
+      const matchedMetadata = this.consumeInjectedPrompt(sessionId, promptText)
+      if (!matchedMetadata) {
         return null
-      }
-
-      current.splice(matchedIndex, 1)
-      if (current.length === 0) {
-        pendingInjectedPrompts.delete(sessionId)
       }
 
       return parsedEnvelope
@@ -83,9 +104,24 @@ function normalize(value: string): string {
   return value.trim()
 }
 
-function addTrustedText(store: Map<string, string[]>, sessionId: string, text: string): void {
+function addTrustedText(
+  store: Map<string, PendingInjectedPrompt[]>,
+  sessionId: string,
+  text: string,
+  metadata?: TrustedInjectedPromptMetadata,
+): void {
+  const normalizedMetadata: TrustedInjectedPromptMetadata = metadata ?? { kind: "generic" }
   const current = store.get(sessionId) ?? []
-  current.push(text)
+
+  const existing = current.find((entry) => entry.text === text)
+  if (existing) {
+    if (existing.metadata.kind === "generic" && normalizedMetadata.kind === "reviewer-fanout") {
+      existing.metadata = normalizedMetadata
+    }
+    return
+  }
+
+  current.push({ text, metadata: normalizedMetadata })
   store.set(sessionId, current)
 }
 

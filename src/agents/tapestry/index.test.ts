@@ -58,13 +58,15 @@ describe("createTapestryAgent", () => {
     expect(prompt).toContain("</PostExecutionReview>")
   })
 
-  it("PostExecutionReview invokes Weft and Warp directly", () => {
+  it("PostExecutionReview references runtime-owned Weft/Warp review", () => {
     const config = createTapestryAgent("claude-sonnet-4")
     const prompt = config.prompt as string
     const reviewSection = prompt.slice(prompt.indexOf("<PostExecutionReview>"), prompt.indexOf("</PostExecutionReview>"))
     expect(reviewSection).toContain("Weft")
     expect(reviewSection).toContain("Warp")
-    expect(reviewSection).toContain("Task tool")
+    expect(reviewSection).toContain("runtime reviewer fan-out runs automatically")
+    expect(reviewSection).toContain("do not delegate terminal reviewers via Task tool")
+    expect(reviewSection).toContain("the Weave runtime spawns the configured variants and collates results automatically")
   })
 
   it("PostExecutionReview reports findings without fixing them", () => {
@@ -138,6 +140,7 @@ describe("createTapestryAgent", () => {
   it("createTapestryAgentWithOptions omits CategoryRouting section when no categories provided", () => {
     const config = createTapestryAgentWithOptions("claude-sonnet-4")
     expect(config.prompt).not.toContain("<CategoryRouting>")
+    expect(config.prompt).toContain("the Weave runtime spawns the configured variants and collates results automatically")
   })
 
   it("createTapestryAgentWithOptions includes manual-only CategoryRouting when categories have no patterns", () => {

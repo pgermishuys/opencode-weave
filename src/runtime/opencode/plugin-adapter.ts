@@ -13,12 +13,14 @@ import { setContextLimit } from "../../hooks"
 import type { RuntimeEffect } from "./effects"
 import { createRuntimeLifecyclePolicySurface } from "../../application/orchestration/session-runtime"
 import type { RuntimePolicyFlags } from "../../application/orchestration/session-runtime"
+import { resolveReviewers } from "../../agents/review-resolver"
 import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
 import { getAgentConfigKey } from "../../shared/agent-display-names"
 import { projectExecutionTransition } from "../../domain/session/execution-lease"
 import { createTrustedMessageState } from "./trusted-message-state"
 import type { BuiltinCommandEnvelopeName } from "./protocol"
 import { buildEnabledAgentKeys } from "./enabled-agent-keys"
+import type { TrustedInjectedPromptKind } from "./trusted-message-state"
 
 export function createPluginAdapter(args: {
   pluginConfig: WeaveConfig
@@ -33,13 +35,29 @@ export function createPluginAdapter(args: {
   const { pluginConfig, hooks, configHandler, agents, client, directory = "", tracker } = args
   const trustedMessageState = createTrustedMessageState()
   const trackedClient = client ? wrapClientWithTrustedPromptTracking(client, trustedMessageState) : undefined
-  const lifecyclePolicy = createRuntimeLifecyclePolicySurface({ hooks, client: trackedClient })
-  const executionLeaseRepository = createExecutionLeaseFsStore()
   const enabledAgents = buildEnabledAgentKeys(pluginConfig)
+  const disabledSet = new Set((pluginConfig.disabled_agents ?? []).filter((agentKey) => !enabledAgents.has(agentKey)))
+  const reviewerResolver = {
+    forBaseAgent(baseAgent: "weft" | "warp", scope: "direct" | "post-execution") {
+      const overrides = pluginConfig.agents
+      const primaryModel = overrides?.[baseAgent]?.model
+        ?? (typeof agents[baseAgent]?.model === "string" ? agents[baseAgent].model : "")
+      return resolveReviewers({
+        scope,
+        baseAgent,
+        agentOverrides: overrides,
+        disabledAgents: disabledSet,
+        primaryModel,
+      })
+    },
+  }
+  const lifecyclePolicy = createRuntimeLifecyclePolicySurface({ hooks, client: trackedClient, reviewerResolver })
+  const executionLeaseRepository = createExecutionLeaseFsStore()
 
   const pendingToolArgs = new Map<string, Record<string, unknown>>()
   const lastAssistantMessageText = new Map<string, string>()
   const lastUserMessageText = new Map<string, string>()
+  const lastUserMessageTrustedInjectedKind = new Map<string, TrustedInjectedPromptKind | null>()
 
   const policyFlags: RuntimePolicyFlags = {
     contextWindowThresholds: hooks.contextWindowThresholds,
@@ -48,6 +66,9 @@ export function createPluginAdapter(args: {
     verificationReminderEnabled: hooks.verificationReminderEnabled,
     todoDescriptionOverrideEnabled: hooks.todoDescriptionOverrideEnabled,
     todoContinuationEnforcerEnabled: hooks.todoContinuationEnforcerEnabled,
+  }
+  const recordInjectedPrompt = (sessionId: string, text: string, metadata?: { kind: TrustedInjectedPromptKind; nonce?: string }) => {
+    trustedMessageState.registerInjectedPrompt(sessionId, text, metadata)
   }
 
   return {
@@ -108,6 +129,9 @@ export function createPluginAdapter(args: {
           .trim() ?? ""
 
       const parsedEnvelope = trustedMessageState.consumeTrustedEnvelope(sessionID, promptText)
+      const trustedInjectedPrompt = parsedEnvelope === null && promptText
+        ? trustedMessageState.consumeInjectedPrompt(sessionID, promptText)
+        : null
       if (parsedEnvelope?.kind !== "builtin-command") {
         trustedMessageState.clearPendingBuiltin(sessionID)
       }
@@ -129,9 +153,12 @@ export function createPluginAdapter(args: {
       ]
 
       if (promptText && sessionID) {
-        const isSystemInjected = parsedEnvelope !== null
+        const isSystemInjected = parsedEnvelope !== null || trustedInjectedPrompt !== null
         if (!isSystemInjected) {
           lastUserMessageText.set(sessionID, promptText)
+          lastUserMessageTrustedInjectedKind.set(sessionID, null)
+        } else if (trustedInjectedPrompt) {
+          lastUserMessageTrustedInjectedKind.set(sessionID, trustedInjectedPrompt.kind)
         }
       }
 
@@ -140,6 +167,7 @@ export function createPluginAdapter(args: {
         output,
         client: trackedClient,
         tracker,
+        recordInjectedPrompt,
         pausePlan: directory ? () => {
           pauseWork(directory)
           info("[work-continuation] Auto-paused: user message received during active plan", { sessionId: sessionID })
@@ -186,6 +214,7 @@ export function createPluginAdapter(args: {
         trustedMessageState.clearSession(deletedSessionId)
         lastUserMessageText.delete(deletedSessionId)
         lastAssistantMessageText.delete(deletedSessionId)
+        lastUserMessageTrustedInjectedKind.delete(deletedSessionId)
       }
 
       const effects = await routeRuntimeEvent({
@@ -194,7 +223,7 @@ export function createPluginAdapter(args: {
         hooks,
         client: trackedClient,
         tracker,
-        state: { lastAssistantMessageText, lastUserMessageText },
+        state: { lastAssistantMessageText, lastUserMessageText, lastUserMessageTrustedInjectedKind },
         lifecyclePolicy,
         enabledAgents,
       })
@@ -203,6 +232,7 @@ export function createPluginAdapter(args: {
         effects,
         client: trackedClient,
         tracker,
+        recordInjectedPrompt,
         pauseWorkflow: directory ? () => handlePauseExecutionEffect({
           effectReason: "User interrupt",
           directory,

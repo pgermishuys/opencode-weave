@@ -1,0 +1,30 @@
+{
+  "id": "loom-review-advisory-no-variants-contract",
+  "title": "Loom review advisory is unconditional and variant-free",
+  "phase": "prompt",
+  "tags": ["prompt", "composer", "loom", "review"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom"
+  },
+  "executor": {
+    "kind": "prompt-render"
+  },
+  "evaluators": [
+    { "kind": "xml-sections-present", "sections": ["ReviewWorkflow"] },
+    {
+      "kind": "section-contains-all",
+      "section": "ReviewWorkflow",
+      "patterns": [
+        "Runtime fan-out is owned by Weave for direct `@weft`/`@warp` calls"
+      ]
+    },
+    {
+      "kind": "excludes-all",
+      "patterns": [
+        "subagent_type \"weft-review-",
+        "subagent_type \"warp-review-"
+      ]
+    }
+  ]
+}

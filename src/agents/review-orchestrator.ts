@@ -1,4 +1,5 @@
 import type { PluginContext } from "../plugin/types"
+import type { ReviewerPlan } from "./review-resolver"
 
 export interface ReviewResult {
   model: string
@@ -8,10 +9,14 @@ export interface ReviewResult {
 }
 
 export interface RunAdditionalReviewersInput {
-  agentName: string
-  reviewModels: string[]
+  reviewers: ReviewerEntry[]
   prompt: string
   client: PluginContext["client"]
+}
+
+export interface ReviewerEntry {
+  agentName: string
+  model: string
 }
 
 export interface CollateReviewsInput {
@@ -37,11 +42,11 @@ type ReviewClient = {
 }
 
 export async function runAdditionalReviewers(input: RunAdditionalReviewersInput): Promise<ReviewResult[]> {
-  const { agentName, reviewModels, prompt, client } = input
+  const { reviewers, prompt, client } = input
   const reviewClient = client as unknown as ReviewClient
 
   const settledResults = await Promise.allSettled(
-    reviewModels.map((model) => runSingleReviewer({ agentName, model, prompt, client: reviewClient })),
+    reviewers.map((reviewer) => runSingleReviewer({ reviewer, prompt, client: reviewClient })),
   )
 
   return settledResults.map((result, index) => {
@@ -50,7 +55,7 @@ export async function runAdditionalReviewers(input: RunAdditionalReviewersInput)
     }
 
     return {
-      model: reviewModels[index] ?? "unknown",
+      model: reviewers[index]?.model ?? "unknown",
       output: "",
       success: false,
       error: toErrorMessage(result.reason),
@@ -97,6 +102,188 @@ export function buildFailureWarning(input: BuildFailureWarningInput): string {
   return details ? `${headline}\n\nFailed reviewers:\n${details}` : headline
 }
 
+export async function runReviewerFanOut(input: {
+  plan: ReviewerPlan
+  capturedPrimaryOutput?: string
+  promptText: string
+  originalContext: string
+  client: PluginContext["client"]
+}): Promise<{ output: string; failureWarning: string | null; ran: string[] }> {
+  const { plan, capturedPrimaryOutput, promptText, originalContext, client } = input
+
+  if (plan.kind === "disabled") {
+    return { output: "", failureWarning: null, ran: [] }
+  }
+
+  if (plan.kind === "primary-only") {
+    if (plan.scope === "direct") {
+      if (capturedPrimaryOutput === undefined) {
+        return { output: "", failureWarning: null, ran: [] }
+      }
+
+      return {
+        output: capturedPrimaryOutput,
+        failureWarning: null,
+        ran: [plan.primary.agentName],
+      }
+    }
+
+    const [primaryResult] = await runAdditionalReviewers({
+      reviewers: [{ agentName: plan.primary.agentName, model: plan.primary.model }],
+      prompt: promptText,
+      client,
+    })
+
+    if (!primaryResult?.success) {
+      return { output: "", failureWarning: null, ran: [] }
+    }
+
+    return {
+      output: primaryResult.output,
+      failureWarning: null,
+      ran: [plan.primary.agentName],
+    }
+  }
+
+  const variantEntries: ReviewerEntry[] = plan.variants.map((variant) => ({
+    agentName: variant.key,
+    model: variant.model,
+  }))
+
+  if (plan.scope === "direct") {
+    if (capturedPrimaryOutput === undefined) {
+      return { output: "", failureWarning: null, ran: [] }
+    }
+
+    const additionalResults = await runAdditionalReviewers({
+      reviewers: variantEntries,
+      prompt: promptText,
+      client,
+    })
+
+    const failedAdditional = additionalResults.filter((result) => !result.success)
+    const successfulAdditionalRan = additionalResults
+      .map((result, index) => (result.success ? variantEntries[index]?.agentName : null))
+      .filter((name): name is string => typeof name === "string")
+    const failureWarning = failedAdditional.length > 0
+      ? buildFailureWarning({
+        totalAdditional: variantEntries.length,
+        failedCount: failedAdditional.length,
+        failedResults: failedAdditional,
+      })
+      : null
+
+    if (variantEntries.length > 0 && failedAdditional.length >= variantEntries.length) {
+      return {
+        output: capturedPrimaryOutput,
+        failureWarning,
+        ran: [plan.primary.agentName],
+      }
+    }
+
+    const collated = await collateReviews({
+      agentName: plan.primary.agentName,
+      primaryModel: plan.primary.model,
+      primaryOutput: capturedPrimaryOutput,
+      additionalResults,
+      originalContext,
+      client,
+    })
+
+    return {
+      output: failureWarning ? `${failureWarning}\n\n${collated}` : collated,
+      failureWarning,
+      ran: [
+        plan.primary.agentName,
+        ...successfulAdditionalRan,
+      ],
+    }
+  }
+
+  const allReviewers: ReviewerEntry[] = [
+    { agentName: plan.primary.agentName, model: plan.primary.model },
+    ...variantEntries,
+  ]
+  const reviewResults = await runAdditionalReviewers({
+    reviewers: allReviewers,
+    prompt: promptText,
+    client,
+  })
+
+  const [primaryResult, ...additionalResults] = reviewResults
+  const failedAdditional = additionalResults.filter((result) => !result.success)
+  const successfulAdditionalRan = additionalResults
+    .map((result, index) => (result.success ? variantEntries[index]?.agentName : null))
+    .filter((name): name is string => typeof name === "string")
+  const failureWarning = failedAdditional.length > 0
+    ? buildFailureWarning({
+      totalAdditional: variantEntries.length,
+      failedCount: failedAdditional.length,
+      failedResults: failedAdditional,
+    })
+    : null
+
+  const allFailed = reviewResults.length > 0 && reviewResults.every((result) => !result.success)
+  if (allFailed) {
+    return {
+      output: "",
+      failureWarning,
+      ran: [],
+    }
+  }
+
+  if (primaryResult?.success && failedAdditional.length >= variantEntries.length) {
+    return {
+      output: primaryResult.output,
+      failureWarning,
+      ran: [plan.primary.agentName],
+    }
+  }
+
+  if (!primaryResult?.success) {
+    if (successfulAdditionalRan.length > 0) {
+      const collated = await collateReviews({
+        agentName: plan.primary.agentName,
+        primaryModel: plan.primary.model,
+        primaryOutput: "",
+        additionalResults,
+        originalContext,
+        client,
+      })
+
+      return {
+        output: failureWarning ? `${failureWarning}\n\n${collated}` : collated,
+        failureWarning,
+        ran: successfulAdditionalRan,
+      }
+    }
+
+    return {
+      output: "",
+      failureWarning,
+      ran: successfulAdditionalRan,
+    }
+  }
+
+  const collated = await collateReviews({
+    agentName: plan.primary.agentName,
+    primaryModel: plan.primary.model,
+    primaryOutput: primaryResult.output,
+    additionalResults,
+    originalContext,
+    client,
+  })
+
+  return {
+    output: failureWarning ? `${failureWarning}\n\n${collated}` : collated,
+    failureWarning,
+    ran: [
+      plan.primary.agentName,
+      ...successfulAdditionalRan,
+    ],
+  }
+}
+
 function formatFailureDetails(results: ReviewResult[] | undefined): string {
   const failures = results?.filter((result) => !result.success) ?? []
   return failures
@@ -105,12 +292,12 @@ function formatFailureDetails(results: ReviewResult[] | undefined): string {
 }
 
 async function runSingleReviewer(input: {
-  agentName: string
-  model: string
+  reviewer: ReviewerEntry
   prompt: string
   client: ReviewClient
 }): Promise<ReviewResult> {
-  const { agentName, model, prompt, client } = input
+  const { reviewer, prompt, client } = input
+  const { agentName, model } = reviewer
   const sessionId = await createEphemeralSession(client, `${agentName}-review-${sanitizeModelName(model)}`)
 
   const response = await client.session.prompt(buildPromptRequest({

@@ -15,7 +15,7 @@
   },
   "evaluators": [
     { "kind": "xml-sections-present", "sections": ["PostExecutionReview"] },
-    { "kind": "section-contains-all", "section": "PostExecutionReview", "patterns": ["Delegate to Weft", "subagent_type \"weft\"", "Task tool"] },
-    { "kind": "excludes-all", "patterns": ["subagent_type \"warp\""] }
+    { "kind": "section-contains-all", "section": "PostExecutionReview", "patterns": ["Summarize Weft's findings", "runtime reviewer fan-out runs automatically", "do not delegate terminal reviewers via Task tool"] },
+    { "kind": "excludes-all", "patterns": ["Summarize Warp's findings"] }
   ]
 }

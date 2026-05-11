@@ -263,9 +263,10 @@ describe("AGENT_METADATA", () => {
       prompt.indexOf("<PostExecutionReview>"),
       prompt.indexOf("</PostExecutionReview>"),
     )
-    // Should have Warp (not disabled in this test) but not Weft
+    // Should have Warp (not disabled in this test) but not Weft delegation
     expect(reviewSection).toContain("Warp")
-    expect(reviewSection).not.toContain("Weft")
+    // The advisory mentions "Weft" generically; assert the delegation line is absent
+    expect(reviewSection).not.toContain('Delegate to Weft')
   })
 
   it("tapestry PlanExecution section omits Weft reference when weft disabled", () => {

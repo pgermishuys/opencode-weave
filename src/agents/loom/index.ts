@@ -21,9 +21,6 @@ export function createLoomAgentWithOptions(
   categories?: CategoriesConfig,
   reviewModelVariants?: ReviewModelVariant[],
 ): AgentConfig {
-  if ((!disabledAgents || disabledAgents.size === 0) && !fingerprint && (!customAgents || customAgents.length === 0) && !categories && (!reviewModelVariants || reviewModelVariants.length === 0)) {
-    return { ...LOOM_DEFAULTS, model, mode: "primary" }
-  }
   return {
     ...LOOM_DEFAULTS,
     prompt: composeLoomPrompt({ disabledAgents, fingerprint, customAgents, categories, reviewModelVariants }),

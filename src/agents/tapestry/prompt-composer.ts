@@ -10,7 +10,9 @@ import { isAgentEnabled } from "../prompt-utils"
 import type { ResolvedContinuationConfig } from "../../config/continuation"
 import type { CategoriesConfig } from "../../config/schema"
 import type { ReviewModelVariant } from "../review-model-variants"
-import { reviewVariantsFor } from "../review-model-variants"
+
+const REVIEW_MODELS_AUTOMATION_ADVISORY = "When `review_models` are configured for Weft or Warp, the Weave runtime spawns the configured variants and collates results automatically — do not issue extra Task calls for them."
+const REVIEWERS_RUNTIME_OWNED_ADVISORY = "When Weft and/or Warp reviewers are enabled, runtime reviewer fan-out runs automatically after plan completion — do not delegate terminal reviewers via Task tool."
 
 export interface TapestryPromptOptions {
   /** Set of disabled agent names (lowercase config keys) */
@@ -19,7 +21,7 @@ export interface TapestryPromptOptions {
   continuation?: ResolvedContinuationConfig
   /** Categories config for dynamic category routing section */
   categories?: CategoriesConfig
-  /** Visible review model variants generated from agents.weft/warp.review_models */
+  /** Compatibility input: variant enumeration is runtime-owned; the composer emits only advisory guidance. */
   reviewModelVariants?: ReviewModelVariant[]
 }
 
@@ -355,12 +357,11 @@ export function buildTapestryPostExecutionReviewSection(
   disabled: Set<string>,
   reviewModelVariants: ReviewModelVariant[] = [],
 ): string {
+  void reviewModelVariants
   const hasWeft = isAgentEnabled("weft", disabled)
   const hasWarp = isAgentEnabled("warp", disabled)
-  const weftVariants = reviewVariantsFor(reviewModelVariants, "weft")
-  const warpVariants = reviewVariantsFor(reviewModelVariants, "warp")
 
-  if (!hasWeft && !hasWarp && weftVariants.length === 0 && warpVariants.length === 0) {
+  if (!hasWeft && !hasWarp) {
     return `<PostExecutionReview>
 This section applies only after ALL plan tasks are already checked off.
 
@@ -375,33 +376,9 @@ After ALL plan tasks are checked off:
 </PostExecutionReview>`
   }
 
-  const reviewerLines: string[] = []
-  if (hasWeft) {
-    reviewerLines.push(`   - Delegate to Weft: subagent_type "weft" — reviews code quality`)
-  }
-  for (const variant of weftVariants) {
-    reviewerLines.push(`   - Delegate to ${variant.label}: subagent_type "${variant.key}" — visible additional Weft code-quality review using ${variant.model}; NOT a Warp/security audit`)
-  }
-  if (hasWarp) {
-    reviewerLines.push(
-      `   - Delegate to Warp: subagent_type "warp" — audits security (self-triages; fast-exits with APPROVE if no security-relevant changes)`,
-    )
-  }
-  for (const variant of warpVariants) {
-    reviewerLines.push(`   - Delegate to ${variant.label}: subagent_type "${variant.key}" — visible additional Warp security review using ${variant.model}`)
-  }
-  const boundaryLine = weftVariants.length > 0
-    ? `   - Boundary rule: weft-review-* variants are code-quality Weft reviewers only. Never label or use them as Warp/security audits; security audits must use subagent_type "warp" or configured warp-review-* variants.`
-    : null
-  const parallelLine = reviewerLines.length > 1
-    ? `   - Parallel rule: issue ALL validator Task calls above in the same assistant turn before waiting for any result; do not run only the first reviewer and stop.`
-    : null
-
   const reviewerNames = [
     hasWeft && "Weft",
-    ...weftVariants.map((variant) => variant.label),
     hasWarp && "Warp",
-    ...warpVariants.map((variant) => variant.label),
   ].filter(Boolean).join(" and ")
 
   return `<PostExecutionReview>
@@ -414,10 +391,11 @@ When all plan tasks are checked off:
 1. Identify all changed files:
     - If a **Start SHA** was provided in the session context, run \`git diff --name-only <start-sha>..HEAD\` to get the complete list of changed files (this captures all changes including intermediate commits)
    - If no Start SHA is available (non-git workspace), use the plan's \`**Files**:\` fields as the review scope
-2. Run the required terminal validation workflow using the Task tool:
-${reviewerLines.join("\n")}
-   - Include the list of changed files in your prompt to each terminal validator
-${parallelLine ? parallelLine + "\n" : ""}${boundaryLine ? boundaryLine + "\n" : ""}3. Report the terminal results to the user:
+ 2. Runtime-owned terminal review behavior:
+    - ${REVIEWERS_RUNTIME_OWNED_ADVISORY}
+    - ${REVIEW_MODELS_AUTOMATION_ADVISORY}
+    - Do not issue terminal reviewer Task calls (including Weft/Warp and any review-model variant subagent_type values).
+3. Report the terminal results to the user:
    - Summarize ${reviewerNames}'s findings (APPROVE or REJECT with details)
    - If either validator REJECTS, present the blocking issues to the user for decision — do NOT attempt to fix them yourself
    - Tapestry follows the plan; terminal findings require user approval before any further changes
@@ -472,6 +450,7 @@ export function composeTapestryPrompt(options: TapestryPromptOptions = {}): stri
     continuationHint,
     buildTapestryVerificationSection(),
     buildTapestryErrorHandlingSection(),
+    // Backward-compatible parameter passthrough for existing call sites.
     buildTapestryPostExecutionReviewSection(disabled, options.reviewModelVariants ?? []),
     buildTapestryExecutionSection(),
     buildTapestryStyleSection(),

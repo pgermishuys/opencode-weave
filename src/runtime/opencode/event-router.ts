@@ -12,10 +12,12 @@ import type { RuntimeLifecyclePolicySurface } from "../../application/orchestrat
 import type { RuntimePolicyFlags } from "../../application/orchestration/session-runtime"
 import { doesSessionOwnExecution } from "../../application/orchestration/execution-coordinator"
 import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
+import type { TrustedInjectedPromptKind } from "./trusted-message-state"
 
 export interface EventRouterState {
   lastAssistantMessageText: Map<string, string>
   lastUserMessageText: Map<string, string>
+  lastUserMessageTrustedInjectedKind: Map<string, TrustedInjectedPromptKind | null>
 }
 
 const ExecutionLeaseRepository = createExecutionLeaseFsStore()
@@ -104,14 +106,21 @@ export async function routeRuntimeEvent(input: {
   if (event.type === "message.updated") {
     const evt = event as {
       type: string
-      properties: { info: { role?: string; sessionID?: string; cost?: number; tokens?: { input?: number; output?: number; reasoning?: number; cache?: { read?: number; write?: number } } } }
+      properties: { info: { id?: string; role?: string; sessionID?: string; cost?: number; tokens?: { input?: number; output?: number; reasoning?: number; cache?: { read?: number; write?: number } } } }
     }
     const info = evt.properties?.info
     if (info?.role === "assistant" && info.sessionID) {
+      const sessionRuntime = ExecutionLeaseRepository.readSessionRuntime(directory, info.sessionID)
       effects.push(...(await lifecyclePolicy.onAssistantMessage({
+        directory,
         sessionId: info.sessionID,
         hooks: policyFlags,
         inputTokens: info.tokens?.input ?? 0,
+        foregroundAgent: sessionRuntime?.foreground_agent,
+        assistantText: state.lastAssistantMessageText.get(info.sessionID),
+        originalPromptText: state.lastUserMessageText.get(info.sessionID),
+        respondingToTrustedInjectedPromptKind: state.lastUserMessageTrustedInjectedKind.get(info.sessionID) ?? null,
+        messageId: info.id,
       })))
 
       if (tracker && hooks.analyticsEnabled) {

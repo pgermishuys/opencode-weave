@@ -253,8 +253,9 @@ describe("E2E: Disabled agents", () => {
 
     const tapestryPrompt = managers.agents["tapestry"]?.prompt ?? ""
 
-    // Tapestry prompt should not reference disabled agent
-    expect(tapestryPrompt).not.toContain("Weft")
+    // Tapestry prompt should not delegate to disabled Weft agent
+    // (advisory text mentions "Weft" generically; check delegation line is absent)
+    expect(tapestryPrompt).not.toContain('Delegate to Weft')
 
     // But should still reference warp
     expect(tapestryPrompt).toContain("Warp")

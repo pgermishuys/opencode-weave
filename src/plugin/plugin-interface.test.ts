@@ -80,6 +80,7 @@ function makeMockReviewClient(args?: {
   const state = {
     createCalls: [] as Array<Record<string, unknown>>,
     promptCalls: [] as Array<Record<string, unknown>>,
+    promptAsyncCalls: [] as Array<Record<string, unknown>>,
     collatePrompts: [] as string[],
   }
 
@@ -90,6 +91,8 @@ function makeMockReviewClient(args?: {
         return { data: { id: `review-session-${nextSessionId++}` } }
       },
       promptAsync: async (_input: Record<string, unknown>) => {
+        state.promptAsyncCalls.push(_input)
+        state.promptCalls.push(_input)
       },
       prompt: async (input: Record<string, unknown>) => {
         state.promptCalls.push(input)
@@ -1382,7 +1385,7 @@ describe("delegation logging via tool hooks", () => {
   })
 })
 
-describe("visible review variants via tool.execute.after", () => {
+describe("tool.execute.after leaves output untouched — fan-out lives elsewhere", () => {
   it("leaves call_weave_agent output unchanged even when review_models are configured", async () => {
     const { client, state } = makeMockReviewClient()
     const iface = createPluginInterface({
@@ -1508,6 +1511,386 @@ describe("visible review variants via tool.execute.after", () => {
     expect(output.title).toBe("weft")
     expect(state.createCalls).toHaveLength(0)
     expect(state.promptCalls).toHaveLength(0)
+  })
+})
+
+describe("direct-intent reviewer fan-out via message.updated / onAssistantMessage", () => {
+  it("fans out Weft review variants from explicit @weft mention in Loom session prompt", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "weave-direct-fanout-mention-weft-"))
+    try {
+      const { client, state } = makeMockReviewClient({
+        reviewerOutputs: { "opencode-go/kimi-k2.6": "Weft variant verdict" },
+        collatedOutput: "Collated Weft verdict from mention path",
+      })
+      const iface = createPluginInterface({
+        pluginConfig: {
+          agents: {
+            weft: {
+              model: "openai/gpt-5.5",
+              review_models: ["opencode-go/kimi-k2.6"],
+            },
+          },
+        },
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client,
+        directory: tempDir,
+      })
+
+      await iface["chat.params"]({ sessionID: "s-mention", agent: "loom" } as never, {} as never)
+      await iface["chat.message"](
+        { sessionID: "s-mention" },
+        { message: {} as never, parts: [{ type: "text", text: "Puedes probar con @weft el ultimo commit?" }] as never },
+      )
+      await iface.event({
+        event: {
+          type: "message.part.updated",
+          properties: {
+            part: { type: "text", sessionID: "s-mention", messageID: "m-mention-1", text: "Primary Loom-routed review text" },
+          },
+        } as never,
+      })
+      await iface.event({
+        event: {
+          type: "message.updated",
+          properties: {
+            info: { id: "msg-mention-weft-1", role: "assistant", sessionID: "s-mention", tokens: { input: 42 } },
+          },
+        } as never,
+      })
+
+      expect(state.createCalls.length).toBe(2)
+      expect(state.promptCalls.length).toBe(3)
+      expect(state.promptAsyncCalls.length).toBe(1)
+      const variantPromptCall = state.promptCalls.find((call) => {
+        const model = (call.body as { model?: { providerID?: string; modelID?: string } } | undefined)?.model
+        return model?.providerID === "opencode-go" && model?.modelID === "kimi-k2.6"
+      })
+      const variantPromptText = ((variantPromptCall?.body as { parts?: Array<{ type?: string; text?: string }> } | undefined)
+        ?.parts?.find((part) => part.type === "text")?.text) ?? ""
+      expect(variantPromptText).toContain("Puedes probar con @weft el ultimo commit?")
+      expect(variantPromptText).not.toContain("Primary Loom-routed review text")
+
+      const postedText = ((state.promptAsyncCalls[0].body as { parts: Array<{ text?: string }> }).parts[0]?.text ?? "")
+      expect(postedText).toContain("Collated Weft verdict from mention path")
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it("fans out Weft direct-intent review, uses original user request for variant prompt, and is idempotent by message id", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "weave-direct-fanout-weft-"))
+    try {
+      const { client, state } = makeMockReviewClient({
+        reviewerOutputs: { "opencode-go/kimi-k2.6": "Weft variant verdict" },
+        collatedOutput: "Collated Weft verdict",
+      })
+      const iface = createPluginInterface({
+        pluginConfig: {
+          agents: {
+            weft: {
+              model: "openai/gpt-5.5",
+              review_models: ["opencode-go/kimi-k2.6"],
+            },
+          },
+        },
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client,
+        directory: tempDir,
+      })
+
+      await iface["chat.params"]({ sessionID: "s1", agent: "weft" } as never, {} as never)
+      await iface["chat.message"](
+        { sessionID: "s1" },
+        { message: {} as never, parts: [{ type: "text", text: "Review my auth refactor" }] as never },
+      )
+      await iface.event({
+        event: {
+          type: "message.part.updated",
+          properties: {
+            part: { type: "text", sessionID: "s1", messageID: "m1", text: "Primary Weft verdict text" },
+          },
+        } as never,
+      })
+
+      await iface.event({
+        event: {
+          type: "message.updated",
+          properties: {
+            info: { id: "msg-weft-1", role: "assistant", sessionID: "s1", tokens: { input: 42 } },
+          },
+        } as never,
+      })
+
+      expect(state.createCalls.length).toBe(2)
+      expect(state.promptCalls.length).toBe(3)
+      expect(state.promptAsyncCalls.length).toBe(1)
+      expect((state.promptAsyncCalls[0].path as { id: string }).id).toBe("s1")
+      const postedText = ((state.promptAsyncCalls[0].body as { parts: Array<{ text?: string }> }).parts[0]?.text ?? "")
+      expect(postedText).toContain("Collated Weft verdict")
+
+      const variantPromptCall = state.promptCalls.find((call) => {
+        const model = (call.body as { model?: { providerID?: string; modelID?: string } } | undefined)?.model
+        return model?.providerID === "opencode-go" && model?.modelID === "kimi-k2.6"
+      })
+      const variantPromptText = ((variantPromptCall?.body as { parts?: Array<{ type?: string; text?: string }> } | undefined)
+        ?.parts?.find((part) => part.type === "text")?.text) ?? ""
+      expect(variantPromptText).toContain("Review my auth refactor")
+      expect(variantPromptText).not.toContain("Primary Weft verdict text")
+
+      const collatePrompt = state.collatePrompts[0] ?? ""
+      expect(collatePrompt).toContain("Primary Weft verdict text")
+
+      await iface.event({
+        event: {
+          type: "message.updated",
+          properties: {
+            info: { id: "msg-weft-1", role: "assistant", sessionID: "s1", tokens: { input: 42 } },
+          },
+        } as never,
+      })
+      expect(state.createCalls.length).toBe(2)
+
+      await iface.event({
+        event: {
+          type: "message.part.updated",
+          properties: {
+            part: { type: "text", sessionID: "s1", messageID: "m2", text: "Injected <!-- weave:reviewer-fanout --> text" },
+          },
+        } as never,
+      })
+      await iface["chat.message"](
+        { sessionID: "s1" },
+        {
+          message: {} as never,
+          parts: [
+            {
+              type: "text",
+              text: postedText,
+            },
+          ] as never,
+        },
+      )
+      await iface.event({
+        event: {
+          type: "message.updated",
+          properties: {
+            info: { id: "msg-weft-2", role: "assistant", sessionID: "s1", tokens: { input: 42 } },
+          },
+        } as never,
+      })
+      expect(state.createCalls.length).toBe(2)
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it("fans out Warp direct-intent review through message.updated", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "weave-direct-fanout-warp-"))
+    try {
+      const { client, state } = makeMockReviewClient({
+        reviewerOutputs: { "openai/gpt-4o": "Warp variant verdict" },
+        collatedOutput: "Collated Warp verdict",
+      })
+      const iface = createPluginInterface({
+        pluginConfig: {
+          agents: {
+            warp: {
+              model: "anthropic/claude-3-5-sonnet",
+              review_models: ["openai/gpt-4o"],
+            },
+          },
+        },
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client,
+        directory: tempDir,
+      })
+
+      await iface["chat.params"]({ sessionID: "s1", agent: "warp" } as never, {} as never)
+      await iface["chat.message"](
+        { sessionID: "s1" },
+        { message: {} as never, parts: [{ type: "text", text: "Audit my auth refactor" }] as never },
+      )
+      await iface.event({
+        event: {
+          type: "message.part.updated",
+          properties: {
+            part: { type: "text", sessionID: "s1", messageID: "m1", text: "Primary Warp verdict text" },
+          },
+        } as never,
+      })
+      await iface.event({
+        event: {
+          type: "message.updated",
+          properties: {
+            info: { id: "msg-warp-1", role: "assistant", sessionID: "s1", tokens: { input: 25 } },
+          },
+        } as never,
+      })
+
+      expect(state.createCalls.length).toBe(2)
+      expect(state.promptCalls.length).toBe(3)
+      expect(state.promptAsyncCalls.length).toBe(1)
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it("emits no direct fan-out when Weft has no review variants", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "weave-direct-fanout-none-"))
+    try {
+      const { client, state } = makeMockReviewClient()
+      const iface = createPluginInterface({
+        pluginConfig: {
+          agents: { weft: { model: "openai/gpt-5.5", review_models: [] } },
+          disabled_agents: ["warp"],
+        },
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client,
+        directory: tempDir,
+      })
+
+      await iface["chat.params"]({ sessionID: "s1", agent: "weft" } as never, {} as never)
+      await iface["chat.message"]({ sessionID: "s1" }, { message: {} as never, parts: [{ type: "text", text: "Review this" }] as never })
+      await iface.event({ event: { type: "message.part.updated", properties: { part: { type: "text", sessionID: "s1", text: "Primary" } } } as never })
+      await iface.event({ event: { type: "message.updated", properties: { info: { id: "msg-1", role: "assistant", sessionID: "s1", tokens: { input: 1 } } } } as never })
+
+      expect(state.createCalls.length).toBe(0)
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it("runs exactly one post-execution primary-only Weft reviewer, then verification reminder", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "weave-postexec-primary-only-"))
+    const plansDir = join(tempDir, WEAVE_DIR, "plans")
+    mkdirSync(plansDir, { recursive: true })
+    const planPath = join(plansDir, "done.md")
+    writeFileSync(planPath, "# Plan\n- [x] Done\n", "utf-8")
+    writeWorkState(tempDir, {
+      ...createWorkState(planPath, "s1", "tapestry", tempDir),
+      session_ids: ["s1"],
+    })
+
+    try {
+      const { client, state } = makeMockReviewClient({ reviewerOutputs: { "openai/gpt-5.5": "Primary-only runtime reviewer output" } })
+      const iface = createPluginInterface({
+        pluginConfig: {
+          agents: { weft: { model: "openai/gpt-5.5", review_models: [] } },
+          disabled_agents: ["warp"],
+        },
+        hooks: makeHooks({ verificationReminderEnabled: true }),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client,
+        directory: tempDir,
+      })
+
+      await iface.event({ event: { type: "session.idle", properties: { sessionID: "s1" } } as never })
+
+      expect(state.createCalls.length).toBe(1)
+      expect(state.promptAsyncCalls.length).toBe(2)
+      const asyncTexts = state.promptAsyncCalls.map((call) => ((call.body as { parts?: Array<{ text?: string }> }).parts?.[0]?.text ?? ""))
+      expect(asyncTexts.some((text) => text.includes("<!-- weave:reviewer-fanout -->"))).toBe(true)
+      expect(asyncTexts.some((text) => text.includes("## Verification Required"))).toBe(true)
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it("degrades safely when originalPromptText is missing", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "weave-direct-missing-original-"))
+    try {
+      const { client, state } = makeMockReviewClient()
+      const iface = createPluginInterface({
+        pluginConfig: { agents: { weft: { model: "openai/gpt-5.5", review_models: ["opencode-go/kimi-k2.6"] } } },
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client,
+        directory: tempDir,
+      })
+
+      await iface["chat.params"]({ sessionID: "s1", agent: "weft" } as never, {} as never)
+      await iface.event({ event: { type: "message.part.updated", properties: { part: { type: "text", sessionID: "s1", text: "Primary" } } } as never })
+      await iface.event({ event: { type: "message.updated", properties: { info: { id: "msg-x", role: "assistant", sessionID: "s1", tokens: { input: 1 } } } } as never })
+
+      expect(state.createCalls.length).toBe(0)
+      expect(state.promptCalls.length).toBe(0)
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it("does not run Weft fan-out when foreground agent is Warp and warp review_models are not configured", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "weave-direct-boundary-"))
+    try {
+      const { client, state } = makeMockReviewClient()
+      const iface = createPluginInterface({
+        pluginConfig: { agents: { weft: { model: "openai/gpt-5.5", review_models: ["opencode-go/kimi-k2.6"] } } },
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client,
+        directory: tempDir,
+      })
+
+      await iface["chat.params"]({ sessionID: "s1", agent: "warp" } as never, {} as never)
+      await iface["chat.message"]({ sessionID: "s1" }, { message: {} as never, parts: [{ type: "text", text: "Security review please" }] as never })
+      await iface.event({ event: { type: "message.part.updated", properties: { part: { type: "text", sessionID: "s1", text: "Warp primary" } } } as never })
+      await iface.event({ event: { type: "message.updated", properties: { info: { id: "msg-b", role: "assistant", sessionID: "s1", tokens: { input: 1 } } } } as never })
+
+      const weftPrefixedCreates = state.createCalls.filter((call) => String((call.title as string | undefined) ?? "").toLowerCase().includes("weft"))
+      const warpVariantCreates = state.createCalls.filter((call) => String((call.title as string | undefined) ?? "").toLowerCase().includes("warp @"))
+      expect(weftPrefixedCreates.length).toBe(0)
+      expect(warpVariantCreates.length).toBe(0)
+      expect(state.createCalls.length).toBe(0)
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it("does not emit fan-out when Weft is disabled even with review_models configured", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "weave-direct-disabled-"))
+    try {
+      const { client, state } = makeMockReviewClient()
+      const iface = createPluginInterface({
+        pluginConfig: {
+          agents: { weft: { model: "openai/gpt-5.5", review_models: ["opencode-go/kimi-k2.6"] } },
+          disabled_agents: ["weft"],
+        },
+        hooks: makeHooks(),
+        tools: emptyTools,
+        configHandler: makeMockConfigHandler(),
+        agents: {},
+        client,
+        directory: tempDir,
+      })
+
+      await iface["chat.params"]({ sessionID: "s1", agent: "weft" } as never, {} as never)
+      await iface["chat.message"]({ sessionID: "s1" }, { message: {} as never, parts: [{ type: "text", text: "Review disabled agent path" }] as never })
+      await iface.event({ event: { type: "message.part.updated", properties: { part: { type: "text", sessionID: "s1", text: "Primary disabled" } } } as never })
+      await iface.event({ event: { type: "message.updated", properties: { info: { id: "msg-disabled", role: "assistant", sessionID: "s1", tokens: { input: 1 } } } } as never })
+
+      expect(state.createCalls.length).toBe(0)
+      expect(state.promptCalls.length).toBe(0)
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true })
+    }
   })
 })
 

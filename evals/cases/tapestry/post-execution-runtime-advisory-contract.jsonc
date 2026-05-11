@@ -1,0 +1,43 @@
+{
+  "id": "tapestry-post-execution-runtime-advisory-contract",
+  "title": "Tapestry PostExecutionReview keeps runtime advisory when Weft and Warp variants are configured",
+  "phase": "prompt",
+  "tags": ["prompt", "composer", "tapestry", "review", "variants"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry",
+    "variant": {
+      "agentOverrides": {
+        "weft": {
+          "review_models": ["opencode-go/kimi-k2.6", "opencode-go/glm-5.1"]
+        },
+        "warp": {
+          "review_models": ["opencode-go/kimi-k2.6", "opencode-go/glm-5.1"]
+        }
+      }
+    }
+  },
+  "executor": {
+    "kind": "prompt-render"
+  },
+  "evaluators": [
+    { "kind": "xml-sections-present", "sections": ["PostExecutionReview"] },
+    {
+      "kind": "section-contains-all",
+      "section": "PostExecutionReview",
+      "patterns": [
+        "runtime reviewer fan-out runs automatically",
+        "do not delegate terminal reviewers via Task tool",
+        "Do not issue terminal reviewer Task calls",
+        "runtime spawns the configured variants and collates results automatically"
+      ]
+    },
+    {
+      "kind": "excludes-all",
+      "patterns": [
+        "subagent_type \"weft-review-",
+        "subagent_type \"warp-review-"
+      ]
+    }
+  ]
+}
