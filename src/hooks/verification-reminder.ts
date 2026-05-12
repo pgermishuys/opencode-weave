@@ -39,7 +39,7 @@ Before marking this task complete, verify the work:
 If uncertain about quality, use the Task tool to delegate to \`weft\` for a formal review:
 \`Task(subagent_type="weft", prompt="Review the changes for [task description]")\`
 
-MANDATORY: If changes touch auth, crypto, certificates, tokens, signatures, or input validation, you MUST use the Task tool to delegate to \`warp\` for a security audit — this is NOT optional:
+MANDATORY: If changes touch auth, crypto, certificates, tokens, signatures, or input validation, you MUST delegate to \`warp\` using the Task tool for a security audit — this is NOT optional:
 \`Task(subagent_type="warp", prompt="Security audit the changes for [task description]")\`
 
 Only mark complete when ALL checks pass.`,
