@@ -113,16 +113,27 @@ function addTrustedText(
   const normalizedMetadata: TrustedInjectedPromptMetadata = metadata ?? { kind: "generic" }
   const current = store.get(sessionId) ?? []
 
-  const existing = current.find((entry) => entry.text === text)
-  if (existing) {
-    if (existing.metadata.kind === "generic" && normalizedMetadata.kind === "reviewer-fanout") {
-      existing.metadata = normalizedMetadata
-    }
+  if (normalizedMetadata.kind === "generic" && current.some((entry) => entry.text === text)) {
+    return
+  }
+
+  const existingGeneric = current.find((entry) => entry.text === text && entry.metadata.kind === "generic")
+  if (existingGeneric && normalizedMetadata.kind === "reviewer-fanout") {
+    existingGeneric.metadata = normalizedMetadata
+    return
+  }
+
+  const duplicate = current.some((entry) => entry.text === text && isSameTrustedMetadata(entry.metadata, normalizedMetadata))
+  if (duplicate) {
     return
   }
 
   current.push({ text, metadata: normalizedMetadata })
   store.set(sessionId, current)
+}
+
+function isSameTrustedMetadata(left: TrustedInjectedPromptMetadata, right: TrustedInjectedPromptMetadata): boolean {
+  return left.kind === right.kind && left.nonce === right.nonce
 }
 
 function renderExpectedBuiltinPrompt(input: Extract<ParsedCommandEnvelope, { kind: "builtin-command" }>): string {

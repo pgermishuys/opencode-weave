@@ -24,6 +24,25 @@ describe("trusted-message-state", () => {
     expect(state.consumeInjectedPrompt("sess-1", "same payload")).toEqual({ kind: "reviewer-fanout", nonce: "nonce-1" })
   })
 
+  it("preserves distinct reviewer-fanout registrations with same text", () => {
+    const state = createTrustedMessageState()
+    state.registerInjectedPrompt("sess-1", "same payload", { kind: "reviewer-fanout", nonce: "nonce-1" })
+    state.registerInjectedPrompt("sess-1", "same payload", { kind: "reviewer-fanout", nonce: "nonce-2" })
+
+    expect(state.consumeInjectedPrompt("sess-1", "same payload")).toEqual({ kind: "reviewer-fanout", nonce: "nonce-1" })
+    expect(state.consumeInjectedPrompt("sess-1", "same payload")).toEqual({ kind: "reviewer-fanout", nonce: "nonce-2" })
+    expect(state.consumeInjectedPrompt("sess-1", "same payload")).toBeNull()
+  })
+
+  it("deduplicates identical reviewer-fanout registrations", () => {
+    const state = createTrustedMessageState()
+    state.registerInjectedPrompt("sess-1", "same payload", { kind: "reviewer-fanout", nonce: "nonce-1" })
+    state.registerInjectedPrompt("sess-1", "same payload", { kind: "reviewer-fanout", nonce: "nonce-1" })
+
+    expect(state.consumeInjectedPrompt("sess-1", "same payload")).toEqual({ kind: "reviewer-fanout", nonce: "nonce-1" })
+    expect(state.consumeInjectedPrompt("sess-1", "same payload")).toBeNull()
+  })
+
   it("consumption is single-use", () => {
     const state = createTrustedMessageState()
     state.registerInjectedPrompt("sess-1", "Injected reviewer fan-out payload", { kind: "reviewer-fanout", nonce: "abc-123" })

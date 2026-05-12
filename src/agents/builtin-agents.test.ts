@@ -95,6 +95,27 @@ describe("createBuiltinAgents", () => {
     expect(glm?.model).toBe("opencode-go/glm-5.1")
   })
 
+  it("generates unique review variant keys when sanitized model names collide", () => {
+    const models = ["provider/model@v1", "provider/model.v1", "provider/model+v1"]
+    const agents = createBuiltinAgents({
+      agentOverrides: {
+        weft: { review_models: models },
+      },
+    })
+
+    const keys = [
+      "weft-review-provider-model-v1",
+      "weft-review-provider-model-v1-2",
+      "weft-review-provider-model-v1-3",
+    ]
+    const generatedKeys = Object.entries(agents)
+      .filter(([, agent]) => models.includes(agent.model ?? ""))
+      .map(([key]) => key)
+
+    expect(generatedKeys).toEqual(keys)
+    expect(keys.map((key) => agents[key]?.model)).toEqual(models)
+  })
+
   it("omits visible review variants when their base agent is disabled", () => {
     const agents = createBuiltinAgents({
       disabledAgents: ["weft"],
