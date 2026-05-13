@@ -1,6 +1,7 @@
 import type { CreatedHooks } from "../../hooks/create-hooks"
 import type { ParsedCommandEnvelope } from "../../runtime/opencode/command-envelope"
 import type { RuntimeEffect } from "../../runtime/opencode/effects"
+import type { TrustedInjectedPromptKind } from "../../runtime/opencode/trusted-message-state"
 
 export interface RuntimePolicyFlags {
   contextWindowThresholds: { warningPct: number; criticalPct: number } | null
@@ -67,9 +68,15 @@ export interface RuntimeBeforeCompactionInput {
 }
 
 export interface RuntimeAssistantMessageInput {
+  directory: string
   sessionId: string
   hooks: RuntimePolicyFlags
   inputTokens: number
+  foregroundAgent?: string | null
+  assistantText?: string
+  originalPromptText?: string
+  respondingToTrustedInjectedPromptKind?: TrustedInjectedPromptKind | null
+  messageId?: string
 }
 
 export interface RuntimeToolDefinitionInput {

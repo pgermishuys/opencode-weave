@@ -1,0 +1,32 @@
+{
+  "id": "tapestry-disabled-reviewers-with-variants-contract-v2",
+  "title": "Tapestry suppresses all review delegation when reviewers are disabled even with variants configured",
+  "phase": "prompt",
+  "tags": ["prompt", "composer", "tapestry", "review", "variants"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "tapestry",
+    "variant": {
+      "disabledAgents": ["weft", "warp"],
+      "agentOverrides": {
+        "weft": {
+          "review_models": ["opencode-go/kimi-k2.6", "opencode-go/glm-5.1"]
+        }
+      }
+    }
+  },
+  "executor": {
+    "kind": "prompt-render"
+  },
+  "evaluators": [
+    {
+      "kind": "excludes-all",
+      "patterns": [
+        "subagent_type \"weft\"",
+        "subagent_type \"warp\"",
+        "subagent_type \"weft-review-",
+        "Delegate to"
+      ]
+    }
+  ]
+}

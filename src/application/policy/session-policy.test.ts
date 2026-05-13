@@ -45,6 +45,7 @@ describe("createHookBackedSessionPolicy", () => {
     const policy = createHookBackedSessionPolicy()
 
     const result = await policy.onAssistantMessage({
+      directory: "",
       sessionId: "sess-ctx",
       hooks: makeHooks({
         contextWindowThresholds: { warningPct: 0.8, criticalPct: 0.95 },

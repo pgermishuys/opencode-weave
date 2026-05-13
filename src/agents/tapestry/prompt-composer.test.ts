@@ -59,13 +59,14 @@ describe("composeTapestryPrompt", () => {
     expect(reviewSection).toContain("Warp")
   })
 
-  it("PostExecutionReview mentions Task tool by default", () => {
+  it("PostExecutionReview mentions runtime-owned reviewer fan-out by default", () => {
     const prompt = composeTapestryPrompt()
     const reviewSection = prompt.slice(
       prompt.indexOf("<PostExecutionReview>"),
       prompt.indexOf("</PostExecutionReview>"),
     )
-    expect(reviewSection).toContain("Task tool")
+    expect(reviewSection).toContain("runtime reviewer fan-out runs automatically")
+    expect(reviewSection).toContain("do not delegate terminal reviewers via Task tool")
   })
 })
 
@@ -87,25 +88,43 @@ describe("buildTapestryPostExecutionReviewSection", () => {
     const section = buildTapestryPostExecutionReviewSection(new Set())
     expect(section).toContain("Weft")
     expect(section).toContain("Warp")
-    expect(section).toContain("Task tool")
+    expect(section).toContain("runtime reviewer fan-out runs automatically")
   })
 
   it("includes only Weft when warp disabled", () => {
     const section = buildTapestryPostExecutionReviewSection(new Set(["warp"]))
-    expect(section).toContain("Weft")
-    expect(section).not.toContain("Warp")
+    expect(section).toContain("Summarize Weft's findings")
+    expect(section).not.toContain("Summarize Warp's findings")
+    expect(section).toContain("Do not issue terminal reviewer Task calls")
   })
 
   it("includes only Warp when weft disabled", () => {
     const section = buildTapestryPostExecutionReviewSection(new Set(["weft"]))
-    expect(section).not.toContain("Weft")
-    expect(section).toContain("Warp")
+    expect(section).toContain("Summarize Warp's findings")
+    expect(section).not.toContain("Summarize Weft's findings")
+    expect(section).toContain("Do not issue terminal reviewer Task calls")
+  })
+
+  it("does not enumerate visible review model variants as task delegates", () => {
+    const section = buildTapestryPostExecutionReviewSection(new Set(), [
+      {
+        baseAgent: "weft" as const,
+        key: "weft-review-opencode-go-kimi-k2-6",
+        model: "opencode-go/kimi-k2.6",
+        label: "weft @ opencode-go/kimi-k2.6",
+      },
+    ])
+
+    expect(section).not.toContain('subagent_type "weft-review-opencode-go-kimi-k2-6"')
+    expect(section).toContain("the Weave runtime spawns the configured variants and collates results automatically")
+    expect(section).toContain("do not issue extra Task calls for them")
+    expect(section).toContain("Do not issue terminal reviewer Task calls")
   })
 
   it("omits review delegation when both disabled", () => {
     const section = buildTapestryPostExecutionReviewSection(new Set(["weft", "warp"]))
     expect(section).not.toContain("Delegate to")
-    expect(section).not.toContain("Task tool")
+    expect(section).not.toContain("do not delegate terminal reviewers via Task tool")
     expect(section).toContain("Report the summary")
   })
 

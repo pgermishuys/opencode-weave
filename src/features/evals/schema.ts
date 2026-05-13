@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { CategoriesConfigSchema } from "../../config/schema"
+import { AgentOverridesSchema, CategoriesConfigSchema } from "../../config/schema"
 import {
   EVAL_PHASES,
   EVAL_ROUTING_KINDS,
@@ -26,6 +26,7 @@ export const EvalSuiteMetadataSchema = z.object({
 export const BuiltinAgentPromptVariantSchema = z.object({
   disabledAgents: z.array(NonEmptyString).optional(),
   categories: CategoriesConfigSchema.optional(),
+  agentOverrides: AgentOverridesSchema.optional(),
 })
 
 export const BuiltinAgentPromptTargetSchema = z.object({

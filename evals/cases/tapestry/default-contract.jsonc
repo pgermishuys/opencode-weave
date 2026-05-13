@@ -13,7 +13,7 @@
   "evaluators": [
     { "kind": "xml-sections-present", "sections": ["Role", "Invariant", "Delegation", "Parallelism", "PlanExecution", "Verification", "PostExecutionReview"] },
     { "kind": "section-contains-all", "section": "Role", "patterns": ["coordination orchestrator", "do NOT implement work directly"] },
-    { "kind": "section-contains-all", "section": "PostExecutionReview", "patterns": ["Task tool", "user approval"] },
+    { "kind": "section-contains-all", "section": "PostExecutionReview", "patterns": ["runtime reviewer fan-out runs automatically", "do not delegate terminal reviewers via Task tool", "user approval", "runtime spawns the configured variants and collates results automatically"] },
     { "kind": "ordered-contains", "patterns": ["<Role>", "<Invariant>", "<Delegation>", "<Parallelism>", "<PlanExecution>", "<Verification>", "<PostExecutionReview>"] },
     { "kind": "tool-policy", "expectations": { "call_weave_agent": true } }
   ]

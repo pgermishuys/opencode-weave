@@ -154,6 +154,8 @@ Use the least brittle evaluator that proves the contract:
 
 Trajectory suites are currently mock-backed replays. Delegation evidence inside a trajectory trace is derived from canned response text, not from runtime tool telemetry; use integration tests for proof of actual task-tool delegation.
 
+Reviewer fan-out is executed by the Weave runtime (`runReviewerFanOut` effect). Prompt-contract evals assert the advisory copy. Runtime behavior — including direct-scope (capture primary, spawn variants only) vs post-execution-scope (spawn base + variants) semantics — is asserted by `src/plugin/plugin-interface.test.ts` and the two new session-policy tests.
+
 Prefer stable contract anchors over brittle paragraph equality. If a future prompt needs an eval-only boundary, use:
 
 ```html

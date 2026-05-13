@@ -136,6 +136,20 @@ describe("buildDelegationSection", () => {
     const section = buildDelegationSection(new Set(["thread", "spindle", "pattern", "tapestry", "shuttle", "weft", "warp"]))
     expect(section).toContain("Delegate aggressively")
   })
+
+  it("mentions visible Weft review variants when configured", () => {
+    const section = buildDelegationSection(new Set(), [
+      {
+        baseAgent: "weft" as const,
+        key: "weft-review-opencode-go-kimi-k2-6",
+        model: "opencode-go/kimi-k2.6",
+        label: "weft @ opencode-go/kimi-k2.6",
+      },
+    ])
+
+    expect(section).not.toContain('subagent_type "weft-review-opencode-go-kimi-k2-6"')
+    expect(section).toContain("Never label or use weft-review-* variants as Warp/security audits")
+  })
 })
 
 describe("buildPlanWorkflowSection", () => {
@@ -175,9 +189,35 @@ describe("buildPlanWorkflowSection", () => {
     expect(section).toContain("Warp for security-relevant plans")
   })
 
+  it("includes visible review variants in plan review", () => {
+    const section = buildPlanWorkflowSection(new Set(), [
+      {
+        baseAgent: "weft" as const,
+        key: "weft-review-opencode-go-glm-5-1",
+        model: "opencode-go/glm-5.1",
+        label: "weft @ opencode-go/glm-5.1",
+      },
+    ])
+
+    expect(section).toContain("Delegate to Weft, Warp for security-relevant plans")
+    expect(section).toContain("delegate to base Weft AND all visible Weft variants")
+    expect(section).toContain("Do not replace base Weft with a variant")
+    expect(section).toContain("Do not use weft-review-* variants as Warp/security reviewers")
+    expect(section).toContain('subagent_type "weft-review-opencode-go-glm-5-1"')
+    expect(section).toContain("Runtime fan-out is owned by Weave for direct `@weft`/`@warp` calls")
+  })
+
+  it("includes runtime advisory in default plan review step", () => {
+    const section = buildPlanWorkflowSection(new Set())
+    expect(section).toContain("Runtime fan-out is owned by Weave for direct `@weft`/`@warp` calls")
+    expect(section).toContain("Tapestry post-execution review fan-out")
+    expect(section).not.toContain('subagent_type "weft-review-')
+  })
+
   it("omits Warp from review when warp disabled", () => {
     const section = buildPlanWorkflowSection(new Set(["warp"]))
-    expect(section).not.toContain("Warp")
+    expect(section).toContain("Delegate to Weft to validate the plan")
+    expect(section).not.toContain("Delegate to Weft, Warp for security-relevant plans")
   })
 })
 
@@ -191,6 +231,7 @@ describe("buildReviewWorkflowSection", () => {
     const section = buildReviewWorkflowSection(new Set())
     expect(section).toContain("Ad-hoc review")
     expect(section).toContain("Weft")
+    expect(section).toContain("Runtime fan-out is owned by Weave for direct `@weft`/`@warp` calls")
   })
 
   it("includes Warp mandatory line when warp enabled", () => {
@@ -223,6 +264,35 @@ describe("buildReviewWorkflowSection", () => {
     for (const trigger of triggers) {
       expect(section).toContain(trigger)
     }
+  })
+
+  it("includes visible weft review variants for configured review variants", () => {
+    const section = buildReviewWorkflowSection(new Set(), [
+      {
+        baseAgent: "weft" as const,
+        key: "weft-review-opencode-go-kimi-k2-6",
+        model: "opencode-go/kimi-k2.6",
+        label: "weft @ opencode-go/kimi-k2.6",
+      },
+      {
+        baseAgent: "weft" as const,
+        key: "weft-review-opencode-go-glm-5-1",
+        model: "opencode-go/glm-5.1",
+        label: "weft @ opencode-go/glm-5.1",
+      },
+    ])
+
+    expect(section).toContain('subagent_type "weft-review-opencode-go-kimi-k2-6"')
+    expect(section).toContain('subagent_type "weft-review-opencode-go-glm-5-1"')
+    expect(section).toContain("delegate to base Weft AND all visible Weft variants")
+    expect(section).toContain("Do not replace base Weft with a variant")
+    expect(section).toContain("Never label or use weft-review-* variants as Warp/security audits")
+    expect(section).toContain("Runtime fan-out is owned by Weave for direct `@weft`/`@warp` calls")
+  })
+
+  it("does not include weft-review subagent_type entries without configured variants", () => {
+    const section = buildReviewWorkflowSection(new Set())
+    expect(section).not.toContain('subagent_type "weft-review-')
   })
 })
 

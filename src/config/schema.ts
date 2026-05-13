@@ -25,6 +25,12 @@ const ModelOptionsSchema = z.record(z.string(), z.unknown())
 export const AgentOverrideConfigSchema = z.object({
   model: z.string().optional(),
   fallback_models: z.array(z.string()).optional(),
+  review_models: z.array(
+    z.string().regex(
+      /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9._-]+$/,
+      "review_models entries must be provider-qualified (e.g., 'anthropic/claude-sonnet-4')",
+    ),
+  ).optional(),
   variant: z.string().optional(),
   category: z.string().optional(),
   skills: z.array(z.string()).optional(),

@@ -151,6 +151,7 @@ describe("createPolicyEngine", () => {
     })
 
     const effects = await engine.onAssistantMessage({
+      directory: "",
       sessionId: "sess-ctx",
       hooks: makeHooks({
         contextWindowThresholds: { warningPct: 0.8, criticalPct: 0.95 },

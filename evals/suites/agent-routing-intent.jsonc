@@ -21,6 +21,7 @@
     "evals/cases/loom/routing-intent/route-to-shuttle-domain-intent.jsonc",
     "evals/cases/loom/routing-intent/route-to-spindle-research-intent.jsonc",
     "evals/cases/loom/routing-intent/ambiguous-exploration-security-intent.jsonc",
-    "evals/cases/loom/routing-intent/ambiguous-research-planning-intent.jsonc"
+    "evals/cases/loom/routing-intent/ambiguous-research-planning-intent.jsonc",
+    "evals/cases/loom/routing-intent/boundary-weft-variants-do-not-swap-warp-intent.jsonc"
   ]
 }

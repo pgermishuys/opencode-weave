@@ -61,6 +61,97 @@ describe("eval schemas", () => {
     })
   })
 
+  it("validates builtin target variants with agentOverrides", () => {
+    const result = EvalCaseSchema.safeParse({
+      id: "loom-agent-overrides-contract",
+      title: "Loom agent overrides variant",
+      phase: "prompt",
+      target: {
+        kind: "builtin-agent-prompt",
+        agent: "loom",
+        variant: {
+          agentOverrides: {
+            weft: {
+              review_models: ["anthropic/claude-sonnet-4"],
+            },
+          },
+        },
+      },
+      executor: { kind: "prompt-render" },
+      evaluators: [{ kind: "contains-all", patterns: ["<Role>"] }],
+    })
+
+    expect(result.success).toBe(true)
+    if (!result.success) return
+
+    expect(result.data.target).toEqual({
+      kind: "builtin-agent-prompt",
+      agent: "loom",
+      variant: {
+        agentOverrides: {
+          weft: {
+            review_models: ["anthropic/claude-sonnet-4"],
+          },
+        },
+      },
+    })
+  })
+
+  it("validates builtin Loom target variants with agentOverrides", () => {
+    const result = EvalCaseSchema.safeParse({
+      id: "loom-agent-overrides-contract",
+      title: "Loom agentOverrides variant",
+      phase: "prompt",
+      target: {
+        kind: "builtin-agent-prompt",
+        agent: "loom",
+        variant: {
+          agentOverrides: {
+            loom: { model: "openrouter/openai/gpt-5" },
+            weft: { review_models: ["anthropic/claude-sonnet-4"] },
+          },
+        },
+      },
+      executor: { kind: "prompt-render" },
+      evaluators: [{ kind: "contains-all", patterns: ["<Role>"] }],
+    })
+
+    expect(result.success).toBe(true)
+    if (!result.success) return
+
+    expect(result.data.target).toEqual({
+      kind: "builtin-agent-prompt",
+      agent: "loom",
+      variant: {
+        agentOverrides: {
+          loom: { model: "openrouter/openai/gpt-5" },
+          weft: { review_models: ["anthropic/claude-sonnet-4"] },
+        },
+      },
+    })
+  })
+
+  it("rejects malformed builtin target agentOverrides", () => {
+    const result = EvalCaseSchema.safeParse({
+      id: "loom-agent-overrides-invalid",
+      title: "Invalid agentOverrides variant",
+      phase: "prompt",
+      target: {
+        kind: "builtin-agent-prompt",
+        agent: "loom",
+        variant: {
+          agentOverrides: {
+            weft: { review_models: ["claude-sonnet-4"] },
+          },
+        },
+      },
+      executor: { kind: "prompt-render" },
+      evaluators: [{ kind: "contains-all", patterns: ["<Role>"] }],
+    })
+
+    expect(result.success).toBe(false)
+  })
+
   it("rejects malformed builtin Tapestry target categories", () => {
     const result = EvalCaseSchema.safeParse({
       id: "tapestry-categories-invalid",
@@ -73,6 +164,29 @@ describe("eval schemas", () => {
           categories: {
             frontend: {
               patterns: [123],
+            },
+          },
+        },
+      },
+      executor: { kind: "prompt-render" },
+      evaluators: [{ kind: "contains-all", patterns: ["<Role>"] }],
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it("rejects malformed builtin target agentOverrides", () => {
+    const result = EvalCaseSchema.safeParse({
+      id: "loom-agent-overrides-invalid",
+      title: "Invalid Loom agent overrides variant",
+      phase: "prompt",
+      target: {
+        kind: "builtin-agent-prompt",
+        agent: "loom",
+        variant: {
+          agentOverrides: {
+            weft: {
+              review_models: ["claude-sonnet-4"],
             },
           },
         },

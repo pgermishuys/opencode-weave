@@ -13,12 +13,14 @@ import { setContextLimit } from "../../hooks"
 import type { RuntimeEffect } from "./effects"
 import { createRuntimeLifecyclePolicySurface } from "../../application/orchestration/session-runtime"
 import type { RuntimePolicyFlags } from "../../application/orchestration/session-runtime"
+import { resolveReviewers } from "../../agents/review-resolver"
 import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
 import { getAgentConfigKey } from "../../shared/agent-display-names"
 import { projectExecutionTransition } from "../../domain/session/execution-lease"
 import { createTrustedMessageState } from "./trusted-message-state"
 import type { BuiltinCommandEnvelopeName } from "./protocol"
 import { buildEnabledAgentKeys } from "./enabled-agent-keys"
+import type { TrustedInjectedPromptKind } from "./trusted-message-state"
 
 export function createPluginAdapter(args: {
   pluginConfig: WeaveConfig
@@ -33,12 +35,29 @@ export function createPluginAdapter(args: {
   const { pluginConfig, hooks, configHandler, agents, client, directory = "", tracker } = args
   const trustedMessageState = createTrustedMessageState()
   const trackedClient = client ? wrapClientWithTrustedPromptTracking(client, trustedMessageState) : undefined
-  const lifecyclePolicy = createRuntimeLifecyclePolicySurface({ hooks, client: trackedClient })
-  const executionLeaseRepository = createExecutionLeaseFsStore()
   const enabledAgents = buildEnabledAgentKeys(pluginConfig)
+  const disabledSet = new Set((pluginConfig.disabled_agents ?? []).filter((agentKey) => !enabledAgents.has(agentKey)))
+  const reviewerResolver = {
+    forBaseAgent(baseAgent: "weft" | "warp", scope: "direct" | "post-execution") {
+      const overrides = pluginConfig.agents
+      const primaryModel = overrides?.[baseAgent]?.model
+        ?? (typeof agents[baseAgent]?.model === "string" ? agents[baseAgent].model : "")
+      return resolveReviewers({
+        scope,
+        baseAgent,
+        agentOverrides: overrides,
+        disabledAgents: disabledSet,
+        primaryModel,
+      })
+    },
+  }
+  const lifecyclePolicy = createRuntimeLifecyclePolicySurface({ hooks, client: trackedClient, reviewerResolver })
+  const executionLeaseRepository = createExecutionLeaseFsStore()
 
+  const pendingToolArgs = new Map<string, Record<string, unknown>>()
   const lastAssistantMessageText = new Map<string, string>()
   const lastUserMessageText = new Map<string, string>()
+  const lastUserMessageTrustedInjectedKind = new Map<string, TrustedInjectedPromptKind | null>()
 
   const policyFlags: RuntimePolicyFlags = {
     contextWindowThresholds: hooks.contextWindowThresholds,
@@ -47,6 +66,9 @@ export function createPluginAdapter(args: {
     verificationReminderEnabled: hooks.verificationReminderEnabled,
     todoDescriptionOverrideEnabled: hooks.todoDescriptionOverrideEnabled,
     todoContinuationEnforcerEnabled: hooks.todoContinuationEnforcerEnabled,
+  }
+  const recordInjectedPrompt = (sessionId: string, text: string, metadata?: { kind: TrustedInjectedPromptKind; nonce?: string }) => {
+    trustedMessageState.registerInjectedPrompt(sessionId, text, metadata)
   }
 
   return {
@@ -107,6 +129,9 @@ export function createPluginAdapter(args: {
           .trim() ?? ""
 
       const parsedEnvelope = trustedMessageState.consumeTrustedEnvelope(sessionID, promptText)
+      const trustedInjectedPrompt = parsedEnvelope === null && promptText
+        ? trustedMessageState.consumeInjectedPrompt(sessionID, promptText)
+        : null
       if (parsedEnvelope?.kind !== "builtin-command") {
         trustedMessageState.clearPendingBuiltin(sessionID)
       }
@@ -128,9 +153,12 @@ export function createPluginAdapter(args: {
       ]
 
       if (promptText && sessionID) {
-        const isSystemInjected = parsedEnvelope !== null
+        const isSystemInjected = parsedEnvelope !== null || trustedInjectedPrompt !== null
         if (!isSystemInjected) {
           lastUserMessageText.set(sessionID, promptText)
+          lastUserMessageTrustedInjectedKind.set(sessionID, null)
+        } else if (trustedInjectedPrompt) {
+          lastUserMessageTrustedInjectedKind.set(sessionID, trustedInjectedPrompt.kind)
         }
       }
 
@@ -139,6 +167,7 @@ export function createPluginAdapter(args: {
         output,
         client: trackedClient,
         tracker,
+        recordInjectedPrompt,
         pausePlan: directory ? () => {
           pauseWork(directory)
           info("[work-continuation] Auto-paused: user message received during active plan", { sessionId: sessionID })
@@ -185,6 +214,7 @@ export function createPluginAdapter(args: {
         trustedMessageState.clearSession(deletedSessionId)
         lastUserMessageText.delete(deletedSessionId)
         lastAssistantMessageText.delete(deletedSessionId)
+        lastUserMessageTrustedInjectedKind.delete(deletedSessionId)
       }
 
       const effects = await routeRuntimeEvent({
@@ -193,7 +223,7 @@ export function createPluginAdapter(args: {
         hooks,
         client: trackedClient,
         tracker,
-        state: { lastAssistantMessageText, lastUserMessageText },
+        state: { lastAssistantMessageText, lastUserMessageText, lastUserMessageTrustedInjectedKind },
         lifecyclePolicy,
         enabledAgents,
       })
@@ -202,6 +232,7 @@ export function createPluginAdapter(args: {
         effects,
         client: trackedClient,
         tracker,
+        recordInjectedPrompt,
         pauseWorkflow: directory ? () => handlePauseExecutionEffect({
           effectReason: "User interrupt",
           directory,
@@ -219,6 +250,9 @@ export function createPluginAdapter(args: {
 
     handleToolExecuteBefore: async (input: { sessionID: string; tool: string; callID: string; agent?: string }, output: { args?: Record<string, unknown> | null }) => {
       const toolArgs = output.args as Record<string, unknown> | null | undefined
+      if (toolArgs) {
+        pendingToolArgs.set(toolArgsKey(input.sessionID, input.callID), toolArgs)
+      }
 
       if (input.tool === "task" && toolArgs) {
         const agentArg = (toolArgs.subagent_type as string | undefined) ?? (toolArgs.description as string | undefined) ?? "unknown"
@@ -247,9 +281,16 @@ export function createPluginAdapter(args: {
       await applyRuntimeEffects({ effects, tracker })
     },
 
-    handleToolExecuteAfter: async (input: { sessionID: string; tool: string; callID: string; args?: Record<string, unknown> }) => {
+    handleToolExecuteAfter: async (
+      input: { sessionID: string; tool: string; callID: string; args?: Record<string, unknown> },
+      output: { title?: string; output?: string; metadata?: unknown },
+    ) => {
+      const pendingArgsKey = toolArgsKey(input.sessionID, input.callID)
+      const effectiveArgs = input.args ?? pendingToolArgs.get(pendingArgsKey)
+      pendingToolArgs.delete(pendingArgsKey)
+
       if (input.tool === "task") {
-        const inputArgs = input.args
+        const inputArgs = effectiveArgs
         const agentArg = (inputArgs?.subagent_type as string | undefined) ?? (inputArgs?.description as string | undefined) ?? "unknown"
         logDelegation({ phase: "complete", agent: agentArg, sessionId: input.sessionID, toolCallId: input.callID })
       }
@@ -261,10 +302,10 @@ export function createPluginAdapter(args: {
         tool: input.tool,
         callId: input.callID,
         hooks: policyFlags,
-        toolArgs: input.args,
+        toolArgs: effectiveArgs,
       })))
       if (tracker && hooks.analyticsEnabled) {
-        const inputArgs = input.args
+        const inputArgs = effectiveArgs
         const agentArg = input.tool === "task"
           ? ((inputArgs?.subagent_type as string | undefined) ?? (inputArgs?.description as string | undefined) ?? "unknown")
           : undefined
@@ -320,6 +361,10 @@ function isBuiltinChatCommand(command: string): command is BuiltinCommandEnvelop
     || command === "weave-health"
 }
 
+function toolArgsKey(sessionId: string, callId: string): string {
+  return `${sessionId}:${callId}`
+}
+
 function wrapClientWithTrustedPromptTracking(
   client: PluginContext["client"],
   trustedMessageState: ReturnType<typeof createTrustedMessageState>,
@@ -329,6 +374,16 @@ function wrapClientWithTrustedPromptTracking(
     session: Object.assign({}, client.session, {
       promptAsync: (input: Parameters<typeof client.session.promptAsync>[0]) => {
         const result = client.session.promptAsync(input)
+        const text = extractPromptText(input.body)
+        return result.then((value) => {
+          if (text) {
+            trustedMessageState.registerInjectedPrompt(input.path.id, text)
+          }
+          return value
+        }) as typeof result
+      },
+      prompt: (input: Parameters<typeof client.session.prompt>[0]) => {
+        const result = client.session.prompt(input)
         const text = extractPromptText(input.body)
         return result.then((value) => {
           if (text) {

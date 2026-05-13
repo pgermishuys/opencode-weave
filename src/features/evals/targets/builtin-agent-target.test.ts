@@ -34,6 +34,41 @@ describe("resolveBuiltinAgentTarget", () => {
     expect(result.artifacts.renderedPrompt).not.toContain("MUST use Warp")
   })
 
+  it("accepts agentOverrides variants for Loom prompt composition", () => {
+    const result = resolveBuiltinAgentTarget({
+      kind: "builtin-agent-prompt",
+      agent: "loom",
+      variant: {
+        disabledAgents: ["warp"],
+        agentOverrides: {
+          loom: { model: "openrouter/openai/gpt-5" },
+          weft: { review_models: ["anthropic/claude-sonnet-4"] },
+        },
+      },
+    })
+
+    expect(result.artifacts.agentMetadata?.sourceKind).toBe("composer")
+    expect(result.artifacts.renderedPrompt).toContain("<PlanWorkflow>")
+    expect(result.artifacts.renderedPrompt).not.toContain("MUST use Warp")
+  })
+
+  it("accepts agentOverrides variants for Loom", () => {
+    const result = resolveBuiltinAgentTarget({
+      kind: "builtin-agent-prompt",
+      agent: "loom",
+      variant: {
+        disabledAgents: ["warp"],
+        agentOverrides: {
+          weft: { review_models: ["anthropic/claude-sonnet-4"] },
+        },
+      } as any,
+    })
+
+    expect(result.artifacts.agentMetadata?.sourceKind).toBe("composer")
+    expect(result.artifacts.renderedPrompt).toContain("<PlanWorkflow>")
+    expect(result.artifacts.renderedPrompt).not.toContain("MUST use Warp")
+  })
+
   it("resolves default-agent prompts", () => {
     const result = resolveBuiltinAgentTarget({ kind: "builtin-agent-prompt", agent: "thread" })
     expect(result.artifacts.agentMetadata?.sourceKind).toBe("default")
@@ -94,5 +129,43 @@ describe("resolveBuiltinAgentTarget", () => {
     expect(delegationSection).toContain("shuttle-backend")
     expect(delegationSection).not.toContain("shuttle-docs")
     expect(delegationSection).not.toContain("shuttle-{category}")
+  })
+
+  it("accepts agentOverrides variants for Tapestry", () => {
+    const result = resolveBuiltinAgentTarget({
+      kind: "builtin-agent-prompt",
+      agent: "tapestry",
+      variant: {
+        categories: {
+          frontend: { patterns: ["src/**"] },
+        },
+        agentOverrides: {
+          weft: { review_models: ["anthropic/claude-sonnet-4"] },
+        },
+      } as any,
+    })
+
+    expect(result.artifacts.agentMetadata?.sourceKind).toBe("composer")
+    expect(result.artifacts.renderedPrompt).toContain("<CategoryRouting>")
+    expect(result.artifacts.renderedPrompt).toContain("shuttle-frontend")
+  })
+
+  it("accepts combined categories and agentOverrides variants for Tapestry prompt composition", () => {
+    const result = resolveBuiltinAgentTarget({
+      kind: "builtin-agent-prompt",
+      agent: "tapestry",
+      variant: {
+        categories: {
+          frontend: { patterns: ["src/**"] },
+        },
+        agentOverrides: {
+          tapestry: { model: "openrouter/openai/gpt-5" },
+        },
+      },
+    })
+
+    expect(result.artifacts.agentMetadata?.sourceKind).toBe("composer")
+    expect(result.artifacts.renderedPrompt).toContain("<CategoryRouting>")
+    expect(result.artifacts.renderedPrompt).toContain("shuttle-frontend: patterns [src/**]")
   })
 })

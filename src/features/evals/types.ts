@@ -1,5 +1,5 @@
 import type { WeaveAgentName } from "../../agents/types"
-import type { CategoriesConfig } from "../../config/schema"
+import type { AgentOverrides, CategoriesConfig } from "../../config/schema"
 
 export const EVAL_PHASES = ["prompt", "routing", "trajectory", "experimental"] as const
 export type EvalPhase = (typeof EVAL_PHASES)[number]
@@ -38,6 +38,7 @@ export type BuiltinEvalAgentName = WeaveAgentName
 export interface BuiltinAgentPromptVariant {
   disabledAgents?: string[]
   categories?: CategoriesConfig
+  agentOverrides?: AgentOverrides
 }
 
 export interface BuiltinAgentPromptTarget {

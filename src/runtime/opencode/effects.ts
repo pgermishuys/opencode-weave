@@ -1,8 +1,11 @@
+import type { ReviewerPlan } from "../../agents/review-resolver"
+
 export type RuntimeEffect =
   | SwitchAgentEffect
   | RestoreAgentEffect
   | AppendPromptTextEffect
   | InjectPromptAsyncEffect
+  | RunReviewerFanOutEffect
   | PauseExecutionEffect
   | TrackAnalyticsEffect
   | AppendCommandOutputEffect
@@ -29,6 +32,19 @@ export interface InjectPromptAsyncEffect {
   sessionId: string
   text: string
   agent?: string | null
+}
+
+export interface RunReviewerFanOutEffect {
+  type: "runReviewerFanOut"
+  sessionId: string
+  plan: ReviewerPlan
+  capturedPrimaryOutput?: string
+  promptText: string
+  originalContext: string
+  /** Idempotency token. Direct scope: `${sessionId}:${messageId}`. Post-execution: `${sessionId}:${planSha}:${baseAgent}`. */
+  idempotencyKey: string
+  /** Delivery primitive — reuses the existing `injectPromptAsync` runtime effect path in `apply-effects.ts` (posts to the originating session via `client.session.promptAsync`). */
+  delivery: { kind: "injectPromptAsync" }
 }
 
 export interface PauseExecutionEffect {

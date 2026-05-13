@@ -56,6 +56,8 @@ export interface WorkState {
   stale_continuation_count?: number
   /** Whether the completion verification reminder was already sent */
   verification_reminder_sent?: boolean
+  /** Whether post-execution reviewer fan-out was already emitted */
+  reviewer_fanout_sent?: boolean
 }
 
 /**

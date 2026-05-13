@@ -1,5 +1,6 @@
 import { clearTokenSession } from "../../hooks"
 import { createPolicyResult, type PolicyResult } from "../../domain/policy/policy-result"
+import type { ReviewerPlan } from "../../agents/review-resolver"
 import type { RuntimeEffect } from "../../runtime/opencode/effects"
 import { runIdleCycle } from "../orchestration/idle-cycle-service"
 import { createExecutionLeaseFsStore } from "../../infrastructure/fs/execution-lease-fs-store"
@@ -13,6 +14,7 @@ import type {
 } from "./runtime-policy"
 import { createCompactionSessionPolicy } from "./compaction-session-policy"
 import { createContextWindowSessionPolicy } from "./context-window-session-policy"
+import { createPostExecutionReviewerFanOutSessionPolicy } from "./post-execution-reviewer-fanout-session-policy"
 import { createTodoSessionPolicy } from "./todo-session-policy"
 import { createVerificationSessionPolicy } from "./verification-session-policy"
 
@@ -25,6 +27,9 @@ export interface SessionPolicy {
 }
 
 export function createHookBackedSessionPolicy(args?: {
+  reviewerResolver?: {
+    forBaseAgent(baseAgent: "weft" | "warp", scope: "direct" | "post-execution"): ReviewerPlan
+  }
   todoContinuationEnforcer?: {
     checkAndFinalize: (sessionId: string) => Promise<void>
     clearSession: (sessionId: string) => void
@@ -38,6 +43,9 @@ export function createHookBackedSessionPolicy(args?: {
   const executionLeaseRepository = createExecutionLeaseFsStore()
   const contextWindowPolicy = createContextWindowSessionPolicy()
   const todoPolicy = createTodoSessionPolicy(args?.todoContinuationEnforcer ?? null)
+  const postExecutionReviewerFanOutPolicy = createPostExecutionReviewerFanOutSessionPolicy({
+    reviewerResolver: args?.reviewerResolver,
+  })
   const verificationPolicy = createVerificationSessionPolicy()
   const compactionPolicy = createCompactionSessionPolicy(args?.compactionPreserver ?? null)
 
@@ -55,6 +63,10 @@ export function createHookBackedSessionPolicy(args?: {
           lastUserMessage: input.lastUserMessage,
           todoContinuationEnforcer: args?.todoContinuationEnforcer ?? null,
         })
+      const postExecutionReviewerResult = postExecutionReviewerFanOutPolicy.onSessionIdle(input)
+      const postExecutionReviewerEffects = postExecutionReviewerResult instanceof Promise
+        ? await postExecutionReviewerResult
+        : postExecutionReviewerResult
       const verificationResult = verificationPolicy.onSessionIdle(input)
       const verificationEffects = verificationResult instanceof Promise
         ? await verificationResult
@@ -62,6 +74,7 @@ export function createHookBackedSessionPolicy(args?: {
 
       return createPolicyResult([
         ...idleEffects,
+        ...postExecutionReviewerEffects.effects,
         ...verificationEffects.effects,
       ])
     },

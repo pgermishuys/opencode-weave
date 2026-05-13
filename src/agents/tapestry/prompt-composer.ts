@@ -9,6 +9,10 @@
 import { isAgentEnabled } from "../prompt-utils"
 import type { ResolvedContinuationConfig } from "../../config/continuation"
 import type { CategoriesConfig } from "../../config/schema"
+import type { ReviewModelVariant } from "../review-model-variants"
+
+const REVIEW_MODELS_AUTOMATION_ADVISORY = "When `review_models` are configured for Weft or Warp, the Weave runtime spawns the configured variants and collates results automatically — do not issue extra Task calls for them."
+const REVIEWERS_RUNTIME_OWNED_ADVISORY = "When Weft and/or Warp reviewers are enabled, runtime reviewer fan-out runs automatically after plan completion — do not delegate terminal reviewers via Task tool."
 
 export interface TapestryPromptOptions {
   /** Set of disabled agent names (lowercase config keys) */
@@ -17,6 +21,8 @@ export interface TapestryPromptOptions {
   continuation?: ResolvedContinuationConfig
   /** Categories config for dynamic category routing section */
   categories?: CategoriesConfig
+  /** Compatibility input: variant enumeration is runtime-owned; the composer emits only advisory guidance. */
+  reviewModelVariants?: ReviewModelVariant[]
 }
 
 export function buildTapestryRoleSection(): string {
@@ -347,7 +353,11 @@ After Shuttle completes a task — BEFORE marking \`- [ ]\` → \`- [x]\`:
 </Verification>`
 }
 
-export function buildTapestryPostExecutionReviewSection(disabled: Set<string>): string {
+export function buildTapestryPostExecutionReviewSection(
+  disabled: Set<string>,
+  reviewModelVariants: ReviewModelVariant[] = [],
+): string {
+  void reviewModelVariants
   const hasWeft = isAgentEnabled("weft", disabled)
   const hasWarp = isAgentEnabled("warp", disabled)
 
@@ -366,17 +376,10 @@ After ALL plan tasks are checked off:
 </PostExecutionReview>`
   }
 
-  const reviewerLines: string[] = []
-  if (hasWeft) {
-    reviewerLines.push(`   - Delegate to Weft: subagent_type "weft" — reviews code quality`)
-  }
-  if (hasWarp) {
-    reviewerLines.push(
-      `   - Delegate to Warp: subagent_type "warp" — audits security (self-triages; fast-exits with APPROVE if no security-relevant changes)`,
-    )
-  }
-
-  const reviewerNames = [hasWeft && "Weft", hasWarp && "Warp"].filter(Boolean).join(" and ")
+  const reviewerNames = [
+    hasWeft && "Weft",
+    hasWarp && "Warp",
+  ].filter(Boolean).join(" and ")
 
   return `<PostExecutionReview>
 This section applies only when no unchecked plan tasks remain.
@@ -388,9 +391,10 @@ When all plan tasks are checked off:
 1. Identify all changed files:
     - If a **Start SHA** was provided in the session context, run \`git diff --name-only <start-sha>..HEAD\` to get the complete list of changed files (this captures all changes including intermediate commits)
    - If no Start SHA is available (non-git workspace), use the plan's \`**Files**:\` fields as the review scope
-2. Run the required terminal validation workflow using the Task tool:
-${reviewerLines.join("\n")}
-   - Include the list of changed files in your prompt to each terminal validator
+ 2. Runtime-owned terminal review behavior:
+    - ${REVIEWERS_RUNTIME_OWNED_ADVISORY}
+    - ${REVIEW_MODELS_AUTOMATION_ADVISORY}
+    - Do not issue terminal reviewer Task calls (including Weft/Warp and any review-model variant subagent_type values).
 3. Report the terminal results to the user:
    - Summarize ${reviewerNames}'s findings (APPROVE or REJECT with details)
    - If either validator REJECTS, present the blocking issues to the user for decision — do NOT attempt to fix them yourself
@@ -446,7 +450,8 @@ export function composeTapestryPrompt(options: TapestryPromptOptions = {}): stri
     continuationHint,
     buildTapestryVerificationSection(),
     buildTapestryErrorHandlingSection(),
-    buildTapestryPostExecutionReviewSection(disabled),
+    // Backward-compatible parameter passthrough for existing call sites.
+    buildTapestryPostExecutionReviewSection(disabled, options.reviewModelVariants ?? []),
     buildTapestryExecutionSection(),
     buildTapestryStyleSection(),
   ].filter((section): section is string => Boolean(section))

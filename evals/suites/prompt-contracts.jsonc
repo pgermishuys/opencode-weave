@@ -17,6 +17,10 @@
     "evals/cases/shuttle/default-contract.jsonc",
     "evals/cases/tapestry/weft-only-review-contract.jsonc",
     "evals/cases/tapestry/warp-only-review-contract.jsonc",
-    "evals/cases/loom/plan-review-scoped-contract.jsonc"
+    "evals/cases/tapestry/post-execution-runtime-advisory-contract.jsonc",
+    "evals/cases/loom/plan-review-scoped-contract.jsonc",
+    "evals/cases/loom/review-advisory-no-variants-contract.jsonc",
+    "evals/cases/loom/review-advisory-with-variants-contract.jsonc",
+    "evals/cases/tapestry/disabled-reviewers-with-variants-contract-v2.jsonc"
   ]
 }

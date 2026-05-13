@@ -1,0 +1,34 @@
+{
+  "id": "loom-review-advisory-with-variants-contract",
+  "title": "Loom review workflow enumerates visible variants when configured",
+  "phase": "prompt",
+  "tags": ["prompt", "composer", "loom", "review", "variants"],
+  "target": {
+    "kind": "builtin-agent-prompt",
+    "agent": "loom",
+    "variant": {
+      "agentOverrides": {
+        "weft": {
+          "model": "openrouter/anthropic/claude-3.5-haiku",
+          "review_models": ["opencode-go/kimi-k2.6", "opencode-go/glm-5.1"]
+        }
+      }
+    }
+  },
+  "executor": {
+    "kind": "prompt-render"
+  },
+  "evaluators": [
+    { "kind": "xml-sections-present", "sections": ["ReviewWorkflow"] },
+    {
+      "kind": "section-contains-all",
+      "section": "ReviewWorkflow",
+      "patterns": [
+        "Runtime fan-out is owned by Weave for direct `@weft`/`@warp` calls",
+        "delegate to base Weft AND all visible Weft variants",
+        "Do not replace base Weft with a variant",
+        "subagent_type \"weft-review-opencode-go-glm-5-1\""
+      ]
+    }
+  ]
+}

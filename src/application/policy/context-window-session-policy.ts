@@ -12,6 +12,13 @@ export interface ContextWindowSessionPolicy {
 export function createContextWindowSessionPolicy(): ContextWindowSessionPolicy {
   return {
     onAssistantMessage(input) {
+      // Reserved for downstream collation policies; context-window policy remains token-based.
+      void input.directory
+      void input.foregroundAgent
+      void input.assistantText
+      void input.originalPromptText
+      void input.messageId
+
       if (!input.hooks.contextWindowThresholds || input.inputTokens <= 0) {
         return createPolicyResult<RuntimeEffect>()
       }

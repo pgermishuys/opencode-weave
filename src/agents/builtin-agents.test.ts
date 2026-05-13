@@ -70,6 +70,64 @@ describe("createBuiltinAgents", () => {
     })
   })
 
+  it("generates visible review model variants from review_models", () => {
+    const agents = createBuiltinAgents({
+      agentOverrides: {
+        weft: {
+          model: "openai/gpt-5.5",
+          modelOptions: { reasoningEffort: "xhigh" },
+          review_models: ["opencode-go/kimi-k2.6", "opencode-go/glm-5.1"],
+        },
+      },
+    })
+
+    const kimi = agents["weft-review-opencode-go-kimi-k2-6"] as (typeof agents["weft"] & { options?: Record<string, unknown> }) | undefined
+    const glm = agents["weft-review-opencode-go-glm-5-1"]
+
+    expect(kimi).toBeDefined()
+    expect(kimi?.model).toBe("opencode-go/kimi-k2.6")
+    expect(kimi?.mode).toBe("subagent")
+    expect(kimi?.description).toContain("weft @ opencode-go/kimi-k2.6")
+    expect(kimi?.prompt).toContain("visible independent WEFT review variant")
+    expect(kimi?.options).toBeUndefined()
+
+    expect(glm).toBeDefined()
+    expect(glm?.model).toBe("opencode-go/glm-5.1")
+  })
+
+  it("generates unique review variant keys when sanitized model names collide", () => {
+    const models = ["provider/model@v1", "provider/model.v1", "provider/model+v1"]
+    const agents = createBuiltinAgents({
+      agentOverrides: {
+        weft: { review_models: models },
+      },
+    })
+
+    const keys = [
+      "weft-review-provider-model-v1",
+      "weft-review-provider-model-v1-2",
+      "weft-review-provider-model-v1-3",
+    ]
+    const generatedKeys = Object.entries(agents)
+      .filter(([, agent]) => models.includes(agent.model ?? ""))
+      .map(([key]) => key)
+
+    expect(generatedKeys).toEqual(keys)
+    expect(keys.map((key) => agents[key]?.model)).toEqual(models)
+  })
+
+  it("omits visible review variants when their base agent is disabled", () => {
+    const agents = createBuiltinAgents({
+      disabledAgents: ["weft"],
+      agentOverrides: {
+        weft: { review_models: ["opencode-go/kimi-k2.6"] },
+      },
+    })
+
+    expect(agents["weft"]).toBeUndefined()
+    expect(agents["weft-review-opencode-go-kimi-k2-6"]).toBeUndefined()
+  })
+
   it("resolves override skills and prepends them to the agent prompt", () => {
     const agents = createBuiltinAgents({
       agentOverrides: { pattern: { skills: ["test-skill"] } },
@@ -226,9 +284,10 @@ describe("AGENT_METADATA", () => {
       prompt.indexOf("<PostExecutionReview>"),
       prompt.indexOf("</PostExecutionReview>"),
     )
-    // Should have Warp (not disabled in this test) but not Weft
+    // Should have Warp (not disabled in this test) but not Weft delegation
     expect(reviewSection).toContain("Warp")
-    expect(reviewSection).not.toContain("Weft")
+    // The advisory mentions "Weft" generically; assert the delegation line is absent
+    expect(reviewSection).not.toContain('Delegate to Weft')
   })
 
   it("tapestry PlanExecution section omits Weft reference when weft disabled", () => {
