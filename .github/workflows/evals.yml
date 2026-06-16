@@ -43,7 +43,7 @@ jobs:
         run: bun run eval:coverage
 
       - name: Upload eval artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: eval-artifacts
@@ -271,7 +271,7 @@ jobs:
         run: bun run eval --suite "$EVAL_SUITE" --provider "$EVAL_PROVIDER" --model "$EVAL_MODEL" --output "$RUN_PATH"
 
       - name: Upload behavioral eval artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: behavioral-eval-run-${{ matrix.target.artifact_name }}-${{ matrix.suite.id }}
@@ -420,7 +420,7 @@ jobs:
           git push origin HEAD:"${GITHUB_REF_NAME}"
 
       - name: Upload merged behavioral artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: behavioral-eval-artifacts
@@ -492,7 +492,7 @@ jobs:
         run: bun run eval --suite "$EVAL_SUITE" --provider "$EVAL_PROVIDER" --model "$EVAL_MODEL" --output "$RUN_PATH"
 
       - name: Upload Tapestry execution eval artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: tapestry-execution-eval-run-${{ matrix.target.artifact_name }}
@@ -589,7 +589,7 @@ jobs:
           git push origin HEAD:"${GITHUB_REF_NAME}"
 
       - name: Upload merged Tapestry execution artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: tapestry-execution-eval-artifacts
