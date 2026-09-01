@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-09-01
+
+### Changed
+
+- Update default GitHub Copilot models for built-in agents: Opus `4.6` → `4.8` (Loom, Pattern, Warp, hardcoded fallback) and Sonnet `4.6` → `5` (Tapestry, Shuttle, Weft)
+
 ## [0.8.0] - 2026-04-24
 
 ### Added

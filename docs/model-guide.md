@@ -148,7 +148,7 @@ When Weave resolves which model an agent uses, it checks in this order:
 3. **Category model** — if the agent has a category with a model configured
 4. **Built-in fallback chain** — tries each default against your available models
 5. **System default** — the global fallback
-6. **Hardcoded fallback** — `github-copilot/claude-opus-4.6`
+6. **Hardcoded fallback** — `github-copilot/claude-opus-4.8`
 
 Model names must include the provider prefix: `anthropic/claude-sonnet-4`, not just `claude-sonnet-4`.
 

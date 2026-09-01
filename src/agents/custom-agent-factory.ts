@@ -43,7 +43,7 @@ export interface BuildCustomAgentOptions {
 }
 
 /**
- * Parse a fallback_models array like ["github-copilot/claude-sonnet-4.6", "anthropic/claude-sonnet-4"]
+ * Parse a fallback_models array like ["github-copilot/claude-sonnet-5", "anthropic/claude-sonnet-4"]
  * into FallbackEntry[] for model resolution.
  */
 function parseFallbackModels(models: string[]): FallbackEntry[] {
