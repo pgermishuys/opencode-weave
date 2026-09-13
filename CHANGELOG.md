@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-09-13
+
+This is the final release of `@opencode_weave/weave`. Weave has moved to [weave-io/weave](https://github.com/weave-io/weave) (`@weaveio/weave-cli` and `@weaveio/weave-adapter-opencode`), and this package is no longer maintained. To move over and keep your agents, descriptions, and prompts, follow [Upgrading from legacy Weave](https://tryweave.io/docs/upgrade-from-legacy/).
+
+### Added
+
+- Show a "Weave has moved" notice pointing to the upgrade guide: a warning in OpenCode's log when the plugin starts, and a TUI toast when the first session is created. Each is shown once per OpenCode process.
+
+### Changed
+
+- README and docs point to the new Weave and its upgrade guide.
+
 ## [0.8.1] - 2026-09-01
 
 ### Changed

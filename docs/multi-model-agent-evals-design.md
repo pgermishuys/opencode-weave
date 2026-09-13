@@ -1,5 +1,8 @@
 # Multi-Model Agent Evals Design
 
+> [!IMPORTANT]
+> **This page documents the legacy `@opencode_weave/weave` plugin, which is no longer maintained.** Weave has moved to [weave-io/weave](https://github.com/weave-io/weave) and is documented at [tryweave.io/docs](https://tryweave.io/docs/). To move over and keep your agents and prompts, follow [Upgrading from legacy Weave](https://tryweave.io/docs/upgrade-from-legacy/).
+
 ## Preferred decision
 
 Use **one canonical JSONL file per suite** as the source of truth:
