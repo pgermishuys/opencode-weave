@@ -1,5 +1,8 @@
 # Agent Interactions & Sequence Diagrams
 
+> [!IMPORTANT]
+> **This page documents the legacy `@opencode_weave/weave` plugin, which is no longer maintained.** Weave has moved to [weave-io/weave](https://github.com/weave-io/weave) and is documented at [tryweave.io/docs](https://tryweave.io/docs/). To move over and keep your agents and prompts, follow [Upgrading from legacy Weave](https://tryweave.io/docs/upgrade-from-legacy/).
+
 This document describes how Weave's agents interact, delegate work, and execute plans.
 
 ## Agent Hierarchy

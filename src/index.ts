@@ -9,11 +9,13 @@ import { createPluginInterface } from "./plugin/plugin-interface"
 import { createAnalytics } from "./features/analytics"
 import { getOrCreateFingerprint } from "./features/analytics/fingerprint"
 import { setClient, setLogLevel } from "./shared/log"
+import { logMovedNotice } from "./shared/moved-notice"
 
 const WeavePlugin: Plugin = async (ctx) => {
   // Set the SDK client FIRST so that config validation warnings reach
   // OpenCode's app log (visible in the TUI), not just stderr.
   setClient(ctx.client)
+  logMovedNotice()
   const pluginConfig = loadWeaveConfig(ctx.directory, ctx)
   const continuation = resolveContinuationConfig(pluginConfig.continuation)
   if (pluginConfig.log_level) {
