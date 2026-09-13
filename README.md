@@ -53,6 +53,7 @@ weave init migrate --scope global
 
 Before you run it:
 
+- **Give every category a `description`.** The new Weave requires one, and migration skips a category without one (and its `shuttle-<category>` agent). Add it to the legacy file before migrating.
 - **Only `.jsonc` files are picked up.** If your config is `weave-opencode.json`, rename it to `weave-opencode.jsonc` first. Plain JSON is valid JSONC, so the contents don't need to change.
 - **Your legacy file isn't touched.** Migration only reads it, so you can go back if you need to.
 - **Comments and trailing commas are fine.** If the file can't be parsed at all, migration exits with an error and writes nothing.
@@ -72,7 +73,8 @@ What doesn't carry over. Each item is printed as a warning after migration and r
 - Category `patterns`: categories now route by their description and triggers, not by file path.
 - `workflows`, `continuation`, `background`, `tmux`, `experimental`, and `analytics`.
 - Builtin agent `prompt` and `prompt_file` overrides. The legacy plugin ignored these too.
-- Fields with no current equivalent: `variant`, `top_p`, `maxTokens`, `modelOptions`, `review_models`, `cost`, `category`, and `disable`.
+- `variant` on an agent or category. The new DSL supports `variant`, so add it back by hand.
+- Fields with no current equivalent: `top_p`, `maxTokens`, `modelOptions`, `review_models`, `cost`, `category`, and `disable`.
 - Any custom agent that reuses a builtin agent name, or that ends up with no prompt.
 
 Migration never adds settings you didn't have. Add anything you still need by hand using the [DSL configuration reference](https://tryweave.io/docs/dsl-configuration/).
@@ -81,7 +83,7 @@ If you never customized the legacy config, there's nothing to migrate. Run `weav
 
 ### Step 3: Validate the result
 
-Run this from the project root, with no flags. It checks the merged project and user config, and names any agent the new plugin couldn't register, such as one with a missing prompt file.
+Run this from the project root, with no flags. It checks the merged project and user config, and names any agent the new plugin couldn't register, such as one with a missing prompt file. Fix what it reports and run it again until it passes.
 
 ```bash
 weave validate
