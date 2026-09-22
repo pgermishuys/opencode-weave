@@ -6,6 +6,7 @@ import type { CreatedHooks } from "../hooks/create-hooks"
 import type { PluginContext } from "./types"
 import type { SessionTracker } from "../features/analytics"
 import { createPluginAdapter } from "../runtime/opencode/plugin-adapter"
+import { toastMovedNotice } from "../shared/moved-notice"
 
 export function createPluginInterface(args: {
   pluginConfig: WeaveConfig
@@ -38,7 +39,11 @@ export function createPluginInterface(args: {
     "chat.headers": async (_input, _output) => {
       // pass-through for v1
     },
-    event: async (input) => adapter.handleEvent({ event: input.event as never }),
+    event: async (input) => {
+      // The TUI is connected once a session exists, so toast the "moved" notice then.
+      if (input.event.type === "session.created") toastMovedNotice(client)
+      return adapter.handleEvent({ event: input.event as never })
+    },
     "tool.execute.before": async (input, output) => adapter.handleToolExecuteBefore(input as never, output as never),
     "tool.execute.after": async (input, output) => adapter.handleToolExecuteAfter(input as never, output as never),
     "command.execute.before": async (input, output) => adapter.handleCommandExecuteBefore(input as never, output as never),
