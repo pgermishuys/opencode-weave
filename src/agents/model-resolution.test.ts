@@ -22,7 +22,7 @@ describe("AGENT_MODEL_REQUIREMENTS", () => {
 
 describe("resolveAgentModel", () => {
   const available = new Set([
-    "github-copilot/claude-opus-4.8",
+    "github-copilot/claude-opus-5.5",
     "github-copilot/claude-sonnet-5",
     "github-copilot/claude-haiku-4.5",
     "anthropic/claude-opus-4",
@@ -64,8 +64,8 @@ describe("resolveAgentModel", () => {
       agentMode: "subagent",
       uiSelectedModel: "openai/gpt-5",
     })
-    // Should use fallback chain, not the UI model — pattern's first is github-copilot/claude-opus-4.8
-    expect(result).toBe("github-copilot/claude-opus-4.8")
+    // Should use fallback chain, not the UI model — pattern's first is github-copilot/claude-opus-5.5
+    expect(result).toBe("github-copilot/claude-opus-5.5")
   })
 
   it("category model applies when available and no higher priority", () => {
@@ -84,7 +84,7 @@ describe("resolveAgentModel", () => {
       categoryModel: "some/unavailable-model",
     })
     // Falls through to fallback chain
-    expect(result).toBe("github-copilot/claude-opus-4.8")
+    expect(result).toBe("github-copilot/claude-opus-5.5")
   })
 
   it("falls through fallback chain to first available", () => {
@@ -110,7 +110,7 @@ describe("resolveAgentModel", () => {
       agentMode: "subagent",
     })
     // Should be the first in loom's fallback chain
-    expect(result).toBe("github-copilot/claude-opus-4.8")
+    expect(result).toBe("github-copilot/claude-opus-5.5")
   })
 
   it("override beats UI model for primary agent", () => {
@@ -157,7 +157,7 @@ describe("resolveAgentModel", () => {
       availableModels: new Set(),
       agentMode: "subagent",
     })
-    expect(result).toBe("github-copilot/claude-opus-4.8")
+    expect(result).toBe("github-copilot/claude-opus-5.5")
   })
 
   it("custom agent best-guess uses first fallback entry when offline", () => {

@@ -14,7 +14,7 @@ export type AgentModelRequirement = {
 export const AGENT_MODEL_REQUIREMENTS: Record<WeaveAgentName, AgentModelRequirement> = {
   loom: {
     fallbackChain: [
-      { providers: ["github-copilot"], model: "claude-opus-4.8" },
+      { providers: ["github-copilot"], model: "claude-opus-5.5" },
       { providers: ["anthropic"], model: "claude-opus-4" },
       { providers: ["openai"], model: "gpt-5" },
     ],
@@ -35,7 +35,7 @@ export const AGENT_MODEL_REQUIREMENTS: Record<WeaveAgentName, AgentModelRequirem
   },
   pattern: {
     fallbackChain: [
-      { providers: ["github-copilot"], model: "claude-opus-4.8" },
+      { providers: ["github-copilot"], model: "claude-opus-5.5" },
       { providers: ["anthropic"], model: "claude-opus-4" },
       { providers: ["openai"], model: "gpt-5" },
     ],
@@ -63,7 +63,7 @@ export const AGENT_MODEL_REQUIREMENTS: Record<WeaveAgentName, AgentModelRequirem
   },
   warp: {
     fallbackChain: [
-      { providers: ["github-copilot"], model: "claude-opus-4.8" },
+      { providers: ["github-copilot"], model: "claude-opus-5.5" },
       { providers: ["anthropic"], model: "claude-opus-4" },
       { providers: ["openai"], model: "gpt-5" },
     ],
@@ -143,6 +143,6 @@ export function resolveAgentModel(agentName: string, options: ResolveAgentModelO
     }
   }
 
-  warn(`No model resolved for agent "${agentName}" — falling back to default github-copilot/claude-opus-4.8`, { agentName })
-  return "github-copilot/claude-opus-4.8"
+  warn(`No model resolved for agent "${agentName}" — falling back to default github-copilot/claude-opus-5.5`, { agentName })
+  return "github-copilot/claude-opus-5.5"
 }
