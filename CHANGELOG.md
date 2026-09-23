@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-09-23
+
+### Added
+
+- `WEAVE_OPENCODE_CONFIG_DIR` environment variable: when set to a non-empty directory, the user-level config is read from `<dir>/weave-opencode.jsonc` (or `.json`) instead of `~/.config/opencode/`, so hosts that launch OpenCode (such as Weave Fleet) can supply their own Weave config. The project config still merges on top, there is no fallback to `~/.config/opencode/` while it is set, and skills and workflows are unaffected
+
 ## [0.8.2] - 2026-09-23
 
 ### Changed

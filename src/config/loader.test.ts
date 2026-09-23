@@ -1,9 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, spyOn } from "bun:test"
+import * as fs from "node:fs"
 import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs"
 import { join } from "node:path"
-import { tmpdir } from "node:os"
-import { loadWeaveConfig } from "./loader"
+import { homedir, tmpdir } from "node:os"
+import { getLastConfigLoadResult, loadWeaveConfig } from "./loader"
 import { resolveContinuationConfig } from "./continuation"
+
+// Captured by value: the spy below replaces the live `existsSync` binding.
+const realExistsSync = fs.existsSync
 
 function createTmpDir(): string {
   return mkdtempSync(join(tmpdir(), "weave-loader-test-"))
@@ -266,5 +270,123 @@ describe("loadWeaveConfig", () => {
     expect(() => loadWeaveConfig(testDir)).not.toThrow()
     const config = loadWeaveConfig(testDir)
     expect(config).toBeDefined()
+  })
+})
+
+describe("loadWeaveConfig with WEAVE_OPENCODE_CONFIG_DIR", () => {
+  const ENV = "WEAVE_OPENCODE_CONFIG_DIR"
+  const defaultUserConfigDir = join(homedir(), ".config", "opencode")
+  let savedEnv: string | undefined
+  let projectDir: string
+  let overrideDir: string
+
+  beforeEach(() => {
+    savedEnv = process.env[ENV]
+    projectDir = createTmpDir()
+    overrideDir = createTmpDir()
+  })
+
+  afterEach(() => {
+    if (savedEnv === undefined) {
+      delete process.env[ENV]
+    } else {
+      process.env[ENV] = savedEnv
+    }
+    rmSync(projectDir, { recursive: true, force: true })
+    rmSync(overrideDir, { recursive: true, force: true })
+  })
+
+  function writeProjectConfig(content: object): void {
+    const opencodeDir = join(projectDir, ".opencode")
+    mkdirSync(opencodeDir, { recursive: true })
+    writeFileSync(join(opencodeDir, "weave-opencode.json"), JSON.stringify(content))
+  }
+
+  function probedPaths(run: () => void): string[] {
+    const probed: string[] = []
+    const spy = spyOn(fs, "existsSync").mockImplementation(((path: fs.PathLike) => {
+      probed.push(String(path))
+      return realExistsSync(path)
+    }) as typeof fs.existsSync)
+    try {
+      run()
+    } finally {
+      spy.mockRestore()
+    }
+    return probed
+  }
+
+  it("reads the user layer from the override directory", () => {
+    const userConfigPath = join(overrideDir, "weave-opencode.jsonc")
+    writeFileSync(userConfigPath, `{ // host-managed\n "disabled_agents": ["warp"] }`)
+    process.env[ENV] = `  ${overrideDir}  `
+
+    const config = loadWeaveConfig(projectDir)
+
+    expect(config.disabled_agents).toEqual(["warp"])
+    expect(getLastConfigLoadResult()?.loadedFiles).toEqual([userConfigPath])
+  })
+
+  it("leaves the user layer empty when the override directory has no config file", () => {
+    process.env[ENV] = overrideDir
+
+    let config: ReturnType<typeof loadWeaveConfig> | undefined
+    const probed = probedPaths(() => {
+      config = loadWeaveConfig(projectDir)
+    })
+
+    expect(config?.disabled_agents).toBeUndefined()
+    expect(getLastConfigLoadResult()?.loadedFiles).toEqual([])
+    expect(probed).toContain(join(overrideDir, "weave-opencode.jsonc"))
+    expect(probed.filter((path) => path.startsWith(defaultUserConfigDir))).toEqual([])
+  })
+
+  it("uses the default location when the variable is blank", () => {
+    process.env[ENV] = "   "
+    writeFileSync(join(overrideDir, "weave-opencode.json"), JSON.stringify({ disabled_agents: ["warp"] }))
+
+    const probed = probedPaths(() => loadWeaveConfig(projectDir))
+
+    expect(probed).toContain(join(defaultUserConfigDir, "weave-opencode.jsonc"))
+    expect(probed.filter((path) => path.startsWith(overrideDir))).toEqual([])
+  })
+
+  it("lets an explicit homeDir win over the variable", () => {
+    writeFileSync(join(overrideDir, "weave-opencode.json"), JSON.stringify({ disabled_agents: ["warp"] }))
+    process.env[ENV] = overrideDir
+
+    const config = loadWeaveConfig(projectDir, undefined, projectDir)
+
+    expect(config.disabled_agents).toBeUndefined()
+    expect(getLastConfigLoadResult()?.loadedFiles).toEqual([])
+  })
+
+  it("still merges the project config on top of the override user config", () => {
+    writeFileSync(
+      join(overrideDir, "weave-opencode.json"),
+      JSON.stringify({ log_level: "INFO", disabled_agents: ["warp"] }),
+    )
+    writeProjectConfig({ log_level: "DEBUG", disabled_agents: ["pattern"] })
+    process.env[ENV] = overrideDir
+
+    const config = loadWeaveConfig(projectDir)
+
+    expect(config.log_level).toBe("DEBUG")
+    expect(config.disabled_agents).toEqual(expect.arrayContaining(["warp", "pattern"]))
+    expect(getLastConfigLoadResult()?.loadedFiles).toEqual([
+      join(overrideDir, "weave-opencode.json"),
+      join(projectDir, ".opencode", "weave-opencode.json"),
+    ])
+  })
+
+  it("prefers .jsonc over .json in the override directory", () => {
+    writeFileSync(join(overrideDir, "weave-opencode.json"), JSON.stringify({ disabled_agents: ["pattern"] }))
+    writeFileSync(join(overrideDir, "weave-opencode.jsonc"), JSON.stringify({ disabled_agents: ["warp"] }))
+    process.env[ENV] = overrideDir
+
+    const config = loadWeaveConfig(projectDir)
+
+    expect(config.disabled_agents).toEqual(["warp"])
+    expect(getLastConfigLoadResult()?.loadedFiles).toEqual([join(overrideDir, "weave-opencode.jsonc")])
   })
 })

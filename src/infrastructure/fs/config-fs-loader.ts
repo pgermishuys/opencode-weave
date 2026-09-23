@@ -9,6 +9,9 @@ import { WeaveConfigSchema, type WeaveConfig } from "../../config/schema"
 import { debug, error as logError, warn } from "../../shared/log"
 import type { DeepPartial } from "../../shared/types"
 
+/** Directory containing the user-level weave-opencode.json[c]; replaces ~/.config/opencode when set. */
+export const USER_CONFIG_DIR_ENV = "WEAVE_OPENCODE_CONFIG_DIR"
+
 export interface ConfigDiagnostic {
   level: "warn" | "error"
   section: string
@@ -114,8 +117,17 @@ export function createConfigFsLoader(): ConfigLoader {
     return null
   }
 
+  function resolveUserBasePath(homeDir?: string): string {
+    // An explicit homeDir (tests) wins; otherwise a host can relocate the user layer via env.
+    const overrideDir = homeDir === undefined ? process.env[USER_CONFIG_DIR_ENV]?.trim() : undefined
+    if (overrideDir) {
+      return join(overrideDir, "weave-opencode")
+    }
+    return join(homeDir ?? homedir(), ".config", "opencode", "weave-opencode")
+  }
+
   function loadWeaveConfig(directory: string, _ctx?: unknown, homeDir?: string): WeaveConfig {
-    const userBasePath = join(homeDir ?? homedir(), ".config", "opencode", "weave-opencode")
+    const userBasePath = resolveUserBasePath(homeDir)
     const projectBasePath = join(directory, ".opencode", "weave-opencode")
 
     const userConfigPath = detectConfigFile(userBasePath)
