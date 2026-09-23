@@ -25,7 +25,9 @@ Use the raw URL in a checked-in config, preferably pinned to a release tag such 
 | Level | Path | Priority |
 |-------|------|----------|
 | **Project** | `.opencode/weave-opencode.jsonc` (or `.json`) | Highest (overrides user) |
-| **User** | `~/.config/opencode/weave-opencode.jsonc` (or `.json`) | Lowest (defaults) |
+| **User** | `~/.config/opencode/weave-opencode.jsonc` (or `.json`), or `$WEAVE_OPENCODE_CONFIG_DIR/weave-opencode.jsonc` (or `.json`) when set | Lowest (defaults) |
+
+Set `WEAVE_OPENCODE_CONFIG_DIR` to a directory to read the user-level config from `<dir>/weave-opencode.jsonc` (or `.json`) instead of `~/.config/opencode/`. This lets a host application that launches OpenCode supply its own Weave config without editing yours. A blank value is ignored. When it is set, `~/.config/opencode/weave-opencode.*` is not read, even if the directory has no config file. The project config still merges on top as usual. Only the config file moves: skills and workflows are still discovered from `~/.config/opencode/`.
 
 ## Merge Strategy
 
