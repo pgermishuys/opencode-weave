@@ -7,7 +7,7 @@
 > [!IMPORTANT]
 > **Weave has moved to [weave-io/weave](https://github.com/weave-io/weave).** Weave isn't going away. It's under active development, and it's growing beyond OpenCode.
 >
-> Weave started as an OpenCode plugin, and we want to bring it to more developers than just the OpenCode community. So we rebuilt it from the ground up so it isn't tied to a single coding agent. The same agents and workflows now run on OpenCode, Claude Code, and Pi, and OpenCode is still fully supported.
+> Weave started as an OpenCode plugin, and we want to bring it to more developers than just the OpenCode community. So we rebuilt it from the ground up so it isn't tied to a single coding agent. The same agents and workflows now run on OpenCode (1.x and 2), Claude Code, and more harnesses to come, and OpenCode is still fully supported. The new Weave 0.2.0 is on npm now.
 >
 > This repository holds the original OpenCode-only plugin (`@opencode_weave/weave`). It's no longer maintained, and all new work happens in the new repository. If you use this plugin today, follow the **[upgrade guide](https://tryweave.io/docs/upgrade-from-legacy/)** (summarized [below](#upgrading-to-the-new-weave)). It converts your config, so you keep your agents, descriptions, and prompts. Most setups take a few minutes to move over.
 
@@ -26,7 +26,7 @@ The new Weave keeps the same eight agents (Loom, Tapestry, Shuttle, Pattern, Thr
 | Project config | `.opencode/weave-opencode.jsonc` | `.weave/config.weave` |
 | User config | `~/.config/opencode/weave-opencode.jsonc` | `~/.weave/config.weave` |
 | Config format | JSONC | `.weave` DSL |
-| Harnesses | OpenCode | OpenCode, Claude Code, Pi |
+| Harnesses | OpenCode 1.x | OpenCode 1.x, OpenCode 2, Claude Code |
 | Start a plan | `/start-work` | `/weave:start` (`/start-work` still works as an alias) |
 
 ### Step 1: Install the Weave CLI
@@ -102,6 +102,10 @@ Remove the legacy plugin and add the new adapter. Don't run both at the same tim
 ```
 
 Use `0.2.0` or later. Earlier versions of the adapter can't resolve the builtin agents' default model.
+
+You can also let the CLI do this step: `weave init migrate --scope local --harness opencode` migrates the config and replaces the legacy entry in the project's `opencode.json` in one go.
+
+Moving to OpenCode 2 (`@opencode/cli`, the `opencode2` command) at the same time? The legacy plugin never ran there. Add `"plugins": ["@weaveio/weave-adapter-opencode2@0.2.0"]` (plural `plugins`) instead; see the [OpenCode 2 install guide](https://tryweave.io/docs/install-opencode2/).
 
 ### Step 5: Restart OpenCode and verify
 
