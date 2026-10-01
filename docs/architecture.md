@@ -1,5 +1,8 @@
 # Weave Architecture
 
+> [!IMPORTANT]
+> **This page documents the legacy `@opencode_weave/weave` plugin, which is no longer maintained.** Weave has moved to [weave-io/weave](https://github.com/weave-io/weave) and is documented at [tryweave.io/docs](https://tryweave.io/docs/). To move over and keep your agents and prompts, follow [Upgrading from legacy Weave](https://tryweave.io/docs/upgrade-from-legacy/).
+
 Weave is a OpenCode plugin that orchestrates multi-agent AI workflows. It provides **8 specialized agents**, a **plan-based execution model**, a **hook-driven governance system**, and a **layered configuration pipeline**.
 
 ## High-Level Overview

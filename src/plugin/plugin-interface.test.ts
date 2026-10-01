@@ -11,6 +11,7 @@ import type { WeaveConfig } from "../config/schema"
 import { clearAll } from "../hooks/first-message-variant"
 import { clearAllTokenState, getState as getTokenState } from "../hooks"
 import * as sharedLog from "../shared/log"
+import { resetMovedNotice } from "../shared/moved-notice"
 import { checkContinuation } from "../hooks/work-continuation"
 import { writeWorkState, createWorkState, readWorkState } from "../features/work-state/storage"
 import { WEAVE_DIR } from "../features/work-state/constants"
@@ -540,6 +541,42 @@ describe("createPluginInterface", () => {
     await iface.event({ event: event as Parameters<typeof iface.event>[0]["event"] })
 
     expect(createdSessionID).toBe("sess-abc")
+  })
+
+  it("event handler toasts the 'Weave has moved' notice once, on the first session.created event", async () => {
+    resetMovedNotice()
+    const toasts: unknown[] = []
+    const client = {
+      tui: {
+        showToast: (opts: unknown) => {
+          toasts.push(opts)
+          return Promise.resolve(true)
+        },
+      },
+    }
+
+    const iface = createPluginInterface({
+      pluginConfig: baseConfig,
+      hooks: makeHooks(),
+      tools: emptyTools,
+      configHandler: makeMockConfigHandler(),
+      agents: {},
+      client: client as never,
+    })
+
+    const idle = { type: "session.idle" as const, properties: { sessionID: "sess-1" } }
+    const created = {
+      type: "session.created" as const,
+      properties: { info: { id: "sess-1", projectID: "p1", directory: "/", title: "t", version: "1", time: { created: 0, updated: 0 } } },
+    }
+
+    await iface.event({ event: idle as Parameters<typeof iface.event>[0]["event"] })
+    expect(toasts.length).toBe(0)
+    await iface.event({ event: created as Parameters<typeof iface.event>[0]["event"] })
+    await iface.event({ event: created as Parameters<typeof iface.event>[0]["event"] })
+    expect(toasts.length).toBe(1)
+    expect(toasts[0]).toMatchObject({ body: { title: "Weave has moved", variant: "warning" } })
+    resetMovedNotice()
   })
 
   it("tool.execute.before tracks file reads via writeGuard", async () => {
